@@ -1,0 +1,1 @@
+//! File importer plugin trait.

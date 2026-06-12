@@ -1,0 +1,9 @@
+{
+  "jsonrpc": "2.0",
+  "id": 17,
+  "method": "opencad.query_document",
+  "params": {
+    "path": "bracket.ocad.d",
+    "query": { "kind": "list_face_groups" }
+  }
+}

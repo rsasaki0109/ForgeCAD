@@ -1,0 +1,31 @@
+{
+  "document": "bracket_with_top_chamfer",
+  "density_kg_per_m3": 2700.0,
+  "cases": [
+    {
+      "id": "default",
+      "volume_m3": 2.829289789574529e-5,
+      "mass_kg": 0.07639082431851228,
+      "volume_tol": 5e-9,
+      "mass_tol": 1e-8
+    },
+    {
+      "id": "chamfer_distance_x2",
+      "patch": {
+        "operations": [
+          {
+            "type": "set_feature_expr",
+            "feature_id": "feature:chamfer_top",
+            "field": "distance_expr",
+            "expr": "chamfer_distance * 2"
+          }
+        ]
+      },
+      "volume_m3": 2.8176383252592015e-5,
+      "mass_kg": 0.07607623478199844,
+      "volume_tol": 5e-9,
+      "mass_tol": 1e-8,
+      "min_volume_delta_m3": 1e-7
+    }
+  ]
+}

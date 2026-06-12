@@ -1,0 +1,30 @@
+{
+  "document": "bracket_with_hole",
+  "density_kg_per_m3": 2700.0,
+  "cases": [
+    {
+      "id": "default",
+      "volume_m3": 2.833178323652379e-5,
+      "mass_kg": 0.07649581473861423,
+      "volume_tol": 5e-9,
+      "mass_tol": 1e-8
+    },
+    {
+      "id": "width_100mm",
+      "patch": {
+        "operations": [
+          {
+            "type": "set_parameter",
+            "id": "param:width",
+            "expr": "100 mm"
+          }
+        ]
+      },
+      "volume_m3": 3.114947927485105e-5,
+      "mass_kg": 0.08410359404209784,
+      "volume_tol": 5e-9,
+      "mass_tol": 1e-8,
+      "min_volume_delta_m3": 1e-7
+    }
+  ]
+}

@@ -1,0 +1,673 @@
+//! GPU selection buffer for sketch overlays and solid mesh picking.
+
+use bytemuck::{Pod, Zeroable};
+use opencad_core::{OpenCadError, Result};
+use wgpu::util::DeviceExt;
+
+use crate::overlay::SketchOverlay;
+use crate::solid::{create_depth_texture, create_uniform_bind_group, GpuVertex, Uniforms};
+
+pub const HIGHLIGHT_LINE_COLOR: [f32; 4] = [0.2, 0.85, 1.0, 1.0];
+
+const PICK_SHADER_SOURCE: &str = r#"
+struct Uniforms {
+    view_proj: mat4x4<f32>,
+}
+
+@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) selection_id: u32,
+}
+
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) selection_id: u32,
+}
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = uniforms.view_proj * vec4<f32>(input.position, 1.0);
+    output.selection_id = input.selection_id;
+    return output;
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    let id = input.selection_id;
+    let r = f32((id >> 16u) & 0xffu) / 255.0;
+    let g = f32((id >> 8u) & 0xffu) / 255.0;
+    let b = f32(id & 0xffu) / 255.0;
+    return vec4<f32>(r, g, b, 1.0);
+}
+"#;
+
+/// Encoded pick target ID.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SelectionId(pub u32);
+
+impl SelectionId {
+    pub const NONE: Self = Self(0);
+
+    pub fn from_line_index(line_index: usize) -> Self {
+        Self((line_index as u32).saturating_add(1))
+    }
+
+    pub fn from_triangle_index(triangle_index: usize, line_count: usize) -> Self {
+        Self(line_count as u32 + triangle_index as u32 + 1)
+    }
+
+    pub fn line_index(self) -> Option<usize> {
+        if self.0 == 0 {
+            None
+        } else {
+            Some((self.0 - 1) as usize)
+        }
+    }
+}
+
+/// Result of a viewport pick query.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PickResult {
+    None,
+    SketchLine(usize),
+    SolidTriangle(usize),
+}
+
+/// Maps pick IDs to sketch lines and solid triangles.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SelectionCatalog {
+    pub line_count: usize,
+    pub triangle_count: usize,
+}
+
+impl SelectionCatalog {
+    pub fn from_scene(overlay: &SketchOverlay, triangle_count: usize) -> Self {
+        Self {
+            line_count: overlay.lines.len(),
+            triangle_count,
+        }
+    }
+
+    pub fn decode(self, id: SelectionId) -> PickResult {
+        if id.0 == 0 {
+            return PickResult::None;
+        }
+        if id.0 <= self.line_count as u32 {
+            return PickResult::SketchLine((id.0 - 1) as usize);
+        }
+        let triangle_index = (id.0 - self.line_count as u32 - 1) as usize;
+        if triangle_index < self.triangle_count {
+            PickResult::SolidTriangle(triangle_index)
+        } else {
+            PickResult::None
+        }
+    }
+}
+
+pub fn selection_id_to_rgba(id: SelectionId) -> [u8; 4] {
+    let value = id.0;
+    [
+        ((value >> 16) & 0xff) as u8,
+        ((value >> 8) & 0xff) as u8,
+        (value & 0xff) as u8,
+        255,
+    ]
+}
+
+pub fn rgba_to_selection_id(rgba: [u8; 4]) -> SelectionId {
+    let value = (u32::from(rgba[0]) << 16) | (u32::from(rgba[1]) << 8) | u32::from(rgba[2]);
+    SelectionId(value)
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct PickVertex {
+    pub position: [f32; 3],
+    pub selection_id: u32,
+}
+
+pub struct PickDrawBuffers {
+    pub vertex_buffer: wgpu::Buffer,
+    pub vertex_count: u32,
+}
+
+pub fn overlay_pick_vertices(overlay: &SketchOverlay) -> Vec<PickVertex> {
+    let mut vertices = Vec::new();
+    for (line_index, line) in overlay.lines.iter().enumerate() {
+        let selection_id = SelectionId::from_line_index(line_index).0;
+        vertices.push(PickVertex {
+            position: line.start,
+            selection_id,
+        });
+        vertices.push(PickVertex {
+            position: line.end,
+            selection_id,
+        });
+    }
+    vertices
+}
+
+pub(crate) fn mesh_pick_vertices(
+    vertices: &[GpuVertex],
+    indices: &[u32],
+    line_count: usize,
+) -> Vec<PickVertex> {
+    let mut pick_vertices = Vec::with_capacity(indices.len());
+    for (triangle_index, triangle) in indices.chunks_exact(3).enumerate() {
+        let selection_id = SelectionId::from_triangle_index(triangle_index, line_count).0;
+        for &index in triangle {
+            pick_vertices.push(PickVertex {
+                position: vertices[index as usize].position,
+                selection_id,
+            });
+        }
+    }
+    pick_vertices
+}
+
+pub fn triangle_world_positions(
+    scene: &crate::scene::RenderScene,
+    triangle_index: usize,
+) -> Option<[[f32; 3]; 3]> {
+    let (vertices, indices) = crate::solid::pack_scene(scene).ok()?;
+    let base = triangle_index.checked_mul(3)?;
+    let i0 = *indices.get(base)? as usize;
+    let i1 = *indices.get(base + 1)? as usize;
+    let i2 = *indices.get(base + 2)? as usize;
+    Some([
+        vertices.get(i0)?.position,
+        vertices.get(i1)?.position,
+        vertices.get(i2)?.position,
+    ])
+}
+
+pub(crate) fn triangle_edge_vertices(
+    vertices: &[GpuVertex],
+    indices: &[u32],
+    triangle_index: usize,
+) -> Option<Vec<[f32; 3]>> {
+    let base = triangle_index.checked_mul(3)?;
+    let i0 = *indices.get(base)? as usize;
+    let i1 = *indices.get(base + 1)? as usize;
+    let i2 = *indices.get(base + 2)? as usize;
+    let p0 = vertices.get(i0)?.position;
+    let p1 = vertices.get(i1)?.position;
+    let p2 = vertices.get(i2)?.position;
+    Some(vec![p0, p1, p1, p2, p2, p0])
+}
+
+pub fn create_pick_buffers(device: &wgpu::Device, vertices: &[PickVertex]) -> PickDrawBuffers {
+    let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("pick-vertex-buffer"),
+        contents: bytemuck::cast_slice(vertices),
+        usage: wgpu::BufferUsages::VERTEX,
+    });
+
+    PickDrawBuffers {
+        vertex_buffer,
+        vertex_count: vertices.len() as u32,
+    }
+}
+
+fn create_pick_pipeline(
+    device: &wgpu::Device,
+    color_format: wgpu::TextureFormat,
+    topology: wgpu::PrimitiveTopology,
+    cull_mode: Option<wgpu::Face>,
+    label: &str,
+) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some(label),
+        source: wgpu::ShaderSource::Wgsl(PICK_SHADER_SOURCE.into()),
+    });
+
+    let uniform_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("pick-uniform-layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }],
+    });
+
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("pick-pipeline-layout"),
+        bind_group_layouts: &[&uniform_layout],
+        push_constant_ranges: &[],
+    });
+
+    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some(label),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<PickVertex>() as wgpu::BufferAddress,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Uint32],
+            }],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: color_format,
+                blend: Some(wgpu::BlendState::REPLACE),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: Default::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode,
+            ..Default::default()
+        },
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth32Float,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    });
+
+    (pipeline, uniform_layout)
+}
+
+pub fn create_pick_mesh_pipeline(
+    device: &wgpu::Device,
+    color_format: wgpu::TextureFormat,
+) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
+    create_pick_pipeline(
+        device,
+        color_format,
+        wgpu::PrimitiveTopology::TriangleList,
+        Some(wgpu::Face::Back),
+        "pick-mesh-pipeline",
+    )
+}
+
+pub fn create_pick_line_pipeline(
+    device: &wgpu::Device,
+    color_format: wgpu::TextureFormat,
+) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout) {
+    create_pick_pipeline(
+        device,
+        color_format,
+        wgpu::PrimitiveTopology::LineList,
+        None,
+        "pick-line-pipeline",
+    )
+}
+
+pub(crate) struct PickDrawPass<'a> {
+    encoder: &'a mut wgpu::CommandEncoder,
+    pipeline: &'a wgpu::RenderPipeline,
+    bind_group: &'a wgpu::BindGroup,
+    pick_buffers: &'a PickDrawBuffers,
+    color_view: &'a wgpu::TextureView,
+    depth_view: &'a wgpu::TextureView,
+    clear_color: bool,
+    clear_depth: bool,
+}
+
+pub(crate) fn encode_pick_draw_pass(pass: PickDrawPass<'_>) {
+    let PickDrawPass {
+        encoder,
+        pipeline,
+        bind_group,
+        pick_buffers,
+        color_view,
+        depth_view,
+        clear_color,
+        clear_depth,
+    } = pass;
+    if pick_buffers.vertex_count == 0 {
+        return;
+    }
+
+    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: Some("pick-draw-pass"),
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view: color_view,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: if clear_color {
+                    wgpu::LoadOp::Clear(wgpu::Color::BLACK)
+                } else {
+                    wgpu::LoadOp::Load
+                },
+                store: wgpu::StoreOp::Store,
+            },
+        })],
+        depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+            view: depth_view,
+            depth_ops: Some(wgpu::Operations {
+                load: if clear_depth {
+                    wgpu::LoadOp::Clear(1.0)
+                } else {
+                    wgpu::LoadOp::Load
+                },
+                store: wgpu::StoreOp::Store,
+            }),
+            stencil_ops: None,
+        }),
+        occlusion_query_set: None,
+        timestamp_writes: None,
+    });
+
+    pass.set_pipeline(pipeline);
+    pass.set_bind_group(0, bind_group, &[]);
+    pass.set_vertex_buffer(0, pick_buffers.vertex_buffer.slice(..));
+    pass.draw(0..pick_buffers.vertex_count, 0..1);
+}
+
+pub(crate) struct ScenePickContext<'a> {
+    pub device: &'a wgpu::Device,
+    pub queue: &'a wgpu::Queue,
+    pub pick_mesh_pipeline: &'a wgpu::RenderPipeline,
+    pub pick_line_pipeline: &'a wgpu::RenderPipeline,
+    pub pick_uniform_layout: &'a wgpu::BindGroupLayout,
+    pub mesh_pick_buffers: &'a PickDrawBuffers,
+    pub line_pick_buffers: &'a PickDrawBuffers,
+    pub catalog: SelectionCatalog,
+    pub view_proj: [f32; 16],
+    pub width: u32,
+    pub height: u32,
+}
+
+pub(crate) fn pick_scene(ctx: ScenePickContext<'_>, x: f64, y: f64) -> Result<PickResult> {
+    let ScenePickContext {
+        device,
+        queue,
+        pick_mesh_pipeline,
+        pick_line_pipeline,
+        pick_uniform_layout,
+        mesh_pick_buffers,
+        line_pick_buffers,
+        catalog,
+        view_proj,
+        width,
+        height,
+    } = ctx;
+
+    if catalog.triangle_count == 0 && catalog.line_count == 0 {
+        return Ok(PickResult::None);
+    }
+
+    let color_texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("pick-color-texture"),
+        size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        view_formats: &[],
+    });
+    let depth_texture = create_depth_texture(device, width, height);
+    let color_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+    let pick_bind_group = create_uniform_bind_group(
+        device,
+        pick_uniform_layout,
+        &Uniforms { view_proj },
+    );
+
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("pick-encoder"),
+    });
+
+    if mesh_pick_buffers.vertex_count > 0 {
+        encode_pick_draw_pass(PickDrawPass {
+            encoder: &mut encoder,
+            pipeline: pick_mesh_pipeline,
+            bind_group: &pick_bind_group,
+            pick_buffers: mesh_pick_buffers,
+            color_view: &color_view,
+            depth_view: &depth_view,
+            clear_color: true,
+            clear_depth: true,
+        });
+    }
+
+    if line_pick_buffers.vertex_count > 0 {
+        encode_pick_draw_pass(PickDrawPass {
+            encoder: &mut encoder,
+            pipeline: pick_line_pipeline,
+            bind_group: &pick_bind_group,
+            pick_buffers: line_pick_buffers,
+            color_view: &color_view,
+            depth_view: &depth_view,
+            clear_color: mesh_pick_buffers.vertex_count == 0,
+            clear_depth: mesh_pick_buffers.vertex_count == 0,
+        });
+    }
+
+    let pixel_x = x.floor().clamp(0.0, (width.saturating_sub(1)) as f64) as u32;
+    let pixel_y = y.floor().clamp(0.0, (height.saturating_sub(1)) as f64) as u32;
+    let bytes_per_row = align_to(width * 4, wgpu::COPY_BYTES_PER_ROW_ALIGNMENT);
+    let readback_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("pick-readback-buffer"),
+        size: (bytes_per_row * height) as u64,
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+
+    encoder.copy_texture_to_buffer(
+        wgpu::TexelCopyTextureInfo {
+            texture: &color_texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        wgpu::TexelCopyBufferInfo {
+            buffer: &readback_buffer,
+            layout: wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(bytes_per_row),
+                rows_per_image: Some(height),
+            },
+        },
+        wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+    );
+
+    queue.submit(Some(encoder.finish()));
+    device.poll(wgpu::Maintain::Wait);
+
+    let slice = readback_buffer.slice(..);
+    let (sender, receiver) = std::sync::mpsc::channel();
+    slice.map_async(wgpu::MapMode::Read, move |result| {
+        let _ = sender.send(result);
+    });
+    device.poll(wgpu::Maintain::Wait);
+    receiver
+        .recv()
+        .map_err(|_| OpenCadError::Other("pick buffer map cancelled".into()))?
+        .map_err(|err| OpenCadError::Other(format!("pick buffer map failed: {err}")))?;
+
+    let data = slice.get_mapped_range();
+    let row_start = (pixel_y as usize) * bytes_per_row as usize;
+    let col_start = (pixel_x as usize) * 4;
+    let rgba = [
+        data[row_start + col_start],
+        data[row_start + col_start + 1],
+        data[row_start + col_start + 2],
+        data[row_start + col_start + 3],
+    ];
+    drop(data);
+    readback_buffer.unmap();
+
+    Ok(catalog.decode(rgba_to_selection_id(rgba)))
+}
+
+fn align_to(value: u32, alignment: u32) -> u32 {
+    value.div_ceil(alignment) * alignment
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn selection_id_round_trip_for_line_index() {
+        for line_index in [0, 1, 42, 65534] {
+            let id = SelectionId::from_line_index(line_index);
+            assert_eq!(id.line_index(), Some(line_index));
+            let rgba = selection_id_to_rgba(id);
+            assert_eq!(rgba_to_selection_id(rgba), id);
+        }
+    }
+
+    #[test]
+    fn selection_id_round_trip_for_triangle_index() {
+        let line_count = 12;
+        for triangle_index in [0, 1, 500, 4096] {
+            let id = SelectionId::from_triangle_index(triangle_index, line_count);
+            let rgba = selection_id_to_rgba(id);
+            assert_eq!(rgba_to_selection_id(rgba), id);
+            let catalog = SelectionCatalog {
+                line_count,
+                triangle_count: triangle_index + 1,
+            };
+            assert_eq!(
+                catalog.decode(id),
+                PickResult::SolidTriangle(triangle_index)
+            );
+        }
+    }
+
+    #[test]
+    fn catalog_prefers_sketch_line_over_triangle_namespace() {
+        let catalog = SelectionCatalog {
+            line_count: 3,
+            triangle_count: 10,
+        };
+        assert_eq!(
+            catalog.decode(SelectionId::from_line_index(1)),
+            PickResult::SketchLine(1)
+        );
+        assert_eq!(
+            catalog.decode(SelectionId::from_triangle_index(0, 3)),
+            PickResult::SolidTriangle(0)
+        );
+        assert_eq!(catalog.decode(SelectionId::NONE), PickResult::None);
+    }
+
+    #[test]
+    fn triangle_edge_vertices_form_closed_loop() {
+        let vertices = vec![
+            GpuVertex {
+                position: [0.0, 0.0, 0.0],
+                normal: [0.0, 0.0, 1.0],
+            },
+            GpuVertex {
+                position: [1.0, 0.0, 0.0],
+                normal: [0.0, 0.0, 1.0],
+            },
+            GpuVertex {
+                position: [0.0, 1.0, 0.0],
+                normal: [0.0, 0.0, 1.0],
+            },
+        ];
+        let indices = vec![0, 1, 2];
+        let edges = triangle_edge_vertices(&vertices, &indices, 0).expect("edges");
+        assert_eq!(edges.len(), 6);
+    }
+
+    #[test]
+    fn pick_scene_returns_solid_triangle_at_center() {
+        use crate::scene::RenderScene;
+        use crate::solid::pack_scene;
+        use opencad_geometry::MeshSet;
+
+        let scene = RenderScene::from_mesh_set(&MeshSet::box_prism(0.08, 0.006)).expect("scene");
+        let (vertices, indices) = pack_scene(&scene).expect("pack");
+        let triangle_count = indices.len() / 3;
+        let catalog = SelectionCatalog {
+            line_count: 0,
+            triangle_count,
+        };
+        let (device, queue) = pollster::block_on(async_device());
+        let mesh_pick = mesh_pick_vertices(&vertices, &indices, 0);
+        let mesh_buffers = create_pick_buffers(&device, &mesh_pick);
+        let empty_lines = create_pick_buffers(&device, &[]);
+        let (pick_mesh_pipeline, pick_uniform_layout) =
+            create_pick_mesh_pipeline(&device, wgpu::TextureFormat::Rgba8Unorm);
+        let (pick_line_pipeline, _) =
+            create_pick_line_pipeline(&device, wgpu::TextureFormat::Rgba8Unorm);
+        let aspect = 1.0;
+        let view_proj = scene.default_camera(aspect).view_projection_matrix();
+
+        let result = pick_scene(
+            ScenePickContext {
+                device: &device,
+                queue: &queue,
+                pick_mesh_pipeline: &pick_mesh_pipeline,
+                pick_line_pipeline: &pick_line_pipeline,
+                pick_uniform_layout: &pick_uniform_layout,
+                mesh_pick_buffers: &mesh_buffers,
+                line_pick_buffers: &empty_lines,
+                catalog,
+                view_proj,
+                width: 256,
+                height: 256,
+            },
+            128.0,
+            128.0,
+        )
+        .expect("pick");
+
+        assert!(matches!(result, PickResult::SolidTriangle(_)));
+    }
+
+    async fn async_device() -> (wgpu::Device, wgpu::Queue) {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::all(),
+            ..Default::default()
+        });
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::LowPower,
+                compatible_surface: None,
+                force_fallback_adapter: true,
+            })
+            .await
+            .expect("adapter");
+        adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: Some("pick-test-device"),
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::default(),
+                    memory_hints: wgpu::MemoryHints::MemoryUsage,
+                },
+                None,
+            )
+            .await
+            .expect("device")
+    }
+}

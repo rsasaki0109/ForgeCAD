@@ -1,0 +1,18 @@
+[package]
+name = "opencad-geometry"
+description = "Kernel-neutral geometry abstractions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+opencad-core = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tempfile = "3"
+
+[lints]
+workspace = true

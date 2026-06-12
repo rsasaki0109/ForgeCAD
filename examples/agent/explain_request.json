@@ -1,0 +1,8 @@
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "method": "opencad.explain_document",
+  "params": {
+    "path": "bracket.ocad.d"
+  }
+}

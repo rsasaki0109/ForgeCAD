@@ -1,0 +1,26 @@
+[package]
+name = "opencad-render"
+description = "wgpu-based CAD viewport rendering"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+opencad-core = { workspace = true }
+opencad-geometry = { workspace = true }
+opencad-graph = { workspace = true }
+opencad-sketch = { workspace = true }
+indexmap = { workspace = true }
+wgpu = { workspace = true }
+pollster = { workspace = true }
+bytemuck = { workspace = true }
+winit = { workspace = true }
+image = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+opencad-feature = { workspace = true }
+
+[lints]
+workspace = true

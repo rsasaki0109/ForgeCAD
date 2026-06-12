@@ -1,0 +1,31 @@
+{
+  "document": "bracket_with_top_fillet",
+  "density_kg_per_m3": 2700.0,
+  "cases": [
+    {
+      "id": "default",
+      "volume_m3": 2.8265045092662028e-5,
+      "mass_kg": 0.07631562175018747,
+      "volume_tol": 5e-9,
+      "mass_tol": 1e-8
+    },
+    {
+      "id": "fillet_radius_x2",
+      "patch": {
+        "operations": [
+          {
+            "type": "set_feature_expr",
+            "feature_id": "feature:fillet_top",
+            "field": "radius_expr",
+            "expr": "fillet_radius * 2"
+          }
+        ]
+      },
+      "volume_m3": 2.8065155962009844e-5,
+      "mass_kg": 0.07577592109742658,
+      "volume_tol": 5e-9,
+      "mass_tol": 1e-8,
+      "min_volume_delta_m3": 1e-7
+    }
+  ]
+}

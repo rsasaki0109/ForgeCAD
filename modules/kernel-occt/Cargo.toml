@@ -1,0 +1,22 @@
+[package]
+name = "opencad-kernel-occt"
+description = "OpenCASCADE geometry kernel backend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["occt"]
+occt = ["dep:cadrum"]
+
+[dependencies]
+opencad-core = { workspace = true }
+opencad-geometry = { workspace = true }
+cadrum = { version = "0.8.5", optional = true, default-features = false }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

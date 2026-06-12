@@ -1,0 +1,16 @@
+[package]
+name = "opencad-graph"
+description = "OpenCAD design graph, parametric graph, and semantic diff"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+opencad-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+indexmap = { workspace = true }
+
+[lints]
+workspace = true

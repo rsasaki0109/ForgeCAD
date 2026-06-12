@@ -1,0 +1,1 @@
+//! UI extension hooks.

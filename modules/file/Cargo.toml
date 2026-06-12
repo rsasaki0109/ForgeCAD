@@ -1,0 +1,28 @@
+[package]
+name = "opencad-file"
+description = ".ocad file format serialization and validation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+opencad-core = { workspace = true }
+opencad-ai = { workspace = true }
+opencad-feature = { workspace = true }
+opencad-geometry = { workspace = true }
+opencad-graph = { workspace = true }
+opencad-sketch = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+opencad-geometry = { workspace = true }
+opencad-graph = { workspace = true }
+opencad-kernel-occt = { workspace = true }
+opencad-solver = { workspace = true }
+tempfile = "3"
+
+[lints]
+workspace = true

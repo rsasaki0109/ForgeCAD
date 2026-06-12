@@ -1,0 +1,10 @@
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "opencad.query",
+  "params": {
+    "parameters": {},
+    "feature_nodes": [],
+    "query": { "kind": "list_parameters" }
+  }
+}

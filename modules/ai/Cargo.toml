@@ -1,0 +1,20 @@
+[package]
+name = "opencad-ai"
+description = "DesignPatch, Agent API, and AI-native CAD operations"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+opencad-core = { workspace = true }
+opencad-feature = { workspace = true }
+opencad-geometry = { workspace = true }
+opencad-graph = { workspace = true }
+opencad-sketch = { workspace = true }
+indexmap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opencad.dev/schemas/ocad.document.v0.1.json",
+  "title": "OpenCAD Document",
+  "type": "object",
+  "required": ["schema", "document"],
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "opencad.document.v0.1"
+    },
+    "document": {
+      "type": "object",
+      "required": ["id", "name", "units"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^doc:[a-zA-Z0-9_-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "units": {
+          "type": "string",
+          "enum": ["m", "mm", "cm", "in"]
+        },
+        "created_with": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "parameters": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/parameter" }
+    },
+    "sketches": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "features": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "materials": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "ai": {
+      "type": "object",
+      "properties": {
+        "intent_summary": { "type": "string" },
+        "editable_parameters": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "semantic_tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "parameter": {
+      "type": "object",
+      "required": ["id", "name", "expr"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^param:[a-zA-Z0-9_-]+$"
+        },
+        "name": { "type": "string" },
+        "expr": { "type": "string" },
+        "role": { "type": "string" },
+        "ai_edit_policy": {
+          "type": "object",
+          "properties": {
+            "min": { "type": "string" },
+            "max": { "type": "string" },
+            "preferred_step": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "opencad.query",
+  "params": {
+    "parameters": {},
+    "feature_nodes": [],
+    "sketches": [],
+    "query": { "kind": "list_sketch_constraints", "sketch_id": "sketch:base" }
+  }
+}

@@ -1,0 +1,100 @@
+//! In-memory design state for agent operations (no file I/O).
+
+use std::collections::BTreeMap;
+
+use opencad_feature::FeatureNode;
+use opencad_graph::{build_summary, diff_param_graphs, DesignDiff, ParamGraph};
+
+/// Parameter and feature slice of a design document.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DesignState {
+    pub parameters: ParamGraph,
+    pub feature_nodes: Vec<FeatureNode>,
+}
+
+impl DesignState {
+    pub fn new(parameters: ParamGraph, feature_nodes: Vec<FeatureNode>) -> Self {
+        Self {
+            parameters,
+            feature_nodes,
+        }
+    }
+}
+
+/// Compare two design states and return a semantic diff.
+pub fn diff_design_state(before: &DesignState, after: &DesignState) -> DesignDiff {
+    let mut changes = diff_param_graphs(&before.parameters, &after.parameters);
+    changes.extend(diff_feature_nodes(&before.feature_nodes, &after.feature_nodes));
+    DesignDiff::semantic(build_summary(&changes), changes)
+}
+
+fn diff_feature_nodes(before: &[FeatureNode], after: &[FeatureNode]) -> Vec<opencad_graph::SemanticChange> {
+    use opencad_graph::SemanticChange;
+
+    let before_map: BTreeMap<String, &FeatureNode> = before
+        .iter()
+        .map(|node| (node.id.clone(), node))
+        .collect();
+    let after_map: BTreeMap<String, &FeatureNode> = after
+        .iter()
+        .map(|node| (node.id.clone(), node))
+        .collect();
+
+    let mut ids = BTreeMap::new();
+    for id in before_map.keys() {
+        ids.insert(id.clone(), ());
+    }
+    for id in after_map.keys() {
+        ids.insert(id.clone(), ());
+    }
+
+    let mut changes = Vec::new();
+    for id in ids.keys() {
+        match (before_map.get(id), after_map.get(id)) {
+            (Some(_), None) => changes.push(SemanticChange::FeatureRemoved { id: id.clone() }),
+            (None, Some(after_node)) => changes.push(SemanticChange::FeatureAdded {
+                id: id.clone(),
+                feature_type: after_node.definition.feature_type().to_string(),
+            }),
+            (Some(before_node), Some(after_node)) if before_node != after_node => {
+                changes.extend(diff_feature_node(before_node, after_node));
+            }
+            _ => {}
+        }
+    }
+    changes
+}
+
+fn diff_feature_node(
+    before: &FeatureNode,
+    after: &FeatureNode,
+) -> Vec<opencad_graph::SemanticChange> {
+    use opencad_graph::SemanticChange;
+
+    let mut changes = Vec::new();
+    if before.name != after.name {
+        changes.push(SemanticChange::FeatureModified {
+            id: before.id.clone(),
+            field: "name".into(),
+            before: before.name.clone(),
+            after: after.name.clone(),
+        });
+    }
+    if before.suppressed != after.suppressed {
+        changes.push(SemanticChange::FeatureModified {
+            id: before.id.clone(),
+            field: "suppressed".into(),
+            before: before.suppressed.to_string(),
+            after: after.suppressed.to_string(),
+        });
+    }
+    if before.definition != after.definition {
+        changes.push(SemanticChange::FeatureModified {
+            id: before.id.clone(),
+            field: "definition".into(),
+            before: serde_json::to_string(&before.definition).unwrap_or_default(),
+            after: serde_json::to_string(&after.definition).unwrap_or_default(),
+        });
+    }
+    changes
+}

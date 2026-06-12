@@ -1,0 +1,1 @@
+//! Custom feature plugin trait.

@@ -1,0 +1,23 @@
+//! Viewport rendering with wgpu.
+
+pub mod camera;
+pub mod face_catalog;
+pub mod mesh;
+pub mod overlay;
+pub mod png;
+pub mod scene;
+pub mod selection;
+pub mod solid;
+pub mod stroke_font;
+pub mod viewport;
+pub mod wgpu_renderer;
+
+pub use camera::OrbitCamera;
+pub use face_catalog::{FaceCatalog, FaceGroup, FaceRole};
+pub use mesh::RenderMesh;
+pub use scene::{BoundingBox, RenderScene};
+pub use overlay::{build_sketch_overlay, label_depth_offset_for_bounds, PickableSketchLine, SketchOverlay};
+pub use selection::{triangle_world_positions, PickResult, SelectionCatalog, SelectionId};
+pub use png::write_png;
+pub use viewport::run_viewport;
+pub use wgpu_renderer::{OffscreenRenderer, RenderImage, RenderOutput};

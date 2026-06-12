@@ -1,0 +1,57 @@
+[workspace]
+resolver = "2"
+members = [
+    "modules/core",
+    "modules/graph",
+    "modules/geometry",
+    "modules/kernel-occt",
+    "modules/sketch",
+    "modules/solver",
+    "modules/feature",
+    "modules/assembly",
+    "modules/drawing",
+    "modules/render",
+    "modules/file",
+    "modules/ai",
+    "modules/cli",
+    "modules/plugin-api",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/opencad/opencad"
+rust-version = "1.78"
+
+[workspace.dependencies]
+opencad-core = { path = "modules/core" }
+opencad-graph = { path = "modules/graph" }
+opencad-geometry = { path = "modules/geometry" }
+opencad-kernel-occt = { path = "modules/kernel-occt" }
+opencad-sketch = { path = "modules/sketch" }
+opencad-solver = { path = "modules/solver" }
+opencad-feature = { path = "modules/feature" }
+opencad-assembly = { path = "modules/assembly" }
+opencad-drawing = { path = "modules/drawing" }
+opencad-render = { path = "modules/render" }
+opencad-file = { path = "modules/file" }
+opencad-ai = { path = "modules/ai" }
+opencad-plugin-api = { path = "modules/plugin-api" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+sha2 = "0.10"
+indexmap = { version = "2", features = ["serde"] }
+wgpu = "24"
+pollster = "0.4"
+bytemuck = { version = "1", features = ["derive"] }
+winit = "0.29"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

@@ -1,0 +1,14 @@
+[package]
+name = "opencad-plugin-api"
+description = "Plugin API for custom features, importers, and exporters"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+opencad-core = { workspace = true }
+opencad-feature = { workspace = true }
+
+[lints]
+workspace = true

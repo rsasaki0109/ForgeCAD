@@ -1,0 +1,17 @@
+[package]
+name = "opencad-core"
+description = "OpenCAD core types: IDs, units, errors, document metadata"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+indexmap = { workspace = true }
+sha2 = { workspace = true }
+
+[lints]
+workspace = true

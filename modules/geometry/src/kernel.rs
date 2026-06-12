@@ -1,0 +1,286 @@
+use serde::{Deserialize, Serialize};
+
+use opencad_core::{Length, OpenCadError, Result, TopoRefId};
+
+use crate::mass::{BoundingBox, MassProperties};
+use crate::tessellation::{MeshSet, TessellationSettings};
+
+/// Opaque backend-neutral solid body handle.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct KernelBody(pub u64);
+
+/// Opaque backend-neutral wire/profile handle.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct KernelWire(pub u64);
+
+impl KernelBody {
+    pub fn new(id: u64) -> Self {
+        Self(id)
+    }
+}
+
+impl KernelWire {
+    pub fn new(id: u64) -> Self {
+        Self(id)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BooleanOp {
+    Union,
+    Subtract,
+    Intersect,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExtrudeOperation {
+    NewBody,
+    Cut,
+    Join,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ExtrudeExtent {
+    Distance { length: Length },
+    ThroughAll,
+    Symmetric { length: Length },
+}
+
+/// Which edges to fillet on a solid body.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FilletEdgeSelector {
+    /// Every edge on the body.
+    All,
+    /// Edges on the top face (maximum Z in the bounding box).
+    #[default]
+    TopPerimeter,
+    /// Edges on the face with the given kernel B-Rep face id.
+    FacePerimeter { kernel_face_id: u64 },
+}
+
+/// 2D profile input for wire creation (sketch solver output).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SolvedSketch {
+    pub profile_ref: String,
+    pub points: Vec<[f64; 2]>,
+    pub closed: bool,
+}
+
+/// Kernel-neutral geometry operations.
+pub trait GeometryKernel {
+    fn make_wire_from_sketch(&self, sketch: &SolvedSketch) -> Result<KernelWire>;
+
+    fn extrude(
+        &self,
+        profile: KernelWire,
+        extent: ExtrudeExtent,
+        operation: ExtrudeOperation,
+        target: Option<KernelBody>,
+    ) -> Result<KernelBody>;
+
+    fn boolean(&self, lhs: KernelBody, rhs: KernelBody, op: BooleanOp) -> Result<KernelBody>;
+
+    fn tessellate(&self, body: &KernelBody, settings: &TessellationSettings) -> Result<MeshSet>;
+
+    /// Face derivation pairs `(post_id, src_id)` from the kernel's last modifying op.
+    fn face_derivation_history(&self, body: &KernelBody) -> Vec<(u64, u64)>;
+
+    fn mass_properties(&self, body: &KernelBody, density_kg_per_m3: f64) -> Result<MassProperties>;
+
+    fn bounding_box(&self, body: &KernelBody) -> Result<BoundingBox>;
+
+    fn assign_face_ref(
+        &self,
+        body: &KernelBody,
+        kernel_face_id: u64,
+        ref_id: TopoRefId,
+    ) -> Result<()>;
+
+    fn fillet_edges(
+        &self,
+        body: KernelBody,
+        radius_m: f64,
+        selector: FilletEdgeSelector,
+    ) -> Result<KernelBody>;
+
+    fn chamfer_edges(
+        &self,
+        body: KernelBody,
+        distance_m: f64,
+        selector: FilletEdgeSelector,
+    ) -> Result<KernelBody>;
+}
+
+/// In-memory mock kernel for tests and headless pipelines without OCCT.
+#[derive(Debug, Default)]
+pub struct MockGeometryKernel;
+
+impl MockGeometryKernel {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl GeometryKernel for MockGeometryKernel {
+    fn make_wire_from_sketch(&self, sketch: &SolvedSketch) -> Result<KernelWire> {
+        if sketch.points.len() < 2 {
+            return Err(OpenCadError::validation(
+                "sketch profile needs at least two points",
+            ));
+        }
+        Ok(KernelWire::new(sketch.points.len() as u64))
+    }
+
+    fn extrude(
+        &self,
+        profile: KernelWire,
+        extent: ExtrudeExtent,
+        _operation: ExtrudeOperation,
+        _target: Option<KernelBody>,
+    ) -> Result<KernelBody> {
+        let length = match extent {
+            ExtrudeExtent::Distance { length } => length.meters(),
+            ExtrudeExtent::Symmetric { length } => length.meters() * 2.0,
+            ExtrudeExtent::ThroughAll => 1.0,
+        };
+        if length <= 0.0 {
+            return Err(OpenCadError::validation("extrude length must be positive"));
+        }
+        Ok(KernelBody::new(profile.0 + (length * 1000.0) as u64))
+    }
+
+    fn boolean(&self, lhs: KernelBody, rhs: KernelBody, op: BooleanOp) -> Result<KernelBody> {
+        let id = match op {
+            BooleanOp::Union => lhs.0 ^ rhs.0,
+            BooleanOp::Subtract => lhs.0.wrapping_sub(rhs.0),
+            BooleanOp::Intersect => lhs.0 & rhs.0,
+        };
+        Ok(KernelBody::new(id))
+    }
+
+    fn tessellate(&self, body: &KernelBody, settings: &TessellationSettings) -> Result<MeshSet> {
+        Ok(MeshSet::box_prism(
+            body.0 as f64 * 0.001,
+            settings.linear_deflection,
+        ))
+    }
+
+    fn face_derivation_history(&self, _body: &KernelBody) -> Vec<(u64, u64)> {
+        Vec::new()
+    }
+
+    fn mass_properties(&self, body: &KernelBody, density_kg_per_m3: f64) -> Result<MassProperties> {
+        let side = body.0 as f64 * 0.001;
+        let volume = side * side * side;
+        Ok(MassProperties {
+            volume_m3: volume,
+            area_m2: 6.0 * side * side,
+            mass_kg: volume * density_kg_per_m3,
+            center_of_mass: [side / 2.0, side / 2.0, side / 2.0],
+        })
+    }
+
+    fn bounding_box(&self, body: &KernelBody) -> Result<BoundingBox> {
+        let side = body.0 as f64 * 0.001;
+        Ok(BoundingBox {
+            min: [0.0, 0.0, 0.0],
+            max: [side, side, side],
+        })
+    }
+
+    fn assign_face_ref(
+        &self,
+        body: &KernelBody,
+        kernel_face_id: u64,
+        ref_id: TopoRefId,
+    ) -> Result<()> {
+        let mesh = self.tessellate(body, &TessellationSettings::default())?;
+        crate::topo_sync::validate_kernel_face_on_mesh(&mesh, kernel_face_id)?;
+        let _ = ref_id;
+        Ok(())
+    }
+
+    fn fillet_edges(
+        &self,
+        body: KernelBody,
+        radius_m: f64,
+        _selector: FilletEdgeSelector,
+    ) -> Result<KernelBody> {
+        if radius_m <= 0.0 {
+            return Err(OpenCadError::validation("fillet radius must be positive"));
+        }
+        Ok(body)
+    }
+
+    fn chamfer_edges(
+        &self,
+        body: KernelBody,
+        distance_m: f64,
+        _selector: FilletEdgeSelector,
+    ) -> Result<KernelBody> {
+        if distance_m <= 0.0 {
+            return Err(OpenCadError::validation("chamfer distance must be positive"));
+        }
+        Ok(body)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use opencad_core::Length;
+
+    fn rectangle_sketch() -> SolvedSketch {
+        SolvedSketch {
+            profile_ref: "sketch:base/profile:outer".into(),
+            points: vec![[0.0, 0.0], [0.08, 0.0], [0.08, 0.06], [0.0, 0.06]],
+            closed: true,
+        }
+    }
+
+    #[test]
+    fn mock_kernel_extrude_produces_body() {
+        let kernel = MockGeometryKernel::new();
+        let wire = kernel
+            .make_wire_from_sketch(&rectangle_sketch())
+            .expect("wire");
+        let body = kernel
+            .extrude(
+                wire,
+                ExtrudeExtent::Distance {
+                    length: Length::from_unit(6.0, opencad_core::LengthUnit::Millimeter),
+                },
+                ExtrudeOperation::NewBody,
+                None,
+            )
+            .expect("extrude");
+        assert!(body.0 > 0);
+    }
+
+    #[test]
+    fn mock_kernel_mass_properties() {
+        let kernel = MockGeometryKernel::new();
+        let wire = kernel
+            .make_wire_from_sketch(&rectangle_sketch())
+            .expect("wire");
+        let body = kernel
+            .extrude(
+                wire,
+                ExtrudeExtent::Distance {
+                    length: Length::from_meters(0.006),
+                },
+                ExtrudeOperation::NewBody,
+                None,
+            )
+            .expect("extrude");
+        let mass = kernel.mass_properties(&body, 2700.0).expect("mass");
+        assert!(mass.volume_m3 > 0.0);
+        assert!(mass.mass_kg > 0.0);
+    }
+}
