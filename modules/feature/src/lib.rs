@@ -10,6 +10,7 @@ pub mod param_apply;
 pub mod pattern;
 pub mod regenerate;
 pub mod registry;
+pub mod revolve;
 pub mod sketch_bridge;
 pub mod sketch_feature;
 pub mod topo_resolve;
@@ -25,10 +26,11 @@ pub use pattern::{
     LinearPatternFeatureExecutor, MirrorPatternFeature, MirrorPatternFeatureExecutor,
     PatternOperation,
 };
+pub use revolve::{RevolveFeature, RevolveFeatureExecutor};
 pub use regenerate::{
-    bracket_base_plate, bracket_boss_join, bracket_hole_ring, bracket_hole_row, bracket_pin_mirror, bracket_pin_ring,
-    bracket_pin_row, bracket_semantic_refs, bracket_with_hole, bracket_with_top_chamfer,
-    bracket_with_top_fillet, PartModel, RegenReport,
+    bracket_base_plate, bracket_boss_join, bracket_hole_ring, bracket_hole_row, bracket_pin_mirror,
+    bracket_pin_ring, bracket_pin_row, bracket_semantic_refs, bracket_with_hole,
+    bracket_with_top_chamfer, bracket_with_top_fillet, revolve_bushing, PartModel, RegenReport,
 };
 pub use registry::FeatureRegistry;
 pub use sketch_bridge::{prepare_sketch, profile_to_solved};

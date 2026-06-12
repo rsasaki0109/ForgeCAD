@@ -35,6 +35,12 @@ impl Workplane {
             plane: GlobalPlane::XY,
         }
     }
+
+    pub fn xz() -> Self {
+        Self::Global {
+            plane: GlobalPlane::XZ,
+        }
+    }
 }
 
 #[cfg(test)]

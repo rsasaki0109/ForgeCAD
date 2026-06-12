@@ -29,6 +29,32 @@ impl KernelWire {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum ProfilePlane {
+    Xy,
+    Yz,
+    Xz,
+}
+
+impl ProfilePlane {
+    pub fn map_point(self, u: f64, v: f64) -> [f64; 3] {
+        match self {
+            Self::Xy => [u, v, 0.0],
+            Self::Yz => [0.0, u, v],
+            Self::Xz => [u, 0.0, v],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RevolveOperation {
+    NewBody,
+    Cut,
+    Join,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BooleanOp {
     Union,
     Subtract,
@@ -72,6 +98,19 @@ pub struct SolvedSketch {
     pub closed: bool,
 }
 
+/// Input for a solid-of-revolution operation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RevolveInput {
+    pub sketch: SolvedSketch,
+    pub profile_plane: ProfilePlane,
+    pub axis_origin_m: [f64; 3],
+    pub axis_direction_m: [f64; 3],
+    pub angle_rad: f64,
+    pub operation: RevolveOperation,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<KernelBody>,
+}
+
 /// Kernel-neutral geometry operations.
 pub trait GeometryKernel {
     fn make_wire_from_sketch(&self, sketch: &SolvedSketch) -> Result<KernelWire>;
@@ -83,6 +122,8 @@ pub trait GeometryKernel {
         operation: ExtrudeOperation,
         target: Option<KernelBody>,
     ) -> Result<KernelBody>;
+
+    fn revolve(&self, input: &RevolveInput) -> Result<KernelBody>;
 
     fn boolean(&self, lhs: KernelBody, rhs: KernelBody, op: BooleanOp) -> Result<KernelBody>;
 
@@ -170,6 +211,54 @@ impl GeometryKernel for MockGeometryKernel {
             return Err(OpenCadError::validation("extrude length must be positive"));
         }
         Ok(KernelBody::new(profile.0 + (length * 1000.0) as u64))
+    }
+
+    fn revolve(&self, input: &RevolveInput) -> Result<KernelBody> {
+        let sketch = &input.sketch;
+        let axis_direction_m = input.axis_direction_m;
+        let angle_rad = input.angle_rad;
+        let operation = input.operation;
+        let target = input.target.clone();
+        if sketch.points.len() < 2 {
+            return Err(OpenCadError::validation(
+                "sketch profile needs at least two points",
+            ));
+        }
+        if angle_rad <= 0.0 {
+            return Err(OpenCadError::validation("revolve angle must be positive"));
+        }
+        let axis_sum = axis_direction_m[0].abs()
+            + axis_direction_m[1].abs()
+            + axis_direction_m[2].abs();
+        if axis_sum <= 1e-12 {
+            return Err(OpenCadError::validation(
+                "revolve axis direction must be a non-zero vector",
+            ));
+        }
+        let body = KernelBody::new(
+            (sketch.points.len() as u64)
+                .wrapping_add((angle_rad * 1000.0) as u64)
+                .max(1),
+        );
+        match operation {
+            RevolveOperation::NewBody => Ok(body),
+            RevolveOperation::Cut => {
+                let Some(target) = target else {
+                    return Err(OpenCadError::validation(
+                        "cut revolve requires target body",
+                    ));
+                };
+                self.boolean(target, body, BooleanOp::Subtract)
+            }
+            RevolveOperation::Join => {
+                let Some(target) = target else {
+                    return Err(OpenCadError::validation(
+                        "join revolve requires target body",
+                    ));
+                };
+                self.boolean(target, body, BooleanOp::Union)
+            }
+        }
     }
 
     fn boolean(&self, lhs: KernelBody, rhs: KernelBody, op: BooleanOp) -> Result<KernelBody> {

@@ -3,14 +3,15 @@ use std::cell::RefCell;
 use opencad_core::{OpenCadError, Result, TopoRefId};
 use opencad_geometry::{
     BooleanOp, BoundingBox, ExtrudeExtent, ExtrudeOperation, FilletEdgeSelector, GeometryKernel,
-    KernelBody, KernelWire, MassProperties, MeshSet, SolvedSketch, TessellationSettings,
+    KernelBody, KernelWire, MassProperties, MeshSet, RevolveInput, RevolveOperation,
+    SolvedSketch, TessellationSettings,
 };
 
-use crate::convert::{map_occt_error, sketch_to_edges};
+use crate::convert::{map_occt_error, sketch_to_edges, sketch_to_edges_on_plane};
 use crate::store::KernelStore;
 
 #[cfg(feature = "occt")]
-use cadrum::{DVec3, Edge, Solid};
+use cadrum::{DVec3, Edge, ProfileOrient, Solid};
 
 #[cfg(feature = "occt")]
 fn collect_edges(solid: &Solid, selector: FilletEdgeSelector) -> Vec<&Edge> {
@@ -124,6 +125,87 @@ impl GeometryKernel for OcctGeometryKernel {
         #[cfg(not(feature = "occt"))]
         {
             let _ = (profile, extent, operation, target);
+            Err(OpenCadError::Other("OCCT backend disabled".into()))
+        }
+    }
+
+    fn revolve(&self, input: &RevolveInput) -> Result<KernelBody> {
+        #[cfg(feature = "occt")]
+        {
+            let sketch = &input.sketch;
+            let profile_plane = input.profile_plane;
+            let axis_direction_m = input.axis_direction_m;
+            let angle_rad = input.angle_rad;
+            let operation = input.operation;
+            let target = input.target.clone();
+            if angle_rad <= 0.0 {
+                return Err(OpenCadError::validation("revolve angle must be positive"));
+            }
+            if (angle_rad - std::f64::consts::TAU).abs() > 1e-6 {
+                return Err(OpenCadError::validation(
+                    "revolve MVP supports full 360° sweeps only",
+                ));
+            }
+
+            let axis_len = (axis_direction_m[0].powi(2)
+                + axis_direction_m[1].powi(2)
+                + axis_direction_m[2].powi(2))
+            .sqrt();
+            if axis_len <= 1e-12 {
+                return Err(OpenCadError::validation(
+                    "revolve axis direction must be a non-zero vector",
+                ));
+            }
+            let axis = DVec3::new(
+                axis_direction_m[0] / axis_len,
+                axis_direction_m[1] / axis_len,
+                axis_direction_m[2] / axis_len,
+            );
+
+            let edges = sketch_to_edges_on_plane(sketch, profile_plane)?;
+            let spine = Edge::circle(1.0, axis).map_err(map_occt_error)?;
+            let mut solid = Solid::sweep(&edges, std::slice::from_ref(&spine), ProfileOrient::Up(axis))
+                .map_err(map_occt_error)?;
+
+            match operation {
+                RevolveOperation::NewBody => {}
+                RevolveOperation::Cut => {
+                    let Some(target_body) = target else {
+                        return Err(OpenCadError::validation(
+                            "cut revolve requires target body",
+                        ));
+                    };
+                    let target_solid = self
+                        .store
+                        .borrow()
+                        .body(target_body.0)
+                        .ok_or_else(|| OpenCadError::not_found(format!("body {}", target_body.0)))?
+                        .clone();
+                    solid = (target_solid - solid).build().map_err(map_occt_error)?;
+                }
+                RevolveOperation::Join => {
+                    let new_body = solid;
+                    let Some(target_body) = target else {
+                        return Err(OpenCadError::validation(
+                            "join revolve requires target body",
+                        ));
+                    };
+                    let target_solid = self
+                        .store
+                        .borrow()
+                        .body(target_body.0)
+                        .ok_or_else(|| OpenCadError::not_found(format!("body {}", target_body.0)))?
+                        .clone();
+                    solid = (target_solid + new_body).build().map_err(map_occt_error)?;
+                }
+            }
+
+            let id = self.store.borrow_mut().insert_body(solid);
+            Ok(KernelBody::new(id))
+        }
+        #[cfg(not(feature = "occt"))]
+        {
+            let _ = input;
             Err(OpenCadError::Other("OCCT backend disabled".into()))
         }
     }

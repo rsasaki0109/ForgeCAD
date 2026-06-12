@@ -233,6 +233,32 @@ fn occt_fillet_on_face_ref_matches_top_perimeter() {
 }
 
 #[test]
+fn occt_revolve_bushing_has_annulus_volume() {
+    use opencad_feature::revolve_bushing;
+
+    let kernel = OcctGeometryKernel::new();
+    let registry = FeatureRegistry::with_defaults();
+    let mut model = revolve_bushing().expect("model");
+    model
+        .regenerate(&kernel, &registry, None, None)
+        .expect("regen");
+    let mass = kernel
+        .mass_properties(model.active_body().expect("body"), 2700.0)
+        .expect("mass");
+
+    let outer = 0.025_f64;
+    let inner = 0.015_f64;
+    let height = 0.02_f64;
+    let expected = std::f64::consts::PI * (outer.powi(2) - inner.powi(2)) * height;
+    assert!(
+        (mass.volume_m3 - expected).abs() < 1e-8,
+        "revolve bushing volume {} should match annulus {}",
+        mass.volume_m3,
+        expected
+    );
+}
+
+#[test]
 fn occt_join_extrude_fuses_onto_plate() {
     use opencad_feature::{bracket_base_plate, bracket_boss_join, apply_parameters};
 

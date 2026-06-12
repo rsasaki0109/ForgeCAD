@@ -14,7 +14,7 @@ pub mod topology;
 
 pub use kernel::{
     BooleanOp, ExtrudeExtent, ExtrudeOperation, FilletEdgeSelector, GeometryKernel, KernelBody,
-    KernelWire, MockGeometryKernel, SolvedSketch,
+    KernelWire, MockGeometryKernel, ProfilePlane, RevolveInput, RevolveOperation, SolvedSketch,
 };
 pub use mass::{BoundingBox, MassProperties};
 pub use nurbs::NurbsSurface;

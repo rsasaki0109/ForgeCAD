@@ -44,6 +44,7 @@ Features run in topological order from `FeatureGraph::recompute_order()`. Suppre
 |---|---|
 | `sketch` | 2D profile source |
 | `extrude` | Boss / cut / join from sketch |
+| `revolve` | Solid of revolution from sketch profile |
 | `hole` | Sketch-driven cut |
 | `fillet` | Edge rounding |
 | `chamfer` | Edge chamfer |
@@ -68,6 +69,22 @@ Features run in topological order from `FeatureGraph::recompute_order()`. Suppre
   "operation": "join",
   "target_feature": "feature:extrude_base",
   "length_expr": "thickness * 2"
+}
+```
+
+### Revolve
+
+Full 360° revolve around an axis. Profile sketches use a global workplane (`XY`, `YZ`, or `XZ`).
+
+```json
+{
+  "type": "revolve",
+  "sketch_feature": "feature:sketch_profile",
+  "profile_ref": "sketch:profile/profile:outer",
+  "axis_origin_m": [0.0, 0.0, 0.0],
+  "axis_direction_m": [0.0, 1.0, 0.0],
+  "angle_rad": 6.283185307179586,
+  "operation": "new_body"
 }
 ```
 

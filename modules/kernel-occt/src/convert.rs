@@ -2,10 +2,13 @@
 use cadrum::{DVec3, Edge, Error as OcctError};
 
 use opencad_core::{OpenCadError, Result};
-use opencad_geometry::SolvedSketch;
+use opencad_geometry::{ProfilePlane, SolvedSketch};
 
 #[cfg(feature = "occt")]
-pub fn sketch_to_edges(sketch: &SolvedSketch) -> Result<Vec<Edge>> {
+pub fn sketch_to_edges_on_plane(
+    sketch: &SolvedSketch,
+    plane: ProfilePlane,
+) -> Result<Vec<Edge>> {
     if sketch.points.len() < 3 {
         return Err(OpenCadError::validation(
             "profile needs at least three points",
@@ -13,17 +16,25 @@ pub fn sketch_to_edges(sketch: &SolvedSketch) -> Result<Vec<Edge>> {
     }
     if !sketch.closed {
         return Err(OpenCadError::validation(
-            "only closed profiles can be extruded in MVP",
+            "only closed profiles can be revolved in MVP",
         ));
     }
 
     let points: Vec<DVec3> = sketch
         .points
         .iter()
-        .map(|p| DVec3::new(p[0], p[1], 0.0))
+        .map(|p| {
+            let world = plane.map_point(p[0], p[1]);
+            DVec3::new(world[0], world[1], world[2])
+        })
         .collect();
 
     Edge::polygon(&points).map_err(map_occt_error)
+}
+
+#[cfg(feature = "occt")]
+pub fn sketch_to_edges(sketch: &SolvedSketch) -> Result<Vec<Edge>> {
+    sketch_to_edges_on_plane(sketch, ProfilePlane::Xy)
 }
 
 #[cfg(feature = "occt")]

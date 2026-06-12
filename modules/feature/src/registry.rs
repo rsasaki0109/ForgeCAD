@@ -12,6 +12,7 @@ use crate::hole::HoleFeatureExecutor;
 use crate::pattern::{
     CircularPatternFeatureExecutor, LinearPatternFeatureExecutor, MirrorPatternFeatureExecutor,
 };
+use crate::revolve::RevolveFeatureExecutor;
 use crate::sketch_feature::SketchFeature;
 
 /// Maps feature type names to executors.
@@ -29,6 +30,7 @@ impl FeatureRegistry {
         let mut registry = Self::new();
         registry.register(Box::new(SketchFeature));
         registry.register(Box::new(ExtrudeFeatureExecutor));
+        registry.register(Box::new(RevolveFeatureExecutor));
         registry.register(Box::new(HoleFeatureExecutor));
         registry.register(Box::new(FilletFeatureExecutor));
         registry.register(Box::new(ChamferFeatureExecutor));

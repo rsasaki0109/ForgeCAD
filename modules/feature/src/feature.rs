@@ -11,6 +11,7 @@ use crate::extrude::ExtrudeFeature;
 use crate::fillet::FilletFeature;
 use crate::hole::HoleFeature;
 use crate::pattern::{CircularPatternFeature, LinearPatternFeature, MirrorPatternFeature};
+use crate::revolve::RevolveFeature;
 use crate::sketch_feature::SketchFeatureDef;
 
 /// Serializable feature definition stored in the design graph.
@@ -19,6 +20,7 @@ use crate::sketch_feature::SketchFeatureDef;
 pub enum FeatureDefinition {
     Sketch(SketchFeatureDef),
     Extrude(ExtrudeFeature),
+    Revolve(RevolveFeature),
     Hole(HoleFeature),
     Fillet(FilletFeature),
     Chamfer(ChamferFeature),
@@ -32,6 +34,7 @@ impl FeatureDefinition {
         match self {
             Self::Sketch(_) => "sketch",
             Self::Extrude(_) => "extrude",
+            Self::Revolve(_) => "revolve",
             Self::Hole(_) => "hole",
             Self::Fillet(_) => "fillet",
             Self::Chamfer(_) => "chamfer",

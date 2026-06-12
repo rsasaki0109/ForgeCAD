@@ -13,6 +13,7 @@ Ready-to-use ForgeCAD documents and Agent API requests.
 | `bracket_pin_row.ocad.d` | `opencad new <path> pin-row` | + linear union pattern on plate |
 | `bracket_pin_ring.ocad.d` | `opencad new <path> pin-ring` | + circular union pattern on plate |
 | `bracket_pin_mirror.ocad.d` | `opencad new <path> pin-mirror` | + mirror pattern, `plane_face_ref` |
+| `revolve_bushing.ocad.d` | `opencad new <path> revolve-bushing` | Revolve bushing (XY profile, Y axis) |
 
 See [docs/examples/patterns.md](../docs/examples/patterns.md) for a full cut vs union comparison table.
 
