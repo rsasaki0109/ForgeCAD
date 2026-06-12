@@ -857,6 +857,7 @@ fn workplane_basis(workplane: &Workplane) -> ([f32; 3], [f32; 3]) {
             GlobalPlane::YZ => ([0.0, 1.0, 0.0], [0.0, 0.0, 1.0]),
             GlobalPlane::XZ => ([1.0, 0.0, 0.0], [0.0, 0.0, 1.0]),
         },
+        Workplane::FaceRef { .. } => ([1.0, 0.0, 0.0], [0.0, 1.0, 0.0]),
         Workplane::Custom { x_axis, .. } => {
             let right = normalize3_f64(x_axis);
             let up = normalize_cross(x_axis, &[0.0, 1.0, 0.0]);
@@ -938,6 +939,7 @@ fn plane_to_world(workplane: &Workplane, point: &[f64; 2]) -> [f32; 3] {
             GlobalPlane::YZ => [0.0, u, v],
             GlobalPlane::XZ => [u, 0.0, v],
         },
+        Workplane::FaceRef { .. } => [u, v, 0.0],
         Workplane::Custom {
             origin,
             normal: _,

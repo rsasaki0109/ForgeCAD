@@ -90,12 +90,53 @@ pub enum FilletEdgeSelector {
     FacePerimeter { kernel_face_id: u64 },
 }
 
+/// Local UV placement for a sketch profile in world coordinates.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct SketchPlacement {
+    pub origin_m: [f64; 3],
+    pub x_axis_m: [f64; 3],
+    pub y_axis_m: [f64; 3],
+}
+
+impl SketchPlacement {
+    pub fn global_xy() -> Self {
+        Self {
+            origin_m: [0.0, 0.0, 0.0],
+            x_axis_m: [1.0, 0.0, 0.0],
+            y_axis_m: [0.0, 1.0, 0.0],
+        }
+    }
+
+    pub fn map_point(self, u: f64, v: f64) -> [f64; 3] {
+        [
+            self.origin_m[0] + self.x_axis_m[0] * u + self.y_axis_m[0] * v,
+            self.origin_m[1] + self.x_axis_m[1] * u + self.y_axis_m[1] * v,
+            self.origin_m[2] + self.x_axis_m[2] * u + self.y_axis_m[2] * v,
+        ]
+    }
+
+    pub fn extrude_direction_m(self) -> [f64; 3] {
+        let cross = [
+            self.x_axis_m[1] * self.y_axis_m[2] - self.x_axis_m[2] * self.y_axis_m[1],
+            self.x_axis_m[2] * self.y_axis_m[0] - self.x_axis_m[0] * self.y_axis_m[2],
+            self.x_axis_m[0] * self.y_axis_m[1] - self.x_axis_m[1] * self.y_axis_m[0],
+        ];
+        let len = (cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]).sqrt();
+        if len <= 1e-12 {
+            return [0.0, 0.0, 1.0];
+        }
+        [cross[0] / len, cross[1] / len, cross[2] / len]
+    }
+}
+
 /// 2D profile input for wire creation (sketch solver output).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SolvedSketch {
     pub profile_ref: String,
     pub points: Vec<[f64; 2]>,
     pub closed: bool,
+    #[serde(skip)]
+    pub placement: Option<SketchPlacement>,
 }
 
 /// Input for a solid-of-revolution operation.
@@ -121,6 +162,7 @@ pub trait GeometryKernel {
         extent: ExtrudeExtent,
         operation: ExtrudeOperation,
         target: Option<KernelBody>,
+        direction_m: [f64; 3],
     ) -> Result<KernelBody>;
 
     fn revolve(&self, input: &RevolveInput) -> Result<KernelBody>;
@@ -201,6 +243,7 @@ impl GeometryKernel for MockGeometryKernel {
         extent: ExtrudeExtent,
         _operation: ExtrudeOperation,
         _target: Option<KernelBody>,
+        _direction_m: [f64; 3],
     ) -> Result<KernelBody> {
         let length = match extent {
             ExtrudeExtent::Distance { length } => length.meters(),
@@ -386,6 +429,7 @@ mod tests {
             profile_ref: "sketch:base/profile:outer".into(),
             points: vec![[0.0, 0.0], [0.08, 0.0], [0.08, 0.06], [0.0, 0.06]],
             closed: true,
+            placement: None,
         }
     }
 
@@ -403,6 +447,7 @@ mod tests {
                 },
                 ExtrudeOperation::NewBody,
                 None,
+                [0.0, 0.0, 1.0],
             )
             .expect("extrude");
         assert!(body.0 > 0);
@@ -422,6 +467,7 @@ mod tests {
                 },
                 ExtrudeOperation::NewBody,
                 None,
+                [0.0, 0.0, 1.0],
             )
             .expect("extrude");
         let mass = kernel.mass_properties(&body, 2700.0).expect("mass");

@@ -2,12 +2,18 @@
 use cadrum::{DVec3, Edge, Error as OcctError};
 
 use opencad_core::{OpenCadError, Result};
-use opencad_geometry::{ProfilePlane, SolvedSketch};
+use opencad_geometry::{ProfilePlane, SketchPlacement, SolvedSketch};
 
 #[cfg(feature = "occt")]
-pub fn sketch_to_edges_on_plane(
+pub fn sketch_to_edges(sketch: &SolvedSketch) -> Result<Vec<Edge>> {
+    let placement = sketch.placement.unwrap_or(SketchPlacement::global_xy());
+    sketch_to_edges_placed(sketch, placement)
+}
+
+#[cfg(feature = "occt")]
+pub fn sketch_to_edges_placed(
     sketch: &SolvedSketch,
-    plane: ProfilePlane,
+    placement: SketchPlacement,
 ) -> Result<Vec<Edge>> {
     if sketch.points.len() < 3 {
         return Err(OpenCadError::validation(
@@ -16,7 +22,7 @@ pub fn sketch_to_edges_on_plane(
     }
     if !sketch.closed {
         return Err(OpenCadError::validation(
-            "only closed profiles can be revolved in MVP",
+            "only closed profiles can be extruded in MVP",
         ));
     }
 
@@ -24,7 +30,7 @@ pub fn sketch_to_edges_on_plane(
         .points
         .iter()
         .map(|p| {
-            let world = plane.map_point(p[0], p[1]);
+            let world = placement.map_point(p[0], p[1]);
             DVec3::new(world[0], world[1], world[2])
         })
         .collect();
@@ -33,8 +39,24 @@ pub fn sketch_to_edges_on_plane(
 }
 
 #[cfg(feature = "occt")]
-pub fn sketch_to_edges(sketch: &SolvedSketch) -> Result<Vec<Edge>> {
-    sketch_to_edges_on_plane(sketch, ProfilePlane::Xy)
+pub fn sketch_to_edges_on_plane(
+    sketch: &SolvedSketch,
+    plane: ProfilePlane,
+) -> Result<Vec<Edge>> {
+    let placement = match plane {
+        ProfilePlane::Xy => SketchPlacement::global_xy(),
+        ProfilePlane::Yz => SketchPlacement {
+            origin_m: [0.0, 0.0, 0.0],
+            x_axis_m: [0.0, 1.0, 0.0],
+            y_axis_m: [0.0, 0.0, 1.0],
+        },
+        ProfilePlane::Xz => SketchPlacement {
+            origin_m: [0.0, 0.0, 0.0],
+            x_axis_m: [1.0, 0.0, 0.0],
+            y_axis_m: [0.0, 0.0, 1.0],
+        },
+    };
+    sketch_to_edges_placed(sketch, placement)
 }
 
 #[cfg(feature = "occt")]

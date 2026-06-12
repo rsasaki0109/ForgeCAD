@@ -5,6 +5,7 @@ use opencad_geometry::{
     resolve_kernel_face_id_for_topo_ref, resolve_kernel_face_id_for_topo_ref_with_discoveries,
     FilletEdgeSelector,
 };
+use opencad_sketch::workplane::Workplane;
 
 use crate::feature::RegenContext;
 
@@ -69,6 +70,115 @@ pub fn edge_selector_for_face_ref(
         Some("top") => Ok(FilletEdgeSelector::TopPerimeter),
         _ => Ok(fallback),
     }
+}
+
+/// Resolve a sketch workplane from a persisted face ref and regen discoveries.
+pub fn workplane_for_face_ref(ctx: &dyn RegenContext, face_ref: &str) -> Result<Workplane> {
+    let topo_ref = ctx
+        .semantic_refs()
+        .iter()
+        .find(|topo_ref| topo_ref.ref_id.as_str() == face_ref)
+        .ok_or_else(|| OpenCadError::not_found(format!("topo ref '{face_ref}'")))?;
+
+    let role = topo_ref.semantic.role.as_deref().unwrap_or("");
+    let created_by = topo_ref.semantic.created_by.as_str();
+
+    if let Some(discovery) = ctx.face_discoveries().iter().find(|discovery| {
+        discovery.role == role && discovery.feature_id.as_deref() == Some(created_by)
+    }) {
+        return custom_workplane(
+            [
+                discovery.centroid_m[0] as f64,
+                discovery.centroid_m[1] as f64,
+                discovery.centroid_m[2] as f64,
+            ],
+            [
+                discovery.normal_m[0] as f64,
+                discovery.normal_m[1] as f64,
+                discovery.normal_m[2] as f64,
+            ],
+        );
+    }
+
+    if let Some(discovery) = ctx
+        .face_discoveries()
+        .iter()
+        .find(|discovery| discovery.role == role)
+    {
+        return custom_workplane(
+            [
+                discovery.centroid_m[0] as f64,
+                discovery.centroid_m[1] as f64,
+                discovery.centroid_m[2] as f64,
+            ],
+            [
+                discovery.normal_m[0] as f64,
+                discovery.normal_m[1] as f64,
+                discovery.normal_m[2] as f64,
+            ],
+        );
+    }
+
+    if role == "top" {
+        let body = ctx.body_for_feature(created_by)?;
+        let bbox = ctx.kernel().bounding_box(&body)?;
+        return custom_workplane(
+            [
+                (bbox.min[0] + bbox.max[0]) * 0.5,
+                (bbox.min[1] + bbox.max[1]) * 0.5,
+                bbox.max[2],
+            ],
+            [0.0, 0.0, 1.0],
+        );
+    }
+
+    if let Some(normal_hint) = topo_ref.semantic.normal_hint {
+        let normal = normalize_plane_normal([
+            normal_hint[0],
+            normal_hint[1],
+            normal_hint[2],
+        ])?;
+        let body = ctx.body_for_feature(created_by)?;
+        let bbox = ctx.kernel().bounding_box(&body)?;
+        let origin = [
+            (bbox.min[0] + bbox.max[0]) * 0.5,
+            (bbox.min[1] + bbox.max[1]) * 0.5,
+            (bbox.min[2] + bbox.max[2]) * 0.5,
+        ];
+        return custom_workplane(origin, normal);
+    }
+
+    Err(OpenCadError::not_found(format!(
+        "no sketch workplane found for face_ref '{face_ref}'"
+    )))
+}
+
+fn custom_workplane(origin: [f64; 3], normal_m: [f64; 3]) -> Result<Workplane> {
+    let normal = normalize_plane_normal(normal_m)?;
+    let x_axis = x_axis_in_plane(normal);
+    Ok(Workplane::Custom {
+        origin,
+        normal,
+        x_axis,
+    })
+}
+
+fn x_axis_in_plane(normal: [f64; 3]) -> [f64; 3] {
+    let helper = if normal[2].abs() < 0.9 {
+        [0.0, 0.0, 1.0]
+    } else {
+        [1.0, 0.0, 0.0]
+    };
+    let cross = [
+        helper[1] * normal[2] - helper[2] * normal[1],
+        helper[2] * normal[0] - helper[0] * normal[2],
+        helper[0] * normal[1] - helper[1] * normal[0],
+    ];
+    let len = (cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]).sqrt();
+    if len <= 1e-12 {
+        return [1.0, 0.0, 0.0];
+    }
+    [cross[0] / len, cross[1] / len, cross[2] / len]
 }
 
 /// Resolve a mirror/reflection plane from a persisted face ref and regen discoveries.

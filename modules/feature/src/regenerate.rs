@@ -568,6 +568,80 @@ pub fn bracket_boss_join() -> Result<PartModel> {
     Ok(model)
 }
 
+/// Bracket plate with a pin boss sketched on the top face via `face_ref` workplane.
+pub fn bracket_face_pin() -> Result<PartModel> {
+    use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
+    use opencad_sketch::{
+        constraint::Constraint,
+        entity::{CircleEntity, Coord, EntityBase, PointEntity, SketchEntity},
+        workplane::Workplane,
+        Sketch,
+    };
+
+    use crate::extrude::ExtrudeFeature;
+    use crate::sketch_feature::SketchFeatureDef;
+    use opencad_graph::bracket_parameters;
+
+    let mut model = bracket_base_plate()?;
+    apply_parameters(&mut model, &bracket_parameters())?;
+
+    let mut pin_sketch = Sketch::new(
+        SketchId::new("sketch:face_pin")?,
+        "Face Pin Sketch",
+        Workplane::face_ref("ref:face:bracket_top"),
+    );
+    pin_sketch.add_entity(SketchEntity::Point(PointEntity {
+        base: EntityBase {
+            id: EntityId::new("ent:face_pin_center")?,
+            construction: false,
+        },
+        x: Coord::literal(0.0),
+        y: Coord::literal(0.0),
+    }))?;
+    pin_sketch.add_entity(SketchEntity::Circle(CircleEntity {
+        base: EntityBase {
+            id: EntityId::new("ent:face_pin_circle")?,
+            construction: false,
+        },
+        center: EntityId::new("ent:face_pin_center")?,
+        radius: Coord::literal(0.003),
+    }))?;
+    pin_sketch.add_constraint(Constraint::Radius {
+        id: ConstraintId::new("con:face_pin_radius")?,
+        target: EntityId::new("ent:face_pin_circle")?,
+        expr: Expression::new("3 mm")?,
+    })?;
+    model
+        .sketches
+        .insert(pin_sketch.id.as_str().to_string(), pin_sketch);
+
+    model.add_node(FeatureNode::new(
+        "feature:sketch_face_pin",
+        "Face Pin Sketch",
+        FeatureDefinition::Sketch(SketchFeatureDef {
+            sketch_id: "sketch:face_pin".into(),
+        }),
+    ))?;
+    let mut pin = ExtrudeFeature::join(
+        "feature:sketch_face_pin",
+        "sketch:face_pin/profile:outer",
+        "feature:extrude_base",
+        ExtrudeExtent::Distance {
+            length: Length::from_meters(0.006),
+        },
+    );
+    pin.length_expr = Some("thickness".into());
+    model.add_node(FeatureNode::new(
+        "feature:face_pin_join",
+        "Face Pin Join",
+        FeatureDefinition::Extrude(pin),
+    ))?;
+
+    model.add_dependency("feature:sketch_face_pin", "feature:face_pin_join")?;
+    model.add_dependency("feature:extrude_base", "feature:face_pin_join")?;
+    Ok(model)
+}
+
 /// Bracket base plate with a linear cut pattern of pin holes (`spacing_expr: hole_pitch`).
 pub fn bracket_hole_row() -> Result<PartModel> {
     use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
@@ -1178,6 +1252,20 @@ mod tests {
             .regenerate(&kernel, &registry, None, None)
             .expect("regen");
         assert_eq!(report.regenerated.len(), 2);
+        assert!(model.active_body().is_some());
+    }
+
+    #[test]
+    fn regenerates_bracket_face_pin() {
+        let mut model = bracket_face_pin().expect("model");
+        let kernel = MockGeometryKernel::new();
+        let registry = FeatureRegistry::with_defaults();
+        let params = opencad_graph::bracket_parameters();
+        let refs = bracket_semantic_refs();
+        let report = model
+            .regenerate(&kernel, &registry, Some(&params), Some(&refs))
+            .expect("regen");
+        assert_eq!(report.regenerated.len(), 4);
         assert!(model.active_body().is_some());
     }
 

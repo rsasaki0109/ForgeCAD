@@ -24,6 +24,7 @@ fn occt_direct_extrude_matches_expected_volume() {
             },
             ExtrudeOperation::NewBody,
             None,
+            [0.0, 0.0, 1.0],
         )
         .expect("extrude");
     let mass = kernel.mass_properties(&body, 2700.0).expect("mass");
@@ -229,6 +230,40 @@ fn occt_fillet_on_face_ref_matches_top_perimeter() {
         "face_ref fillet volume {} should match top perimeter {}",
         face_ref_mass.volume_m3,
         baseline_mass.volume_m3
+    );
+}
+
+#[test]
+fn occt_face_sketch_pin_joins_onto_plate() {
+    use opencad_feature::{bracket_base_plate, bracket_face_pin, apply_parameters};
+
+    let kernel = OcctGeometryKernel::new();
+    let registry = FeatureRegistry::with_defaults();
+    let params = bracket_parameters();
+    let refs = opencad_feature::bracket_semantic_refs();
+
+    let mut plate = bracket_base_plate().expect("plate");
+    apply_parameters(&mut plate, &params).expect("apply");
+    plate
+        .regenerate(&kernel, &registry, Some(&params), Some(&refs))
+        .expect("regen");
+    let plate_mass = kernel
+        .mass_properties(plate.active_body().expect("body"), 2700.0)
+        .expect("mass");
+
+    let mut pinned = bracket_face_pin().expect("model");
+    pinned
+        .regenerate(&kernel, &registry, Some(&params), Some(&refs))
+        .expect("regen");
+    let pinned_mass = kernel
+        .mass_properties(pinned.active_body().expect("body"), 2700.0)
+        .expect("mass");
+
+    assert!(
+        pinned_mass.volume_m3 > plate_mass.volume_m3,
+        "face sketch pin should fuse onto plate: {} vs {}",
+        pinned_mass.volume_m3,
+        plate_mass.volume_m3
     );
 }
 

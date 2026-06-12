@@ -8,6 +8,7 @@ Committed samples under `examples/` demonstrate every pattern type with both **c
 |---|---|---|---|---|---|
 | `bracket` | `bracket.ocad.d` | — | hole cut | `face_ref` | `hole_diameter` |
 | `boss-join` | `bracket_boss_join.ocad.d` | — | extrude join | `feature:extrude_base` | `length_expr: thickness * 2` |
+| `face-pin` | `bracket_face_pin.ocad.d` | — | sketch-on-face + join | `feature:extrude_base` | `face_ref` workplane |
 | `hole-row` | `bracket_hole_row.ocad.d` | linear | cut | `feature:extrude_base` | `spacing_expr: hole_pitch` |
 | `hole-ring` | `bracket_hole_ring.ocad.d` | circular | cut | `feature:extrude_base` | — |
 | `pin-row` | `bracket_pin_row.ocad.d` | linear | union | `feature:extrude_base` | `spacing_expr: hole_pitch` |
@@ -20,6 +21,7 @@ Committed samples under `examples/` demonstrate every pattern type with both **c
 ```bash
 cargo run -p opencad-cli -- new examples/bracket.ocad.d
 cargo run -p opencad-cli -- new examples/bracket_boss_join.ocad.d boss-join
+cargo run -p opencad-cli -- new examples/bracket_face_pin.ocad.d face-pin
 cargo run -p opencad-cli -- new examples/bracket_hole_row.ocad.d hole-row
 cargo run -p opencad-cli -- new examples/bracket_hole_ring.ocad.d hole-ring
 cargo run -p opencad-cli -- new examples/bracket_pin_row.ocad.d pin-row

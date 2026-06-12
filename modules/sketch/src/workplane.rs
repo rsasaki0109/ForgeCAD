@@ -12,6 +12,10 @@ pub enum Workplane {
         normal: [f64; 3],
         x_axis: [f64; 3],
     },
+    /// Resolved at regeneration from a persisted `TopoRef` face id.
+    FaceRef {
+        face_ref: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -39,6 +43,12 @@ impl Workplane {
     pub fn xz() -> Self {
         Self::Global {
             plane: GlobalPlane::XZ,
+        }
+    }
+
+    pub fn face_ref(face_ref: impl Into<String>) -> Self {
+        Self::FaceRef {
+            face_ref: face_ref.into(),
         }
     }
 }

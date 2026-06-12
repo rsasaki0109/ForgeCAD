@@ -2,8 +2,8 @@
 
 use opencad_core::{DocumentId, DocumentMetadata, Result};
 use opencad_feature::{
-    bracket_boss_join, bracket_hole_ring, bracket_hole_row, bracket_pin_mirror, bracket_pin_ring,
-    bracket_pin_row, bracket_semantic_refs, bracket_with_hole, revolve_bushing,
+    bracket_boss_join, bracket_face_pin, bracket_hole_ring, bracket_hole_row, bracket_pin_mirror,
+    bracket_pin_ring, bracket_pin_row, bracket_semantic_refs, bracket_with_hole, revolve_bushing,
 };
 use opencad_file::{write_ocad, OcadDocument};
 use opencad_graph::bracket_parameters;
@@ -14,6 +14,7 @@ pub enum DocumentTemplate {
     #[default]
     Bracket,
     BossJoin,
+    FacePin,
     HoleRow,
     HoleRing,
     PinRow,
@@ -27,6 +28,7 @@ impl DocumentTemplate {
         match name {
             "bracket" => Ok(Self::Bracket),
             "boss-join" => Ok(Self::BossJoin),
+            "face-pin" => Ok(Self::FacePin),
             "hole-row" => Ok(Self::HoleRow),
             "hole-ring" => Ok(Self::HoleRing),
             "pin-row" => Ok(Self::PinRow),
@@ -34,7 +36,7 @@ impl DocumentTemplate {
             "pin-mirror" => Ok(Self::PinMirror),
             "revolve-bushing" => Ok(Self::RevolveBushing),
             _ => Err(opencad_core::OpenCadError::validation(format!(
-                "unknown template '{name}'; expected 'bracket', 'boss-join', 'hole-row', 'hole-ring', 'pin-row', 'pin-ring', 'pin-mirror', or 'revolve-bushing'"
+                "unknown template '{name}'; expected 'bracket', 'boss-join', 'face-pin', 'hole-row', 'hole-ring', 'pin-row', 'pin-ring', 'pin-mirror', or 'revolve-bushing'"
             ))),
         }
     }
@@ -43,6 +45,7 @@ impl DocumentTemplate {
         match self {
             Self::Bracket => "bracket",
             Self::BossJoin => "boss-join",
+            Self::FacePin => "face-pin",
             Self::HoleRow => "hole-row",
             Self::HoleRing => "hole-ring",
             Self::PinRow => "pin-row",
@@ -57,6 +60,7 @@ pub fn create_document(path: &str, template: DocumentTemplate) -> Result<()> {
     match template {
         DocumentTemplate::Bracket => create_bracket_document(path),
         DocumentTemplate::BossJoin => create_bracket_boss_join_document(path),
+        DocumentTemplate::FacePin => create_bracket_face_pin_document(path),
         DocumentTemplate::HoleRow => create_bracket_hole_row_document(path),
         DocumentTemplate::HoleRing => create_bracket_hole_ring_document(path),
         DocumentTemplate::PinRow => create_bracket_pin_row_document(path),
@@ -86,6 +90,18 @@ pub fn create_bracket_boss_join_document(path: &str) -> Result<()> {
     );
     let mut doc = OcadDocument::from_part_model(metadata, &part);
     doc.parameters = bracket_parameters();
+    write_ocad(path, &doc)
+}
+
+pub fn create_bracket_face_pin_document(path: &str) -> Result<()> {
+    let part = bracket_face_pin()?;
+    let metadata = DocumentMetadata::new(
+        DocumentId::new("doc:bracket_face_pin_001")?,
+        "Bracket with Face Pin",
+    );
+    let mut doc = OcadDocument::from_part_model(metadata, &part);
+    doc.parameters = bracket_parameters();
+    doc.semantic_refs = bracket_semantic_refs();
     write_ocad(path, &doc)
 }
 

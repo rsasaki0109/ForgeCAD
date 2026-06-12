@@ -1,0 +1,35 @@
+{
+  "constraints": [
+    {
+      "sketch_id": "sketch:face_pin",
+      "constraint": {
+        "type": "radius",
+        "id": "con:face_pin_radius",
+        "target": "ent:face_pin_circle",
+        "expr": "3 mm"
+      }
+    },
+    {
+      "sketch_id": "sketch:base",
+      "constraint": {
+        "type": "distance",
+        "id": "con:height",
+        "target": {
+          "line": "ent:e1"
+        },
+        "expr": "height"
+      }
+    },
+    {
+      "sketch_id": "sketch:base",
+      "constraint": {
+        "type": "distance",
+        "id": "con:width",
+        "target": {
+          "line": "ent:e0"
+        },
+        "expr": "width"
+      }
+    }
+  ]
+}

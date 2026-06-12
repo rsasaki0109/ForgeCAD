@@ -1,0 +1,114 @@
+{
+  "feature_graph": {
+    "order": [
+      "feature:sketch_base",
+      "feature:extrude_base",
+      "feature:sketch_face_pin",
+      "feature:face_pin_join"
+    ],
+    "features": {
+      "feature:sketch_base": {
+        "id": "feature:sketch_base",
+        "name": "Base Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:extrude_base": {
+        "id": "feature:extrude_base",
+        "name": "Extrude Base",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_face_pin": {
+        "id": "feature:sketch_face_pin",
+        "name": "Face Pin Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:face_pin_join": {
+        "id": "feature:face_pin_join",
+        "name": "Face Pin Join",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      }
+    },
+    "edges": [
+      {
+        "source": "feature:sketch_base",
+        "target": "feature:extrude_base",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_face_pin",
+        "target": "feature:face_pin_join",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:extrude_base",
+        "target": "feature:face_pin_join",
+        "kind": "depends_on"
+      }
+    ]
+  },
+  "feature_nodes": [
+    {
+      "id": "feature:extrude_base",
+      "name": "Extrude Base",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_base",
+        "profile_ref": "sketch:base/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.006
+          }
+        },
+        "operation": "new_body",
+        "length_expr": "thickness"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:face_pin_join",
+      "name": "Face Pin Join",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_face_pin",
+        "profile_ref": "sketch:face_pin/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.006
+          }
+        },
+        "operation": "join",
+        "length_expr": "thickness",
+        "target_feature": "feature:extrude_base"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_base",
+      "name": "Base Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:base"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_face_pin",
+      "name": "Face Pin Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:face_pin"
+      },
+      "suppressed": false
+    }
+  ]
+}

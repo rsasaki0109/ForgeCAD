@@ -3,11 +3,15 @@
 use indexmap::IndexMap;
 
 use opencad_core::{EntityId, OpenCadError, Result};
-use opencad_geometry::SolvedSketch;
+use opencad_geometry::{ExtrudeOperation, SketchPlacement, SolvedSketch};
 use opencad_sketch::{
     entity::{expand_rectangle, Coord, LineEntity, SketchEntity},
+    workplane::{GlobalPlane, Workplane},
     Profile, ProfileKind, Sketch,
 };
+
+use crate::feature::RegenContext;
+use crate::topo_resolve::workplane_for_face_ref;
 
 const CIRCLE_SEGMENTS: usize = 32;
 
@@ -41,6 +45,102 @@ pub fn prepare_sketch(sketch: &mut Sketch) -> Result<()> {
 
 /// Build a `SolvedSketch` from a closed profile reference.
 pub fn profile_to_solved(sketch: &Sketch, profile_ref: &str) -> Result<SolvedSketch> {
+    let mut solved = profile_to_solved_local(sketch, profile_ref)?;
+    solved.placement = Some(placement_from_workplane(&sketch.workplane)?);
+    Ok(solved)
+}
+
+/// Build a `SolvedSketch` with workplane resolved from face refs during regeneration.
+pub fn profile_to_solved_with_context(
+    sketch: &Sketch,
+    profile_ref: &str,
+    ctx: &dyn RegenContext,
+) -> Result<SolvedSketch> {
+    let mut solved = profile_to_solved_local(sketch, profile_ref)?;
+    let workplane = resolve_workplane(sketch, ctx)?;
+    solved.placement = Some(placement_from_workplane(&workplane)?);
+    Ok(solved)
+}
+
+pub fn extrude_direction_for_operation(
+    sketch: &Sketch,
+    ctx: &dyn RegenContext,
+    operation: ExtrudeOperation,
+) -> Result<[f64; 3]> {
+    let mut direction = extrude_direction_for_sketch(sketch, ctx)?;
+    if matches!(operation, ExtrudeOperation::Cut) && uses_face_local_workplane(sketch) {
+        direction = [-direction[0], -direction[1], -direction[2]];
+    }
+    Ok(direction)
+}
+
+fn uses_face_local_workplane(sketch: &Sketch) -> bool {
+    matches!(
+        sketch.workplane,
+        Workplane::FaceRef { .. } | Workplane::Custom { .. }
+    )
+}
+
+pub fn extrude_direction_for_sketch(sketch: &Sketch, ctx: &dyn RegenContext) -> Result<[f64; 3]> {
+    let workplane = resolve_workplane(sketch, ctx)?;
+    Ok(placement_from_workplane(&workplane)?.extrude_direction_m())
+}
+
+fn resolve_workplane(sketch: &Sketch, ctx: &dyn RegenContext) -> Result<Workplane> {
+    match &sketch.workplane {
+        Workplane::FaceRef { face_ref } => workplane_for_face_ref(ctx, face_ref),
+        other => Ok(other.clone()),
+    }
+}
+
+pub fn placement_from_workplane(workplane: &Workplane) -> Result<SketchPlacement> {
+    match workplane {
+        Workplane::Global { plane } => Ok(match plane {
+            GlobalPlane::XY => SketchPlacement::global_xy(),
+            GlobalPlane::YZ => SketchPlacement {
+                origin_m: [0.0, 0.0, 0.0],
+                x_axis_m: [0.0, 1.0, 0.0],
+                y_axis_m: [0.0, 0.0, 1.0],
+            },
+            GlobalPlane::XZ => SketchPlacement {
+                origin_m: [0.0, 0.0, 0.0],
+                x_axis_m: [1.0, 0.0, 0.0],
+                y_axis_m: [0.0, 0.0, 1.0],
+            },
+        }),
+        Workplane::Custom {
+            origin,
+            normal: _,
+            x_axis,
+        } => {
+            let y_axis = y_axis_from_custom(x_axis);
+            Ok(SketchPlacement {
+                origin_m: *origin,
+                x_axis_m: *x_axis,
+                y_axis_m: y_axis,
+            })
+        }
+        Workplane::FaceRef { .. } => Err(OpenCadError::validation(
+            "face_ref workplane must be resolved before building sketch placement",
+        )),
+    }
+}
+
+fn y_axis_from_custom(x_axis: &[f64; 3]) -> [f64; 3] {
+    let helper = [0.0, 1.0, 0.0];
+    let cross = [
+        helper[1] * x_axis[2] - helper[2] * x_axis[1],
+        helper[2] * x_axis[0] - helper[0] * x_axis[2],
+        helper[0] * x_axis[1] - helper[1] * x_axis[0],
+    ];
+    let len = (cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]).sqrt();
+    if len <= 1e-12 {
+        return [0.0, 0.0, 1.0];
+    }
+    [cross[0] / len, cross[1] / len, cross[2] / len]
+}
+
+fn profile_to_solved_local(sketch: &Sketch, profile_ref: &str) -> Result<SolvedSketch> {
     let profile = find_profile(sketch, profile_ref)?;
     if profile.kind != ProfileKind::Closed {
         return Err(OpenCadError::validation(format!(
@@ -64,6 +164,7 @@ pub fn profile_to_solved(sketch: &Sketch, profile_ref: &str) -> Result<SolvedSke
         profile_ref: profile_ref.into(),
         points,
         closed: true,
+        placement: None,
     })
 }
 

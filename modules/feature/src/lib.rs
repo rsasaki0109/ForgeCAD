@@ -28,10 +28,14 @@ pub use pattern::{
 };
 pub use revolve::{RevolveFeature, RevolveFeatureExecutor};
 pub use regenerate::{
-    bracket_base_plate, bracket_boss_join, bracket_hole_ring, bracket_hole_row, bracket_pin_mirror,
-    bracket_pin_ring, bracket_pin_row, bracket_semantic_refs, bracket_with_hole,
-    bracket_with_top_chamfer, bracket_with_top_fillet, revolve_bushing, PartModel, RegenReport,
+    bracket_base_plate, bracket_boss_join, bracket_face_pin, bracket_hole_ring, bracket_hole_row,
+    bracket_pin_mirror, bracket_pin_ring, bracket_pin_row, bracket_semantic_refs,
+    bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet, revolve_bushing,
+    PartModel, RegenReport,
 };
 pub use registry::FeatureRegistry;
-pub use sketch_bridge::{prepare_sketch, profile_to_solved};
+pub use sketch_bridge::{
+    extrude_direction_for_sketch, placement_from_workplane, prepare_sketch,
+    profile_to_solved, profile_to_solved_with_context,
+};
 pub use sketch_feature::{SketchFeature, SketchFeatureDef};

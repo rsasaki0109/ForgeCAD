@@ -167,6 +167,20 @@ Full 360° revolve around an axis. Profile sketches use a global workplane (`XY`
 
 Holes may target a face by `face_ref` instead of only `target_feature`. When `semantic_refs` are present, the kernel face is resolved from discovery data; otherwise `target_feature` is used as a fallback.
 
+### Sketch-on-face
+
+Sketches may use a `face_ref` workplane so profile coordinates are local to a resolved face (centroid origin, in-plane axes). Extrude and hole features map the profile onto that face and sweep along the face normal (cuts use the inward direction).
+
+```json
+{
+  "id": "sketch:face_pin",
+  "workplane": {
+    "type": "face_ref",
+    "face_ref": "ref:face:bracket_top"
+  }
+}
+```
+
 ```json
 {
   "type": "hole",

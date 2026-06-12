@@ -106,6 +106,9 @@ fn profile_plane_for_workplane(workplane: &Workplane) -> Result<ProfilePlane> {
             GlobalPlane::YZ => ProfilePlane::Yz,
             GlobalPlane::XZ => ProfilePlane::Xz,
         }),
+        Workplane::FaceRef { .. } => Err(OpenCadError::validation(
+            "revolve does not support face_ref workplanes yet",
+        )),
         Workplane::Custom { .. } => Err(OpenCadError::validation(
             "custom workplanes are not supported for revolve yet",
         )),

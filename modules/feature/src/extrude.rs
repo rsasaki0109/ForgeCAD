@@ -6,7 +6,9 @@ use opencad_core::{OpenCadError, Result};
 use opencad_geometry::{BooleanOp, ExtrudeExtent, ExtrudeOperation};
 
 use crate::feature::{Feature, FeatureDefinition, FeatureNode, FeatureOutput, RegenContext};
-use crate::sketch_bridge::profile_to_solved;
+use crate::sketch_bridge::{
+    extrude_direction_for_operation, profile_to_solved_with_context,
+};
 
 /// Extrude feature parameters.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -43,7 +45,8 @@ impl Feature for ExtrudeFeatureExecutor {
         };
 
         let sketch = ctx.sketch_for_feature(def.sketch_feature.as_str())?;
-        let solved = profile_to_solved(sketch, &def.profile_ref)?;
+        let solved = profile_to_solved_with_context(sketch, &def.profile_ref, ctx)?;
+        let direction = extrude_direction_for_operation(sketch, ctx, def.operation)?;
         let kernel = ctx.kernel();
         let wire = kernel.make_wire_from_sketch(&solved)?;
 
@@ -54,9 +57,13 @@ impl Feature for ExtrudeFeatureExecutor {
             .transpose()?;
 
         let body = match def.operation {
-            ExtrudeOperation::NewBody => {
-                kernel.extrude(wire, def.extent.clone(), ExtrudeOperation::NewBody, None)?
-            }
+            ExtrudeOperation::NewBody => kernel.extrude(
+                wire,
+                def.extent.clone(),
+                ExtrudeOperation::NewBody,
+                None,
+                direction,
+            )?,
             ExtrudeOperation::Cut => {
                 let Some(target) = target_body else {
                     return Err(OpenCadError::validation(
@@ -68,11 +75,17 @@ impl Feature for ExtrudeFeatureExecutor {
                     def.extent.clone(),
                     ExtrudeOperation::Cut,
                     Some(target),
+                    direction,
                 )?
             }
             ExtrudeOperation::Join => {
-                let new_body =
-                    kernel.extrude(wire, def.extent.clone(), ExtrudeOperation::NewBody, None)?;
+                let new_body = kernel.extrude(
+                    wire,
+                    def.extent.clone(),
+                    ExtrudeOperation::NewBody,
+                    None,
+                    direction,
+                )?;
                 let Some(target) = target_body else {
                     return Err(OpenCadError::validation(
                         "join extrude requires target_feature",

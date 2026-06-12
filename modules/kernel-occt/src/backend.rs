@@ -82,6 +82,7 @@ impl GeometryKernel for OcctGeometryKernel {
         extent: ExtrudeExtent,
         operation: ExtrudeOperation,
         target: Option<KernelBody>,
+        direction_m: [f64; 3],
     ) -> Result<KernelBody> {
         #[cfg(feature = "occt")]
         {
@@ -101,8 +102,22 @@ impl GeometryKernel for OcctGeometryKernel {
                 return Err(OpenCadError::validation("extrude length must be positive"));
             }
 
-            let mut solid =
-                Solid::extrude(edges.iter(), DVec3::Z * length_m).map_err(map_occt_error)?;
+            let dir_len = (direction_m[0].powi(2)
+                + direction_m[1].powi(2)
+                + direction_m[2].powi(2))
+            .sqrt();
+            if dir_len <= 1e-12 {
+                return Err(OpenCadError::validation(
+                    "extrude direction must be a non-zero vector",
+                ));
+            }
+            let direction = DVec3::new(
+                direction_m[0] / dir_len * length_m,
+                direction_m[1] / dir_len * length_m,
+                direction_m[2] / dir_len * length_m,
+            );
+
+            let mut solid = Solid::extrude(edges.iter(), direction).map_err(map_occt_error)?;
 
             if let ExtrudeOperation::Cut = operation {
                 let Some(target_body) = target else {
@@ -124,7 +139,7 @@ impl GeometryKernel for OcctGeometryKernel {
         }
         #[cfg(not(feature = "occt"))]
         {
-            let _ = (profile, extent, operation, target);
+            let _ = (profile, extent, operation, target, direction_m);
             Err(OpenCadError::Other("OCCT backend disabled".into()))
         }
     }
@@ -548,6 +563,7 @@ mod tests {
             profile_ref: "sketch:base/profile:outer".into(),
             points: vec![[0.0, 0.0], [0.08, 0.0], [0.08, 0.06], [0.0, 0.06]],
             closed: true,
+            placement: None,
         }
     }
 
@@ -565,6 +581,7 @@ mod tests {
                 },
                 ExtrudeOperation::NewBody,
                 None,
+                [0.0, 0.0, 1.0],
             )
             .expect("extrude");
 
@@ -588,6 +605,7 @@ mod tests {
                 },
                 ExtrudeOperation::NewBody,
                 None,
+                [0.0, 0.0, 1.0],
             )
             .expect("extrude");
         let mesh = kernel
@@ -615,6 +633,7 @@ mod tests {
                 },
                 ExtrudeOperation::NewBody,
                 None,
+                [0.0, 0.0, 1.0],
             )
             .expect("extrude");
 
@@ -640,6 +659,7 @@ mod tests {
                 },
                 ExtrudeOperation::NewBody,
                 None,
+                [0.0, 0.0, 1.0],
             )
             .expect("extrude");
 
@@ -671,6 +691,7 @@ mod tests {
                 },
                 ExtrudeOperation::NewBody,
                 None,
+                [0.0, 0.0, 1.0],
             )
             .expect("extrude");
 
@@ -702,6 +723,7 @@ mod tests {
                 },
                 ExtrudeOperation::NewBody,
                 None,
+                [0.0, 0.0, 1.0],
             )
             .expect("extrude");
         let translated = kernel
@@ -725,6 +747,7 @@ mod tests {
                 },
                 ExtrudeOperation::NewBody,
                 None,
+                [0.0, 0.0, 1.0],
             )
             .expect("extrude");
         let before = kernel.mass_properties(&body, 2700.0).expect("before");
@@ -759,6 +782,7 @@ mod tests {
                 },
                 ExtrudeOperation::NewBody,
                 None,
+                [0.0, 0.0, 1.0],
             )
             .expect("extrude");
         let before = kernel.mass_properties(&body, 2700.0).expect("before");
