@@ -20,6 +20,7 @@ cargo run -p opencad-cli -- help
 cargo run -p opencad-cli -- regen examples/bracket.ocad.d
 cargo run -p opencad-cli -- new my_part.ocad.d hole-row
 cargo run -p opencad-cli -- new my_bosses.ocad.d pin-row
+cargo run -p opencad-cli -- new my_ring.ocad.d pin-ring
 cargo run -p opencad-cli -- new my_mirror.ocad.d pin-mirror
 ```
 
