@@ -170,12 +170,11 @@ pub fn run_viewport(
                                 .clamp(min_distance, max_distance);
                             app.window.request_redraw();
                         }
-                        WindowEvent::KeyboardInput { event, .. } => {
+                        WindowEvent::KeyboardInput { event, .. }
                             if event.state == ElementState::Pressed
-                                && event.logical_key == Key::Named(NamedKey::Escape)
-                            {
-                                elwt.exit();
-                            }
+                                && event.logical_key == Key::Named(NamedKey::Escape) =>
+                        {
+                            elwt.exit();
                         }
                         _ => {}
                     }
