@@ -39,15 +39,10 @@ impl FeatureRegistry {
     }
 
     pub fn register(&mut self, executor: Box<dyn Feature>) {
-        self.executors
-            .insert(executor.feature_type(), executor);
+        self.executors.insert(executor.feature_type(), executor);
     }
 
-    pub fn execute(
-        &self,
-        node: &FeatureNode,
-        ctx: &dyn RegenContext,
-    ) -> Result<FeatureOutput> {
+    pub fn execute(&self, node: &FeatureNode, ctx: &dyn RegenContext) -> Result<FeatureOutput> {
         let feature_type = node.definition.feature_type();
         let executor = self.executors.get(feature_type).ok_or_else(|| {
             OpenCadError::validation(format!("unknown feature type '{feature_type}'"))

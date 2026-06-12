@@ -23,13 +23,7 @@ pub fn screenshot_document(input: &str, output: &str) -> Result<()> {
     } else {
         Some(&data.overlay)
     };
-    renderer.render_scene_png(
-        &data.scene,
-        overlay,
-        PREVIEW_WIDTH,
-        PREVIEW_HEIGHT,
-        output,
-    )?;
+    renderer.render_scene_png(&data.scene, overlay, PREVIEW_WIDTH, PREVIEW_HEIGHT, output)?;
     println!("screenshot: {output}");
     Ok(())
 }
@@ -58,8 +52,11 @@ mod tests {
         write_bracket_fixture_at(&path);
         let png_path = dir.path().join("preview.png");
 
-        screenshot_document(path.to_str().expect("path"), png_path.to_str().expect("png"))
-            .expect("screenshot");
+        screenshot_document(
+            path.to_str().expect("path"),
+            png_path.to_str().expect("png"),
+        )
+        .expect("screenshot");
         let bytes = std::fs::read(&png_path).expect("read png");
         assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"));
     }

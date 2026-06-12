@@ -1,11 +1,11 @@
 //! Design graph queries (Task-148+).
 
+use indexmap::IndexMap;
 use opencad_core::{OpenCadError, Result};
 use opencad_feature::{FeatureDefinition, FeatureNode};
 use opencad_geometry::TopoRef;
 use opencad_graph::{evaluate_param_graph, DependencyEdge, FeatureGraph, ParamGraph};
 use opencad_sketch::{Constraint, Sketch, SketchEntity};
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 /// Query target sent by agents.
@@ -152,23 +152,59 @@ pub struct DependencyNeighbors {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum QueryResult {
-    Parameters { items: Vec<ParameterInfo> },
-    Parameter { item: ParameterInfo },
-    Features { items: Vec<FeatureInfo> },
-    Feature { item: FeatureDetail },
-    FeatureOrder { order: Vec<String> },
-    Sketches { items: Vec<SketchInfo> },
-    Sketch { item: Sketch },
-    SketchConstraints { sketch_id: String, items: Vec<Constraint> },
-    SketchEntities { sketch_id: String, items: Vec<SketchEntityInfo> },
-    FeatureDependencies { edges: Vec<DependencyEdge> },
-    FeatureDependencyNeighbors { item: DependencyNeighbors },
-    ParameterDependencies { edges: Vec<DependencyEdge> },
-    ParameterDependencyNeighbors { item: DependencyNeighbors },
-    OverlayLines { items: Vec<OverlayLineInfo> },
-    FaceGroups { items: Vec<FaceGroupInfo> },
-    SemanticRefs { items: Vec<SemanticRefInfo> },
-    SemanticRef { item: SemanticRefInfo },
+    Parameters {
+        items: Vec<ParameterInfo>,
+    },
+    Parameter {
+        item: ParameterInfo,
+    },
+    Features {
+        items: Vec<FeatureInfo>,
+    },
+    Feature {
+        item: FeatureDetail,
+    },
+    FeatureOrder {
+        order: Vec<String>,
+    },
+    Sketches {
+        items: Vec<SketchInfo>,
+    },
+    Sketch {
+        item: Sketch,
+    },
+    SketchConstraints {
+        sketch_id: String,
+        items: Vec<Constraint>,
+    },
+    SketchEntities {
+        sketch_id: String,
+        items: Vec<SketchEntityInfo>,
+    },
+    FeatureDependencies {
+        edges: Vec<DependencyEdge>,
+    },
+    FeatureDependencyNeighbors {
+        item: DependencyNeighbors,
+    },
+    ParameterDependencies {
+        edges: Vec<DependencyEdge>,
+    },
+    ParameterDependencyNeighbors {
+        item: DependencyNeighbors,
+    },
+    OverlayLines {
+        items: Vec<OverlayLineInfo>,
+    },
+    FaceGroups {
+        items: Vec<FaceGroupInfo>,
+    },
+    SemanticRefs {
+        items: Vec<SemanticRefInfo>,
+    },
+    SemanticRef {
+        item: SemanticRefInfo,
+    },
 }
 
 pub fn query_needs_scene(query: &DesignQuery) -> bool {
@@ -406,11 +442,7 @@ fn list_sketch_entities(sketches: &[Sketch], sketch_id: &str) -> Result<Vec<Sket
         .iter()
         .find(|sketch| sketch.id.as_str() == sketch_id)
         .ok_or_else(|| OpenCadError::not_found(format!("sketch '{sketch_id}'")))?;
-    let mut items: Vec<SketchEntityInfo> = sketch
-        .entities
-        .iter()
-        .map(sketch_entity_info)
-        .collect();
+    let mut items: Vec<SketchEntityInfo> = sketch.entities.iter().map(sketch_entity_info).collect();
     items.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(items)
 }
@@ -506,7 +538,10 @@ mod tests {
             panic!("expected parameters list");
         };
         assert_eq!(items.len(), 7);
-        let width = items.iter().find(|item| item.name == "width").expect("width");
+        let width = items
+            .iter()
+            .find(|item| item.name == "width")
+            .expect("width");
         assert!((width.value_m.expect("value") - 0.08).abs() < 1e-9);
     }
 
@@ -528,7 +563,10 @@ mod tests {
         let QueryResult::FeatureOrder { order } = result else {
             panic!("expected feature order");
         };
-        assert_eq!(order.first().map(String::as_str), Some("feature:sketch_base"));
+        assert_eq!(
+            order.first().map(String::as_str),
+            Some("feature:sketch_base")
+        );
         assert_eq!(order.last().map(String::as_str), Some("feature:hole_mount"));
     }
 

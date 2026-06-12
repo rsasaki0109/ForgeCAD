@@ -78,21 +78,9 @@ impl FaceCatalog {
                     None
                 };
                 let group_index = if let Some(kernel_face_id) = kernel_face_id {
-                    group_index_for_kernel_face(
-                        &mut groups,
-                        kernel_face_id,
-                        role,
-                        normal,
-                        centroid,
-                    )
+                    group_index_for_kernel_face(&mut groups, kernel_face_id, role, normal, centroid)
                 } else {
-                    group_index_for(
-                        &mut groups,
-                        role,
-                        normal,
-                        centroid,
-                        triangle_index,
-                    )
+                    group_index_for(&mut groups, role, normal, centroid, triangle_index)
                 };
                 triangle_group.push(group_index);
                 triangle_index += 1;
@@ -157,9 +145,10 @@ fn group_index_for(
     triangle_index: usize,
 ) -> usize {
     let key = group_key(role, normal, centroid);
-    if let Some(index) = groups.iter().position(|group| {
-        group_key(group.role, group.normal, group.centroid) == key
-    }) {
+    if let Some(index) = groups
+        .iter()
+        .position(|group| group_key(group.role, group.normal, group.centroid) == key)
+    {
         groups[index].triangle_count += 1;
         return index;
     }
@@ -241,11 +230,7 @@ fn triangle_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let vx = c[0] - a[0];
     let vy = c[1] - a[1];
     let vz = c[2] - a[2];
-    normalize([
-        uy * vz - uz * vy,
-        uz * vx - ux * vz,
-        ux * vy - uy * vx,
-    ])
+    normalize([uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx])
 }
 
 fn triangle_centroid(points: [[f32; 3]; 3]) -> [f32; 3] {
@@ -278,10 +263,17 @@ mod tests {
     fn catalog_groups_planar_triangles_by_role() {
         let mesh = RenderMesh::from_mesh_set(&MeshSet::box_prism(0.08, 0.001));
         let bounds = BoundingBox::from_positions(&mesh.positions).expect("bounds");
-        let catalog = FaceCatalog::from_meshes(std::slice::from_ref(&mesh), &bounds).expect("catalog");
+        let catalog =
+            FaceCatalog::from_meshes(std::slice::from_ref(&mesh), &bounds).expect("catalog");
         assert_eq!(catalog.triangle_count(), mesh.triangle_count());
-        assert!(catalog.groups.iter().any(|group| group.role == FaceRole::Top));
-        assert!(catalog.groups.iter().any(|group| group.role == FaceRole::Bottom));
+        assert!(catalog
+            .groups
+            .iter()
+            .any(|group| group.role == FaceRole::Top));
+        assert!(catalog
+            .groups
+            .iter()
+            .any(|group| group.role == FaceRole::Bottom));
         assert!(catalog.group_at(0).is_some());
     }
 
@@ -289,7 +281,8 @@ mod tests {
     fn catalog_groups_by_kernel_face_id_when_present() {
         let mesh = RenderMesh::from_mesh_set(&MeshSet::box_prism(0.08, 0.001));
         let bounds = BoundingBox::from_positions(&mesh.positions).expect("bounds");
-        let catalog = FaceCatalog::from_meshes(std::slice::from_ref(&mesh), &bounds).expect("catalog");
+        let catalog =
+            FaceCatalog::from_meshes(std::slice::from_ref(&mesh), &bounds).expect("catalog");
         assert_eq!(catalog.groups.len(), 2);
         assert!(catalog
             .groups

@@ -58,10 +58,7 @@ pub fn dry_run_patch_state(before: &DesignState, patch: &DesignPatch) -> PatchDr
 
 /// Validate that a patch can be applied and evaluated against a parameter graph.
 pub fn dry_run_patch(before: &ParamGraph, patch: &DesignPatch) -> PatchDryRunReport {
-    dry_run_patch_state(
-        &DesignState::new(before.clone(), Vec::new()),
-        patch,
-    )
+    dry_run_patch_state(&DesignState::new(before.clone(), Vec::new()), patch)
 }
 
 /// Fail fast when dry-run validation contains errors.

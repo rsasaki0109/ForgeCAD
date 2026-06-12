@@ -427,11 +427,8 @@ pub(crate) fn pick_scene(ctx: ScenePickContext<'_>, x: f64, y: f64) -> Result<Pi
     let color_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());
     let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-    let pick_bind_group = create_uniform_bind_group(
-        device,
-        pick_uniform_layout,
-        &Uniforms { view_proj },
-    );
+    let pick_bind_group =
+        create_uniform_bind_group(device, pick_uniform_layout, &Uniforms { view_proj });
 
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("pick-encoder"),

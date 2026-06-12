@@ -4,9 +4,7 @@ use std::collections::BTreeMap;
 
 use opencad_feature::FeatureNode;
 use opencad_geometry::TopoRef;
-use opencad_graph::{
-    build_summary, diff_param_graphs, diff_semantic_refs, DesignDiff, ParamGraph,
-};
+use opencad_graph::{build_summary, diff_param_graphs, diff_semantic_refs, DesignDiff, ParamGraph};
 
 /// Parameter, feature, and semantic-ref slice of a design document.
 #[derive(Debug, Clone, PartialEq)]
@@ -41,7 +39,10 @@ impl DesignState {
 /// Compare two design states and return a semantic diff.
 pub fn diff_design_state(before: &DesignState, after: &DesignState) -> DesignDiff {
     let mut changes = diff_param_graphs(&before.parameters, &after.parameters);
-    changes.extend(diff_feature_nodes(&before.feature_nodes, &after.feature_nodes));
+    changes.extend(diff_feature_nodes(
+        &before.feature_nodes,
+        &after.feature_nodes,
+    ));
     changes.extend(diff_semantic_refs(
         &before.semantic_refs,
         &after.semantic_refs,
@@ -49,17 +50,16 @@ pub fn diff_design_state(before: &DesignState, after: &DesignState) -> DesignDif
     DesignDiff::semantic(build_summary(&changes), changes)
 }
 
-fn diff_feature_nodes(before: &[FeatureNode], after: &[FeatureNode]) -> Vec<opencad_graph::SemanticChange> {
+fn diff_feature_nodes(
+    before: &[FeatureNode],
+    after: &[FeatureNode],
+) -> Vec<opencad_graph::SemanticChange> {
     use opencad_graph::SemanticChange;
 
-    let before_map: BTreeMap<String, &FeatureNode> = before
-        .iter()
-        .map(|node| (node.id.clone(), node))
-        .collect();
-    let after_map: BTreeMap<String, &FeatureNode> = after
-        .iter()
-        .map(|node| (node.id.clone(), node))
-        .collect();
+    let before_map: BTreeMap<String, &FeatureNode> =
+        before.iter().map(|node| (node.id.clone(), node)).collect();
+    let after_map: BTreeMap<String, &FeatureNode> =
+        after.iter().map(|node| (node.id.clone(), node)).collect();
 
     let mut ids = BTreeMap::new();
     for id in before_map.keys() {

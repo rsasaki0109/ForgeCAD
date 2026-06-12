@@ -22,11 +22,7 @@ impl Feature for SketchFeature {
         "sketch"
     }
 
-    fn execute(
-        &self,
-        node: &FeatureNode,
-        _ctx: &dyn RegenContext,
-    ) -> Result<FeatureOutput> {
+    fn execute(&self, node: &FeatureNode, _ctx: &dyn RegenContext) -> Result<FeatureOutput> {
         let FeatureDefinition::Sketch(_) = &node.definition else {
             return Err(OpenCadError::validation(format!(
                 "expected sketch feature, got {}",

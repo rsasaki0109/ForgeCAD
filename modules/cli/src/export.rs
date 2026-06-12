@@ -5,7 +5,9 @@ use std::path::Path;
 use opencad_core::{OpenCadError, Result};
 use opencad_feature::{FeatureRegistry, PartModel};
 use opencad_file::read_ocad;
-use opencad_geometry::{write_binary_stl, FaceDerivation, GeometryKernel, MeshSet, TessellationSettings, TopoRef};
+use opencad_geometry::{
+    write_binary_stl, FaceDerivation, GeometryKernel, MeshSet, TessellationSettings, TopoRef,
+};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "occt")]
@@ -28,7 +30,9 @@ pub fn export_stl(input: &str, output: &str) -> Result<ExportSummary> {
     let mesh = tessellate_active_body(&mut model, Some(&parameters), Some(&semantic_refs))?;
     let output_path = Path::new(output);
     if output_path.extension().and_then(|s| s.to_str()) != Some("stl") {
-        return Err(OpenCadError::validation("export output must use .stl extension"));
+        return Err(OpenCadError::validation(
+            "export output must use .stl extension",
+        ));
     }
     write_binary_stl(output_path, &mesh, &name)?;
     Ok(ExportSummary {

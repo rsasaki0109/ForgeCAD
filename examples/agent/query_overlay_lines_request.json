@@ -3,7 +3,7 @@
   "id": 16,
   "method": "opencad.query_document",
   "params": {
-    "path": "bracket.ocad.d",
+    "path": "examples/bracket.ocad.d",
     "query": { "kind": "list_overlay_lines" }
   }
 }

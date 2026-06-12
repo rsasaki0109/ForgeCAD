@@ -3,7 +3,7 @@
   "id": 2,
   "method": "opencad.diff_document",
   "params": {
-    "before": "bracket.ocad.d",
+    "before": "examples/bracket.ocad.d",
     "patch": {
       "operations": [
         { "type": "set_parameter", "id": "param:width", "expr": "100 mm" }

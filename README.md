@@ -1,5 +1,7 @@
 # ForgeCAD
 
+![CI](https://github.com/rsasaki0109/ForgeCAD/actions/workflows/ci.yml/badge.svg)
+
 AI-native, open-source, parametric 3D CAD engine.
 
 ForgeCAD treats the **Design Graph** as the source of truth — not the GUI and not a cached B-Rep shape. Human operators, AI agents, and CI pipelines all work against the same deterministic, Git-friendly design data.
@@ -53,9 +55,29 @@ Optional system install: see [docs/developer-guide/occt-install.md](docs/develop
 cargo test --workspace
 cargo run -p opencad-cli -- --help
 
+# Sample documents (also in examples/)
+cargo run -p opencad-cli -- new examples/bracket.ocad.d
+cargo run -p opencad-cli -- new examples/bracket_hole_row.ocad.d hole-row
+cargo run -p opencad-cli -- regen examples/bracket.ocad.d
+
 # Agent API (JSON-RPC on stdio)
-echo '{"jsonrpc":"2.0","id":1,"method":"opencad.inspect","params":{"path":"bracket.ocad.d"}}' \
+echo '{"jsonrpc":"2.0","id":1,"method":"opencad.inspect","params":{"path":"examples/bracket.ocad.d"}}' \
   | opencad agent
+```
+
+## Examples
+
+| Path | Description |
+|---|---|
+| `examples/bracket.ocad.d` | Bracket plate with centered mounting hole |
+| `examples/bracket_hole_row.ocad.d` | Linear cut pattern with `spacing_expr: hole_pitch` |
+| `examples/agent/` | JSON-RPC request samples for `opencad agent` |
+
+Regenerate and export:
+
+```bash
+cargo run -p opencad-cli -- regen examples/bracket_hole_row.ocad.d
+cargo run -p opencad-cli -- export examples/bracket.ocad.d bracket.stl
 ```
 
 ## Agent API

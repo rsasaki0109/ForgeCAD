@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use opencad_core::{EntityId, Expression, OpenCadError, Result};
 use opencad_graph::eval_length_expr;
 use opencad_sketch::{
-    constraint::{Constraint, DistanceTarget, EqualTarget, EntityRef, LineEnd, RectangleEdge},
+    constraint::{Constraint, DistanceTarget, EntityRef, EqualTarget, LineEnd, RectangleEdge},
     entity::{Coord, LineEntity, SketchEntity},
     workplane::{GlobalPlane, Workplane},
     Sketch,
@@ -171,11 +171,7 @@ pub fn label_depth_offset_for_bounds(diagonal: f32) -> f32 {
 }
 
 /// Nudge overlay vertices slightly toward `eye` to reduce depth fighting.
-pub fn bias_vertices_toward_camera(
-    vertices: &mut [[f32; 3]],
-    eye: [f32; 3],
-    offset_m: f32,
-) {
+pub fn bias_vertices_toward_camera(vertices: &mut [[f32; 3]], eye: [f32; 3], offset_m: f32) {
     if offset_m <= 0.0 {
         return;
     }
@@ -321,9 +317,14 @@ fn append_constraint_labels(
                     right,
                     up,
                 });
-                if let Some(dimension_line) =
-                    dimension_witness_line(&sketch.workplane, sketch, &points, target, outward, offset)
-                {
+                if let Some(dimension_line) = dimension_witness_line(
+                    &sketch.workplane,
+                    sketch,
+                    &points,
+                    target,
+                    outward,
+                    offset,
+                ) {
                     overlay.dimension_lines.push(dimension_line);
                 }
             }
@@ -378,7 +379,8 @@ fn append_constraint_labels(
                 append_coincident_symbol(&sketch.workplane, point, &mut overlay.symbol_lines);
             }
             Constraint::Parallel { line_a, line_b, .. } => {
-                let Some(anchor) = pair_line_anchor(sketch, &points, line_a, line_b, centroid) else {
+                let Some(anchor) = pair_line_anchor(sketch, &points, line_a, line_b, centroid)
+                else {
                     continue;
                 };
                 overlay.labels.push(OverlayLabel {
@@ -444,13 +446,16 @@ fn distance_anchor(
         DistanceTarget::LineLength { line } => line_anchor(sketch, points, line, centroid)
             .ok_or_else(|| OpenCadError::not_found(format!("line '{}'", line.as_str()))),
         DistanceTarget::PointToPoint { a, b } => {
-            let start = *points.get(a.as_str()).ok_or_else(|| {
-                OpenCadError::not_found(format!("point '{}'", a.as_str()))
-            })?;
-            let end = *points.get(b.as_str()).ok_or_else(|| {
-                OpenCadError::not_found(format!("point '{}'", b.as_str()))
-            })?;
-            Ok((midpoint(start, end), outward_from_segment(start, end, centroid)))
+            let start = *points
+                .get(a.as_str())
+                .ok_or_else(|| OpenCadError::not_found(format!("point '{}'", a.as_str())))?;
+            let end = *points
+                .get(b.as_str())
+                .ok_or_else(|| OpenCadError::not_found(format!("point '{}'", b.as_str())))?;
+            Ok((
+                midpoint(start, end),
+                outward_from_segment(start, end, centroid),
+            ))
         }
         DistanceTarget::RectangleDimension { rectangle, edge } => {
             rectangle_edge_anchor(sketch, points, rectangle, *edge, centroid)
@@ -534,9 +539,9 @@ fn circle_label_position(
     else {
         return Ok(None);
     };
-    let center = points.get(circle.center.as_str()).ok_or_else(|| {
-        OpenCadError::not_found(format!("point '{}'", circle.center.as_str()))
-    })?;
+    let center = points
+        .get(circle.center.as_str())
+        .ok_or_else(|| OpenCadError::not_found(format!("point '{}'", circle.center.as_str())))?;
     let radius = eval_coord(&circle.radius, values)?;
     let anchor = [center[0] + radius * 0.35, center[1] + radius * 0.35];
     Ok(Some(plane_to_world(&sketch.workplane, &anchor)))
@@ -549,10 +554,12 @@ fn rectangle_edge_anchor(
     edge: RectangleEdge,
     centroid: [f64; 2],
 ) -> Result<([f64; 2], [f64; 2])> {
-    let (start, end) = rectangle_edge_endpoints(sketch, points, rectangle_id, edge).ok_or_else(|| {
-        OpenCadError::not_found(format!("rectangle '{}'", rectangle_id.as_str()))
-    })?;
-    Ok((midpoint(start, end), outward_from_segment(start, end, centroid)))
+    let (start, end) = rectangle_edge_endpoints(sketch, points, rectangle_id, edge)
+        .ok_or_else(|| OpenCadError::not_found(format!("rectangle '{}'", rectangle_id.as_str())))?;
+    Ok((
+        midpoint(start, end),
+        outward_from_segment(start, end, centroid),
+    ))
 }
 
 fn rectangle_edge_endpoints(
@@ -586,11 +593,7 @@ fn rectangle_edge_length(
         .unwrap_or(0.01)
 }
 
-fn line_length(
-    sketch: &Sketch,
-    points: &IndexMap<String, [f64; 2]>,
-    line_id: &EntityId,
-) -> f64 {
+fn line_length(sketch: &Sketch, points: &IndexMap<String, [f64; 2]>, line_id: &EntityId) -> f64 {
     line_endpoints(sketch, points, line_id)
         .map(|(start, end)| segment_length(start, end))
         .unwrap_or(0.01)
@@ -773,10 +776,7 @@ fn append_perpendicular_symbol(
         anchor[0] + line_dir[0] * size,
         anchor[1] + line_dir[1] * size,
     ];
-    let end = [
-        corner[0] + perp[0] * size,
-        corner[1] + perp[1] * size,
-    ];
+    let end = [corner[0] + perp[0] * size, corner[1] + perp[1] * size];
     lines.push(overlay_line(
         plane_to_world(workplane, &anchor),
         plane_to_world(workplane, &corner),
@@ -843,7 +843,10 @@ fn offset_point(
     outward: [f64; 2],
     distance: f64,
 ) -> [f32; 3] {
-    let point = [anchor[0] + outward[0] * distance, anchor[1] + outward[1] * distance];
+    let point = [
+        anchor[0] + outward[0] * distance,
+        anchor[1] + outward[1] * distance,
+    ];
     plane_to_world(workplane, &point)
 }
 
@@ -874,7 +877,10 @@ fn to_f32(v: [f64; 3]) -> [f32; 3] {
     [v[0] as f32, v[1] as f32, v[2] as f32]
 }
 
-fn point_map(sketch: &Sketch, values: &IndexMap<String, f64>) -> Result<IndexMap<String, [f64; 2]>> {
+fn point_map(
+    sketch: &Sketch,
+    values: &IndexMap<String, f64>,
+) -> Result<IndexMap<String, [f64; 2]>> {
     let mut points = IndexMap::new();
     for entity in &sketch.entities {
         let SketchEntity::Point(point) = entity else {
@@ -1095,7 +1101,11 @@ mod tests {
             "Symbols",
             Workplane::xy(),
         );
-        for (id, x, y) in [("ent:p0", 0.0, 0.0), ("ent:p1", 0.04, 0.0), ("ent:p2", 0.0, 0.03)] {
+        for (id, x, y) in [
+            ("ent:p0", 0.0, 0.0),
+            ("ent:p1", 0.04, 0.0),
+            ("ent:p2", 0.0, 0.03),
+        ] {
             sketch
                 .add_entity(SketchEntity::Point(PointEntity {
                     base: EntityBase {
@@ -1107,7 +1117,10 @@ mod tests {
                 }))
                 .expect("point");
         }
-        for (id, start, end) in [("ent:l0", "ent:p0", "ent:p1"), ("ent:l1", "ent:p0", "ent:p2")] {
+        for (id, start, end) in [
+            ("ent:l0", "ent:p0", "ent:p1"),
+            ("ent:l1", "ent:p0", "ent:p2"),
+        ] {
             sketch
                 .add_entity(SketchEntity::Line(LineEntity {
                     base: EntityBase {

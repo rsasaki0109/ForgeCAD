@@ -27,7 +27,9 @@ pub fn prepare_sketch(sketch: &mut Sketch) -> Result<()> {
         for rect in rectangles {
             expanded.extend(expand_rectangle(&rect)?);
         }
-        sketch.entities.retain(|e| !matches!(e, SketchEntity::Rectangle(_)));
+        sketch
+            .entities
+            .retain(|e| !matches!(e, SketchEntity::Rectangle(_)));
         for entity in expanded {
             sketch.add_entity(entity)?;
         }
@@ -129,9 +131,10 @@ fn line_loop_points(sketch: &Sketch, profile: &Profile) -> Result<Vec<[f64; 2]>>
     let mut remaining: Vec<&LineEntity> = profile_lines[1..].to_vec();
 
     while current_end != start {
-        let Some(idx) = remaining.iter().position(|line| {
-            line.start == current_end || line.end == current_end
-        }) else {
+        let Some(idx) = remaining
+            .iter()
+            .position(|line| line.start == current_end || line.end == current_end)
+        else {
             break;
         };
         let line = remaining.remove(idx);
@@ -195,13 +198,13 @@ fn circle_profile_points(sketch: &Sketch, circle_id: &EntityId) -> Result<Vec<[f
 #[cfg(test)]
 mod tests {
     use super::*;
+    use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
     use opencad_sketch::{
         constraint::{Constraint, DistanceTarget},
         entity::{EntityBase, LineEntity, PointEntity},
         workplane::Workplane,
         Sketch,
     };
-    use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
 
     fn solved_rectangle_sketch() -> Sketch {
         let mut sketch = Sketch::new(

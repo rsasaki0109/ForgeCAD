@@ -16,20 +16,18 @@ pub mod topo_resolve;
 
 pub use chamfer::{ChamferFeature, ChamferFeatureExecutor};
 pub use extrude::{ExtrudeFeature, ExtrudeFeatureExecutor};
-pub use feature::{
-    Feature, FeatureDefinition, FeatureNode, FeatureOutput, RegenContext,
-};
+pub use feature::{Feature, FeatureDefinition, FeatureNode, FeatureOutput, RegenContext};
 pub use fillet::{FilletFeature, FilletFeatureExecutor};
 pub use hole::{HoleFeature, HoleFeatureExecutor};
+pub use param_apply::apply_parameters;
 pub use pattern::{
     CircularPatternFeature, CircularPatternFeatureExecutor, LinearPatternFeature,
     LinearPatternFeatureExecutor, MirrorPatternFeature, MirrorPatternFeatureExecutor,
     PatternOperation,
 };
-pub use param_apply::apply_parameters;
 pub use regenerate::{
-    bracket_base_plate, bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet,
-    PartModel, RegenReport,
+    bracket_base_plate, bracket_hole_row, bracket_with_hole, bracket_with_top_chamfer,
+    bracket_with_top_fillet, PartModel, RegenReport,
 };
 pub use registry::FeatureRegistry;
 pub use sketch_bridge::{prepare_sketch, profile_to_solved};

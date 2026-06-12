@@ -24,7 +24,7 @@ pub fn run() -> Result<()> {
             print_version();
             Ok(())
         }
-        Some("new") => cmd_new(args.next().as_deref()),
+        Some("new") => cmd_new(args.next().as_deref(), &args.collect::<Vec<_>>()),
         Some("validate") => cmd_validate(args.next().as_deref()),
         Some("inspect") => cmd_inspect(args.next().as_deref()),
         Some("regen") => cmd_regen(args.next().as_deref(), &args.collect::<Vec<_>>()),
@@ -42,28 +42,31 @@ pub fn run() -> Result<()> {
     }
 }
 
-fn cmd_new(path: Option<&str>) -> Result<()> {
+fn cmd_new(path: Option<&str>, extra_args: &[String]) -> Result<()> {
     let path = path.ok_or_else(|| {
-        opencad_core::OpenCadError::validation("usage: opencad new <path>")
+        opencad_core::OpenCadError::validation("usage: opencad new <path> [bracket|hole-row]")
     })?;
-    new::create_bracket_document(path)?;
-    println!("created: {path}");
+    let template = extra_args
+        .first()
+        .map(|arg| new::DocumentTemplate::parse(arg))
+        .transpose()?
+        .unwrap_or_default();
+    new::create_document(path, template)?;
+    println!("created: {path} ({})", template.as_str());
     Ok(())
 }
 
 fn cmd_validate(path: Option<&str>) -> Result<()> {
-    let path = path.ok_or_else(|| {
-        opencad_core::OpenCadError::validation("usage: opencad validate <path>")
-    })?;
+    let path = path
+        .ok_or_else(|| opencad_core::OpenCadError::validation("usage: opencad validate <path>"))?;
     validate_ocad(path)?;
     println!("valid: {path}");
     Ok(())
 }
 
 fn cmd_inspect(path: Option<&str>) -> Result<()> {
-    let path = path.ok_or_else(|| {
-        opencad_core::OpenCadError::validation("usage: opencad inspect <path>")
-    })?;
+    let path = path
+        .ok_or_else(|| opencad_core::OpenCadError::validation("usage: opencad inspect <path>"))?;
     let doc = read_ocad(path)?;
     println!("document: {}", doc.metadata.id.as_str());
     println!("name: {}", doc.metadata.name);
@@ -208,17 +211,14 @@ fn parse_u32_arg(args: &[String], index: usize, flag: &str) -> Result<u32> {
     let value = args.get(index + 1).ok_or_else(|| {
         opencad_core::OpenCadError::validation(format!("{flag} requires a positive integer"))
     })?;
-    value
-        .parse::<u32>()
-        .map_err(|_| {
-            opencad_core::OpenCadError::validation(format!("{flag} requires a positive integer"))
-        })
+    value.parse::<u32>().map_err(|_| {
+        opencad_core::OpenCadError::validation(format!("{flag} requires a positive integer"))
+    })
 }
 
 fn cmd_view(input: Option<&str>) -> Result<()> {
-    let input = input.ok_or_else(|| {
-        opencad_core::OpenCadError::validation("usage: opencad view <input>")
-    })?;
+    let input = input
+        .ok_or_else(|| opencad_core::OpenCadError::validation("usage: opencad view <input>"))?;
     view::view_document(input)
 }
 
@@ -327,6 +327,7 @@ OPTIONS (patch):
 
 EXAMPLES:
     opencad new bracket.ocad.d
+    opencad new bracket_hole_row.ocad.d hole-row
     opencad validate bracket.ocad
     opencad inspect bracket.ocad.d
     opencad regen bracket.ocad

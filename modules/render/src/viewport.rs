@@ -11,7 +11,9 @@ use winit::{
 };
 
 use crate::camera::OrbitCamera;
-use crate::overlay::{label_depth_offset_for_bounds, label_scale_for_bounds, OverlayLabel, OverlayLine, SketchOverlay};
+use crate::overlay::{
+    label_depth_offset_for_bounds, label_scale_for_bounds, OverlayLabel, OverlayLine, SketchOverlay,
+};
 use crate::scene::RenderScene;
 use crate::selection::{
     create_pick_buffers, create_pick_line_pipeline, create_pick_mesh_pipeline, mesh_pick_vertices,
@@ -34,15 +36,15 @@ pub fn run_viewport(
     title: &str,
 ) -> Result<()> {
     let (vertices, indices) = pack_scene(scene)?;
-    let overlay_lines = overlay.map(|overlay| overlay.lines.clone()).unwrap_or_default();
+    let overlay_lines = overlay
+        .map(|overlay| overlay.lines.clone())
+        .unwrap_or_default();
     let model_lines = overlay.map(|overlay| overlay.model_line_vertices());
     let construction_lines = overlay.map(|overlay| overlay.construction_line_vertices());
     let has_overlay = overlay.is_some_and(|overlay| !overlay.is_empty());
     let triangle_count = indices.len() / 3;
-    let selection_catalog = SelectionCatalog::from_scene(
-        overlay.unwrap_or(&SketchOverlay::default()),
-        triangle_count,
-    );
+    let selection_catalog =
+        SelectionCatalog::from_scene(overlay.unwrap_or(&SketchOverlay::default()), triangle_count);
     let label_scale = label_scale_for_bounds(scene.bounds.diagonal());
     let label_depth_offset = label_depth_offset_for_bounds(scene.bounds.diagonal());
     let overlay_labels = overlay
@@ -54,9 +56,8 @@ pub fn run_viewport(
     let symbol_lines = overlay
         .map(|overlay| overlay.symbol_lines.clone())
         .unwrap_or_default();
-    let event_loop = EventLoop::new().map_err(|err| {
-        OpenCadError::Other(format!("failed to create event loop: {err}"))
-    })?;
+    let event_loop = EventLoop::new()
+        .map_err(|err| OpenCadError::Other(format!("failed to create event loop: {err}")))?;
     let window = WindowBuilder::new()
         .with_title(title)
         .with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0))
@@ -124,7 +125,9 @@ pub fn run_viewport(
                                                         Ok(PickResult::SolidTriangle(
                                                             triangle_index,
                                                         )) => {
-                                                            app.set_selected_triangle(triangle_index);
+                                                            app.set_selected_triangle(
+                                                                triangle_index,
+                                                            );
                                                             app.window.request_redraw();
                                                         }
                                                         Ok(PickResult::None) => {}
@@ -163,8 +166,8 @@ pub fn run_viewport(
                             let radius = bounds.diagonal() * 0.5;
                             let min_distance = radius.max(0.01) * 0.5;
                             let max_distance = radius.max(0.01) * 8.0;
-                            app.camera.distance =
-                                (app.camera.distance * (1.0 - scroll * 0.1)).clamp(min_distance, max_distance);
+                            app.camera.distance = (app.camera.distance * (1.0 - scroll * 0.1))
+                                .clamp(min_distance, max_distance);
                             app.window.request_redraw();
                         }
                         WindowEvent::KeyboardInput { event, .. } => {
@@ -329,8 +332,7 @@ impl ViewportApp {
         let construction_line_buffers = create_line_buffers(&device, &construction_lines);
         let label_line_buffers = create_line_buffers(&device, &[]);
         let highlight_line_buffers = create_line_buffers(&device, &[]);
-        let mesh_pick_verts =
-            mesh_pick_vertices(&vertices, &indices, selection_catalog.line_count);
+        let mesh_pick_verts = mesh_pick_vertices(&vertices, &indices, selection_catalog.line_count);
         let line_pick_vertices = overlay_pick_vertices_from_lines(&overlay_lines);
         let pick_mesh_buffers = create_pick_buffers(&device, &mesh_pick_verts);
         let pick_line_buffers = create_pick_buffers(&device, &line_pick_vertices);
@@ -418,12 +420,9 @@ impl ViewportApp {
     fn set_selected_triangle(&mut self, triangle_index: usize) {
         self.selected_triangle = Some(triangle_index);
         self.selected_line = None;
-        let vertices = triangle_edge_vertices(
-            &self.cpu_vertices,
-            &self.cpu_indices,
-            triangle_index,
-        )
-        .unwrap_or_default();
+        let vertices =
+            triangle_edge_vertices(&self.cpu_vertices, &self.cpu_indices, triangle_index)
+                .unwrap_or_default();
         self.highlight_line_buffers = create_line_buffers(&self.device, &vertices);
     }
 
@@ -465,20 +464,16 @@ impl ViewportApp {
     fn render(&mut self) -> Result<()> {
         self.rebuild_label_buffers();
 
-        let frame = self
-            .surface
-            .get_current_texture()
-            .map_err(|err| OpenCadError::Other(format!("failed to acquire surface frame: {err}")))?;
+        let frame = self.surface.get_current_texture().map_err(|err| {
+            OpenCadError::Other(format!("failed to acquire surface frame: {err}"))
+        })?;
         let color_view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         let view_proj = self.camera.view_projection_matrix();
-        let bind_group = create_uniform_bind_group(
-            &self.device,
-            &self.uniform_layout,
-            &Uniforms { view_proj },
-        );
+        let bind_group =
+            create_uniform_bind_group(&self.device, &self.uniform_layout, &Uniforms { view_proj });
 
         let mut encoder = self
             .device

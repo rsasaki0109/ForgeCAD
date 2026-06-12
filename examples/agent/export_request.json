@@ -3,7 +3,7 @@
   "id": 1,
   "method": "opencad.export",
   "params": {
-    "path": "bracket.ocad.d",
+    "path": "examples/bracket.ocad.d",
     "output": "bracket.stl"
   }
 }

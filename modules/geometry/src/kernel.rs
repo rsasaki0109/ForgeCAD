@@ -242,7 +242,9 @@ impl GeometryKernel for MockGeometryKernel {
         _selector: FilletEdgeSelector,
     ) -> Result<KernelBody> {
         if distance_m <= 0.0 {
-            return Err(OpenCadError::validation("chamfer distance must be positive"));
+            return Err(OpenCadError::validation(
+                "chamfer distance must be positive",
+            ));
         }
         Ok(body)
     }

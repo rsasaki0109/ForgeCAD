@@ -199,11 +199,7 @@ pub fn diff_semantic_refs(before: &[TopoRef], after: &[TopoRef]) -> Vec<Semantic
                     changes.push(SemanticChange::TopoRefModified {
                         ref_id: (*id).to_string(),
                         field: "role".into(),
-                        before: before_ref
-                            .semantic
-                            .role
-                            .clone()
-                            .unwrap_or_default(),
+                        before: before_ref.semantic.role.clone().unwrap_or_default(),
                         after: after_ref.semantic.role.clone().unwrap_or_default(),
                     });
                 }
@@ -261,11 +257,12 @@ pub fn build_summary(changes: &[SemanticChange]) -> String {
                     .map(|value| format!(", {value}"))
                     .unwrap_or_default()
             )),
-            SemanticChange::TopoRefRemoved { ref_id } => {
-                Some(format!("topo ref {ref_id} removed"))
-            }
+            SemanticChange::TopoRefRemoved { ref_id } => Some(format!("topo ref {ref_id} removed")),
             SemanticChange::TopoRefModified {
-                ref_id, field, before, after,
+                ref_id,
+                field,
+                before,
+                after,
             } => Some(format!("topo ref {ref_id}.{field}: {before} -> {after}")),
             _ => None,
         })
@@ -288,8 +285,8 @@ pub fn format_mass_kg(mass_kg: f64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ParameterEntry, ParamGraph};
     use super::*;
+    use crate::{ParamGraph, ParameterEntry};
 
     #[test]
     fn semantic_diff_round_trip() {
@@ -316,9 +313,7 @@ mod tests {
     fn diff_param_graphs_detects_expr_change() {
         let before = bracket_parameters();
         let mut after = bracket_parameters();
-        after
-            .set_expr("param:width", "100 mm")
-            .expect("set expr");
+        after.set_expr("param:width", "100 mm").expect("set expr");
 
         let changes = diff_param_graphs(&before, &after);
         assert_eq!(changes.len(), 1);

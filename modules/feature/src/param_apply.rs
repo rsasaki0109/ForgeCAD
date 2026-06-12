@@ -3,8 +3,8 @@
 use indexmap::IndexMap;
 
 use opencad_core::{Expression, Length, OpenCadError, Result};
-use opencad_graph::{eval_length_expr, evaluate_param_graph, ParamGraph};
 use opencad_geometry::ExtrudeExtent;
+use opencad_graph::{eval_length_expr, evaluate_param_graph, ParamGraph};
 use opencad_sketch::{solve_sketch, Constraint, Sketch};
 use opencad_solver::SolverOptions;
 

@@ -5,9 +5,7 @@ use serde::{Deserialize, Serialize};
 use opencad_core::{Length, OpenCadError, Result};
 use opencad_geometry::FilletEdgeSelector;
 
-use crate::feature::{
-    Feature, FeatureDefinition, FeatureNode, FeatureOutput, RegenContext,
-};
+use crate::feature::{Feature, FeatureDefinition, FeatureNode, FeatureOutput, RegenContext};
 use crate::topo_resolve::edge_selector_for_face_ref;
 
 /// Fillet feature parameters.
@@ -50,12 +48,8 @@ impl Feature for FilletFeatureExecutor {
         } else {
             def.edge_selector
         };
-        let result = ctx
-            .kernel()
-            .fillet_edges(body, radius_m, selector)?;
-        Ok(FeatureOutput {
-            body: Some(result),
-        })
+        let result = ctx.kernel().fillet_edges(body, radius_m, selector)?;
+        Ok(FeatureOutput { body: Some(result) })
     }
 }
 

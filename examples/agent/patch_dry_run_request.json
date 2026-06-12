@@ -1,1 +1,1 @@
-{"jsonrpc":"2.0","id":1,"method":"opencad.patch_dry_run_document","params":{"path":"bracket.ocad.d","patch":{"operations":[{"type":"set_parameter","id":"param:width","expr":"100 mm"}]}}}
+{"jsonrpc":"2.0","id":1,"method":"opencad.patch_dry_run_document","params":{"path":"examples/examples/bracket.ocad.d","patch":{"operations":[{"type":"set_parameter","id":"param:width","expr":"100 mm"}]}}}

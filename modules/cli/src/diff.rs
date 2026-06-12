@@ -231,16 +231,11 @@ where
         }
         None
     } else {
-        Some(
-            positional
-                .get(1)
-                .cloned()
-                .ok_or_else(|| {
-                    opencad_core::OpenCadError::validation(
-                        "usage: opencad diff <before> <after> [--json] [--geometry]",
-                    )
-                })?,
-        )
+        Some(positional.get(1).cloned().ok_or_else(|| {
+            opencad_core::OpenCadError::validation(
+                "usage: opencad diff <before> <after> [--json] [--geometry]",
+            )
+        })?)
     };
 
     Ok(DiffArgs {
@@ -271,7 +266,8 @@ mod tests {
 
     #[test]
     fn parse_diff_args_patch_mode() {
-        let args = parse_diff_args(["bracket.ocad.d", "--patch", "width.patch.json"]).expect("parse");
+        let args =
+            parse_diff_args(["bracket.ocad.d", "--patch", "width.patch.json"]).expect("parse");
         assert_eq!(args.before_path, "bracket.ocad.d");
         assert!(args.after_path.is_none());
         assert_eq!(args.patch_path.as_deref(), Some("width.patch.json"));
@@ -280,10 +276,8 @@ mod tests {
     #[test]
     fn diff_with_patch_detects_width_change() {
         let part = bracket_with_hole().expect("model");
-        let metadata = DocumentMetadata::new(
-            DocumentId::new("doc:bracket_001").expect("id"),
-            "Bracket",
-        );
+        let metadata =
+            DocumentMetadata::new(DocumentId::new("doc:bracket_001").expect("id"), "Bracket");
         let mut doc = OcadDocument::from_part_model(metadata, &part);
         doc.parameters = bracket_parameters();
 

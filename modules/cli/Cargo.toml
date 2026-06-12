@@ -29,6 +29,8 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 opencad-ai = { workspace = true }
+opencad-feature = { workspace = true }
+opencad-file = { workspace = true }
 opencad-kernel-occt = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -1,13 +1,16 @@
 //! Resolve and assign face refs on `.ocad` documents.
 
 use opencad_core::{OpenCadError, Result, TopoRefId};
+#[cfg(feature = "occt")]
 use opencad_feature::FeatureRegistry;
+#[cfg(not(feature = "occt"))]
+use opencad_geometry::assign_named_face_ref;
+#[cfg(feature = "occt")]
 use opencad_geometry::{
     assign_face_ref_to_refs, match_face_discovery_for_topo_ref, validate_kernel_face_on_mesh,
     GeometryKernel, TessellationSettings, TopoRef,
 };
-#[cfg(not(feature = "occt"))]
-use opencad_geometry::assign_named_face_ref;
+#[cfg(feature = "occt")]
 use opencad_render::RenderScene;
 
 use crate::OcadDocument;
@@ -97,6 +100,7 @@ pub fn apply_assign_face_ref(doc: &mut OcadDocument, op: &AssignFaceRefOp) -> Re
     }
 }
 
+#[cfg(feature = "occt")]
 fn resolve_kernel_face_id(
     mesh_set: &opencad_geometry::MeshSet,
     kernel_face_id: u64,
@@ -116,11 +120,7 @@ fn resolve_kernel_face_id(
         created_by,
         role,
     );
-    probe.semantic.normal_hint = Some([
-        normal_m[0] as f64,
-        normal_m[1] as f64,
-        normal_m[2] as f64,
-    ]);
+    probe.semantic.normal_hint = Some([normal_m[0] as f64, normal_m[1] as f64, normal_m[2] as f64]);
     if let Some(matched_id) = match_face_discovery_for_topo_ref(&probe, &discoveries) {
         return Ok(matched_id);
     }
@@ -139,6 +139,7 @@ fn resolve_kernel_face_id(
         })
 }
 
+#[cfg(feature = "occt")]
 fn discover_face_refs(
     scene: &RenderScene,
     feature_nodes: &[opencad_feature::FeatureNode],
@@ -162,6 +163,7 @@ fn discover_face_refs(
         .collect()
 }
 
+#[cfg(feature = "occt")]
 fn infer_face_refs(
     feature_nodes: &[opencad_feature::FeatureNode],
     group: &opencad_render::FaceGroup,
@@ -177,11 +179,8 @@ fn infer_face_refs(
             .then(|| node.id.clone())
         }),
         "cylindrical" => feature_nodes.iter().find_map(|node| {
-            matches!(
-                node.definition,
-                opencad_feature::FeatureDefinition::Hole(_)
-            )
-            .then(|| node.id.clone())
+            matches!(node.definition, opencad_feature::FeatureDefinition::Hole(_))
+                .then(|| node.id.clone())
         }),
         _ => feature_nodes.iter().find_map(|node| {
             matches!(

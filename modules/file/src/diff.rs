@@ -33,10 +33,8 @@ mod tests {
     #[test]
     fn diff_documents_reports_parameter_change() {
         let part = bracket_with_hole().expect("model");
-        let metadata = DocumentMetadata::new(
-            DocumentId::new("doc:bracket_001").expect("id"),
-            "Bracket",
-        );
+        let metadata =
+            DocumentMetadata::new(DocumentId::new("doc:bracket_001").expect("id"), "Bracket");
         let mut before = OcadDocument::from_part_model(metadata.clone(), &part);
         before.parameters = bracket_parameters();
 
@@ -61,10 +59,8 @@ mod tests {
     #[test]
     fn identical_documents_have_no_changes() {
         let part = bracket_with_hole().expect("model");
-        let metadata = DocumentMetadata::new(
-            DocumentId::new("doc:bracket_001").expect("id"),
-            "Bracket",
-        );
+        let metadata =
+            DocumentMetadata::new(DocumentId::new("doc:bracket_001").expect("id"), "Bracket");
         let mut doc = OcadDocument::from_part_model(metadata, &part);
         doc.parameters = bracket_parameters();
 
@@ -76,10 +72,8 @@ mod tests {
     #[test]
     fn diff_documents_reports_topo_ref_added() {
         let part = bracket_with_hole().expect("model");
-        let metadata = DocumentMetadata::new(
-            DocumentId::new("doc:bracket_001").expect("id"),
-            "Bracket",
-        );
+        let metadata =
+            DocumentMetadata::new(DocumentId::new("doc:bracket_001").expect("id"), "Bracket");
         let mut before = OcadDocument::from_part_model(metadata.clone(), &part);
         before.parameters = bracket_parameters();
         let mut after = before.clone();
@@ -94,14 +88,10 @@ mod tests {
         .expect("assign");
 
         let diff = diff_documents(&before, &after);
-        assert!(
-            diff.changes
-                .iter()
-                .any(|change| matches!(
-                    change,
-                    SemanticChange::TopoRefAdded { ref_id, .. }
-                        if ref_id == "ref:face:bracket_top"
-                ))
-        );
+        assert!(diff.changes.iter().any(|change| matches!(
+            change,
+            SemanticChange::TopoRefAdded { ref_id, .. }
+                if ref_id == "ref:face:bracket_top"
+        )));
     }
 }

@@ -46,7 +46,10 @@ impl FeatureExprField {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PatchOperation {
-    SetParameter { id: String, expr: String },
+    SetParameter {
+        id: String,
+        expr: String,
+    },
     SetFeatureExpr {
         feature_id: String,
         field: String,
@@ -212,11 +215,7 @@ impl DesignPatch {
     }
 }
 
-fn apply_feature_expr(
-    node: &mut FeatureNode,
-    field: FeatureExprField,
-    expr: &str,
-) -> Result<()> {
+fn apply_feature_expr(node: &mut FeatureNode, field: FeatureExprField, expr: &str) -> Result<()> {
     match (&mut node.definition, field) {
         (FeatureDefinition::Extrude(extrude), FeatureExprField::LengthExpr) => {
             extrude.length_expr = Some(expr.to_string());
@@ -268,10 +267,8 @@ mod tests {
     #[test]
     fn set_parameters_applies_multiple_values() {
         let mut params = bracket_parameters();
-        let patch = DesignPatch::set_parameters([
-            ("param:width", "100 mm"),
-            ("param:thickness", "8 mm"),
-        ]);
+        let patch =
+            DesignPatch::set_parameters([("param:width", "100 mm"), ("param:thickness", "8 mm")]);
         patch.apply_to_parameters(&mut params).expect("patch");
         let values = evaluate_param_graph(&params).expect("eval");
         assert!((values["width"] - 0.1).abs() < 1e-9);
@@ -384,19 +381,13 @@ mod tests {
         let mut params = bracket_parameters();
         let mut nodes: Vec<FeatureNode> = part.nodes.into_values().collect();
         let mut semantic_refs = Vec::new();
-        let patch = DesignPatch::assign_face_ref(
-            "ref:face:bracket_top",
-            "feature:extrude_base",
-            "top",
-        );
+        let patch =
+            DesignPatch::assign_face_ref("ref:face:bracket_top", "feature:extrude_base", "top");
         patch
             .apply_to_document(&mut params, &mut nodes, &mut semantic_refs)
             .expect("patch");
         assert_eq!(semantic_refs.len(), 1);
         assert_eq!(semantic_refs[0].ref_id.as_str(), "ref:face:bracket_top");
-        assert_eq!(
-            semantic_refs[0].semantic.role.as_deref(),
-            Some("top")
-        );
+        assert_eq!(semantic_refs[0].semantic.role.as_deref(), Some("top"));
     }
 }

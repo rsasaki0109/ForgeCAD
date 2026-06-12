@@ -21,7 +21,8 @@ pub fn write_binary_stl(path: impl AsRef<Path>, mesh: &MeshSet, name: &str) -> R
     file.write_all(&header).map_err(io_error)?;
 
     let triangle_count = (mesh.indices.len() / 3) as u32;
-    file.write_all(&triangle_count.to_le_bytes()).map_err(io_error)?;
+    file.write_all(&triangle_count.to_le_bytes())
+        .map_err(io_error)?;
 
     for chunk in mesh.indices.chunks_exact(3) {
         let v0 = mesh.positions[chunk[0] as usize];

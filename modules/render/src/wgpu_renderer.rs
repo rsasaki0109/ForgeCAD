@@ -13,8 +13,9 @@ use crate::selection::{
 };
 use crate::solid::{
     create_depth_texture, create_label_line_pipeline, create_line_buffers, create_line_pipeline,
-    create_mesh_buffers, create_solid_pipeline, create_uniform_bind_group, encode_sketch_overlay_passes,
-    encode_solid_pass, pack_scene, SketchOverlayPass, Uniforms, CLEAR_COLOR,
+    create_mesh_buffers, create_solid_pipeline, create_uniform_bind_group,
+    encode_sketch_overlay_passes, encode_solid_pass, pack_scene, SketchOverlayPass, Uniforms,
+    CLEAR_COLOR,
 };
 
 /// Tightly packed RGBA8 pixels from an offscreen render.
@@ -119,9 +120,7 @@ impl OffscreenRenderer {
         width: u32,
         height: u32,
     ) -> Result<RenderOutput> {
-        Ok(self
-            .render_scene_image(scene, None, width, height)?
-            .into())
+        Ok(self.render_scene_image(scene, None, width, height)?.into())
     }
 
     pub fn render_scene_image(
@@ -135,11 +134,8 @@ impl OffscreenRenderer {
 
         let aspect = width as f32 / height.max(1) as f32;
         let view_proj = scene.default_camera(aspect).view_projection_matrix();
-        let bind_group = create_uniform_bind_group(
-            &self.device,
-            &self.uniform_layout,
-            &Uniforms { view_proj },
-        );
+        let bind_group =
+            create_uniform_bind_group(&self.device, &self.uniform_layout, &Uniforms { view_proj });
         let mesh_buffers = create_mesh_buffers(&self.device, &vertices, &indices);
         let model_lines = overlay
             .map(|overlay| create_line_buffers(&self.device, &overlay.model_line_vertices()))
@@ -262,7 +258,8 @@ impl OffscreenRenderer {
             .map_err(|err| OpenCadError::Other(format!("wgpu buffer map failed: {err}")))?;
 
         let data = slice.get_mapped_range();
-        let non_background_pixels = count_non_background_pixels(&data, width, height, bytes_per_row);
+        let non_background_pixels =
+            count_non_background_pixels(&data, width, height, bytes_per_row);
         let rgba = unpack_rgba(&data, width, height, bytes_per_row);
         drop(data);
         readback_buffer.unmap();
@@ -306,9 +303,7 @@ impl OffscreenRenderer {
         let aspect = width as f32 / height.max(1) as f32;
         let view_proj = scene.default_camera(aspect).view_projection_matrix();
         let mesh_pick = mesh_pick_vertices(&vertices, &indices, catalog.line_count);
-        let line_pick = overlay
-            .map(overlay_pick_vertices)
-            .unwrap_or_default();
+        let line_pick = overlay.map(overlay_pick_vertices).unwrap_or_default();
         let mesh_buffers = create_pick_buffers(&self.device, &mesh_pick);
         let line_buffers = create_pick_buffers(&self.device, &line_pick);
 

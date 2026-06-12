@@ -18,9 +18,10 @@ pub fn write_png(path: impl AsRef<Path>, width: u32, height: u32, rgba: &[u8]) -
         )));
     }
 
-    let image: RgbaImage = ImageBuffer::from_vec(width, height, rgba.to_vec()).ok_or_else(|| {
-        OpenCadError::validation(format!("invalid RGBA buffer for {width}x{height} image"))
-    })?;
+    let image: RgbaImage =
+        ImageBuffer::from_vec(width, height, rgba.to_vec()).ok_or_else(|| {
+            OpenCadError::validation(format!("invalid RGBA buffer for {width}x{height} image"))
+        })?;
 
     image
         .save(path.as_ref())
@@ -37,7 +38,9 @@ mod tests {
     fn writes_valid_png_header() {
         let dir = tempdir().expect("tempdir");
         let path = dir.path().join("preview.png");
-        let rgba = vec![255_u8, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255];
+        let rgba = vec![
+            255_u8, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
+        ];
         write_png(&path, 2, 2, &rgba).expect("write png");
 
         let bytes = std::fs::read(&path).expect("read png");

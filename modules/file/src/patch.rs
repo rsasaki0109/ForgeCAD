@@ -1,12 +1,17 @@
 //! Apply DesignPatch operations to `.ocad` documents.
 
-use opencad_ai::{dry_run_patch_state, DesignPatch, DesignState, PatchDryRunReport, PatchOperation};
+use opencad_ai::{
+    dry_run_patch_state, DesignPatch, DesignState, PatchDryRunReport, PatchOperation,
+};
 
 use crate::topo_assign::{apply_assign_face_ref, AssignFaceRefOp};
 use crate::OcadDocument;
 
 /// Apply all patch operations to a document in memory.
-pub fn apply_patch_to_document(doc: &mut OcadDocument, patch: &DesignPatch) -> opencad_core::Result<()> {
+pub fn apply_patch_to_document(
+    doc: &mut OcadDocument,
+    patch: &DesignPatch,
+) -> opencad_core::Result<()> {
     patch.apply_to_document(
         &mut doc.parameters,
         &mut doc.feature_nodes,
@@ -108,27 +113,18 @@ mod tests {
         );
         let report = dry_run_patch_document(&before, &patch);
         assert!(report.validation.is_ok());
-        assert!(
-            report
-                .diff
-                .changes
-                .iter()
-                .any(|change| matches!(
-                    change,
-                    SemanticChange::FeatureModified { id, field, .. }
-                        if id == "feature:extrude_base" && field == "definition"
-                ))
-        );
+        assert!(report.diff.changes.iter().any(|change| matches!(
+            change,
+            SemanticChange::FeatureModified { id, field, .. }
+                if id == "feature:extrude_base" && field == "definition"
+        )));
     }
 
     #[test]
     fn assign_face_ref_patch_adds_semantic_ref() {
         let mut doc = bracket_document();
-        let patch = DesignPatch::assign_face_ref(
-            "ref:face:bracket_top",
-            "feature:extrude_base",
-            "top",
-        );
+        let patch =
+            DesignPatch::assign_face_ref("ref:face:bracket_top", "feature:extrude_base", "top");
         apply_patch_to_document(&mut doc, &patch).expect("patch");
         assert!(doc
             .semantic_refs
@@ -139,24 +135,15 @@ mod tests {
     #[test]
     fn dry_run_reports_assign_face_ref_change() {
         let before = bracket_document();
-        let patch = DesignPatch::assign_face_ref(
-            "ref:face:bracket_top",
-            "feature:extrude_base",
-            "top",
-        );
+        let patch =
+            DesignPatch::assign_face_ref("ref:face:bracket_top", "feature:extrude_base", "top");
         let report = dry_run_patch_document(&before, &patch);
         assert!(report.validation.is_ok());
-        assert!(
-            report
-                .diff
-                .changes
-                .iter()
-                .any(|change| matches!(
-                    change,
-                    SemanticChange::TopoRefAdded { ref_id, .. }
-                        if ref_id == "ref:face:bracket_top"
-                ))
-        );
+        assert!(report.diff.changes.iter().any(|change| matches!(
+            change,
+            SemanticChange::TopoRefAdded { ref_id, .. }
+                if ref_id == "ref:face:bracket_top"
+        )));
     }
 
     #[test]
@@ -183,15 +170,11 @@ mod tests {
         .expect("assign");
 
         let diff = crate::diff::diff_documents(&before, &after);
-        assert!(
-            diff.changes
-                .iter()
-                .any(|change| matches!(
-                    change,
-                    SemanticChange::TopoRefAdded { ref_id, .. }
-                        if ref_id == "ref:face:mount_face"
-                ))
-        );
+        assert!(diff.changes.iter().any(|change| matches!(
+            change,
+            SemanticChange::TopoRefAdded { ref_id, .. }
+                if ref_id == "ref:face:mount_face"
+        )));
     }
 
     #[test]
@@ -222,9 +205,7 @@ mod tests {
             .regenerate(&kernel, &registry, Some(&baseline_params), None)
             .expect("regen");
         let baseline_body = baseline_model.active_body().expect("body");
-        let baseline_mass = kernel
-            .mass_properties(baseline_body, 2700.0)
-            .expect("mass");
+        let baseline_mass = kernel.mass_properties(baseline_body, 2700.0).expect("mass");
 
         assert!(mass.volume_m3 > baseline_mass.volume_m3);
     }
@@ -264,9 +245,7 @@ mod tests {
             .regenerate(&kernel, &registry, Some(&baseline_params), None)
             .expect("regen");
         let baseline_body = baseline_model.active_body().expect("body");
-        let baseline_mass = kernel
-            .mass_properties(baseline_body, 2700.0)
-            .expect("mass");
+        let baseline_mass = kernel.mass_properties(baseline_body, 2700.0).expect("mass");
 
         assert!(
             mass.volume_m3 < baseline_mass.volume_m3,

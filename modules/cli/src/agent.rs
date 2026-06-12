@@ -2,7 +2,10 @@
 
 use std::io::{self, BufRead, Write};
 
-use opencad_ai::{AgentApi, DesignQuery, ExplainParams, JsonRpcError, JsonRpcRequest, JsonRpcResponse, QueryParams, query_needs_scene};
+use opencad_ai::{
+    query_needs_scene, AgentApi, DesignQuery, ExplainParams, JsonRpcError, JsonRpcRequest,
+    JsonRpcResponse, QueryParams,
+};
 use opencad_core::Result;
 use opencad_file::{
     apply_patch_to_document, dry_run_patch_document, read_ocad, validate_ocad, write_ocad,
@@ -164,11 +167,13 @@ pub fn serve_stdio() -> Result<()> {
 }
 
 fn handle_json_line_with_documents(line: &str) -> Result<String> {
-    let request: JsonRpcRequest = serde_json::from_str(line)
-        .map_err(|err| opencad_core::OpenCadError::validation(format!("invalid JSON-RPC: {err}")))?;
+    let request: JsonRpcRequest = serde_json::from_str(line).map_err(|err| {
+        opencad_core::OpenCadError::validation(format!("invalid JSON-RPC: {err}"))
+    })?;
     let response = handle_agent_request(&request);
-    serde_json::to_string(&response)
-        .map_err(|err| opencad_core::OpenCadError::Other(format!("failed to encode response: {err}")))
+    serde_json::to_string(&response).map_err(|err| {
+        opencad_core::OpenCadError::Other(format!("failed to encode response: {err}"))
+    })
 }
 
 fn error_response_line(line: &str, message: String) -> String {
@@ -199,7 +204,11 @@ fn handle_inspect(request: &JsonRpcRequest) -> JsonRpcResponse {
                 name: doc.metadata.name.clone(),
                 sketches: doc.sketches.len(),
                 features: doc.feature_nodes.len(),
-                parameters: doc.parameters.evaluation_order().map(|p| p.len()).unwrap_or(0),
+                parameters: doc
+                    .parameters
+                    .evaluation_order()
+                    .map(|p| p.len())
+                    .unwrap_or(0),
             };
             match serde_json::to_value(result) {
                 Ok(value) => JsonRpcResponse::success(request.id.clone(), value),
@@ -550,10 +559,9 @@ fn handle_sync_topo_refs_document(request: &JsonRpcRequest) -> JsonRpcResponse {
         }
     };
     match topo_sync::sync_topo_refs_document(&params.path) {
-        Ok(added) => JsonRpcResponse::success(
-            request.id.clone(),
-            serde_json::json!({ "added": added }),
-        ),
+        Ok(added) => {
+            JsonRpcResponse::success(request.id.clone(), serde_json::json!({ "added": added }))
+        }
         Err(err) => JsonRpcResponse::error(
             request.id.clone(),
             JsonRpcError::application_error(err.to_string()),
@@ -1033,7 +1041,9 @@ mod tests {
         assert_eq!(result["kind"], "overlay_lines");
         let items = result["items"].as_array().expect("items");
         assert!(!items.is_empty());
-        assert!(items.iter().any(|item| item["entity_id"].as_str().is_some()));
+        assert!(items
+            .iter()
+            .any(|item| item["entity_id"].as_str().is_some()));
     }
 
     #[test]
@@ -1064,7 +1074,9 @@ mod tests {
         assert_eq!(result["kind"], "face_groups");
         let items = result["items"].as_array().expect("items");
         assert!(!items.is_empty());
-        assert!(items.iter().any(|item| item["face_role"].as_str() == Some("top")));
+        assert!(items
+            .iter()
+            .any(|item| item["face_role"].as_str() == Some("top")));
     }
 
     #[test]
@@ -1091,6 +1103,9 @@ mod tests {
         let result = response.result.expect("result");
         assert_eq!(result["document_name"], "Bracket with Hole");
         assert_eq!(result["feature_count"], 4);
-        assert!(result["summary"].as_str().expect("summary").contains("feature:hole_mount:hole"));
+        assert!(result["summary"]
+            .as_str()
+            .expect("summary")
+            .contains("feature:hole_mount:hole"));
     }
 }

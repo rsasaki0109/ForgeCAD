@@ -39,11 +39,7 @@ impl OrbitCamera {
         let x = self.distance * cos_pitch * self.yaw_rad.sin();
         let y = self.distance * self.pitch_rad.sin();
         let z = self.distance * cos_pitch * self.yaw_rad.cos();
-        [
-            self.target[0] + x,
-            self.target[1] + y,
-            self.target[2] + z,
-        ]
+        [self.target[0] + x, self.target[1] + y, self.target[2] + z]
     }
 
     /// Column-major 4x4 view matrix (right-handed, Y-up).
@@ -53,7 +49,12 @@ impl OrbitCamera {
 
     /// Column-major 4x4 perspective projection matrix.
     pub fn projection_matrix(&self) -> [f32; 16] {
-        perspective(self.fov_y_deg.to_radians(), self.aspect, 0.001, self.distance * 10.0)
+        perspective(
+            self.fov_y_deg.to_radians(),
+            self.aspect,
+            0.001,
+            self.distance * 10.0,
+        )
     }
 
     /// Column-major view-projection matrix for GPU uniforms.
@@ -91,11 +92,7 @@ fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
 }
 
 fn look_at(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> [f32; 16] {
-    let f = normalize([
-        center[0] - eye[0],
-        center[1] - eye[1],
-        center[2] - eye[2],
-    ]);
+    let f = normalize([center[0] - eye[0], center[1] - eye[1], center[2] - eye[2]]);
     let s = normalize(cross(f, up));
     let u = cross(s, f);
 

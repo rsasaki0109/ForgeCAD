@@ -540,12 +540,8 @@ pub(crate) fn encode_sketch_overlay_passes(pass: SketchOverlayPass<'_>) {
         highlight_lines,
     } = pass;
     if model_lines.vertex_count > 0 {
-        let bind_group = create_line_bind_group(
-            device,
-            uniform_layout,
-            view_proj,
-            MODEL_LINE_COLOR,
-        );
+        let bind_group =
+            create_line_bind_group(device, uniform_layout, view_proj, MODEL_LINE_COLOR);
         encode_line_pass(
             encoder,
             pipeline,
@@ -557,12 +553,8 @@ pub(crate) fn encode_sketch_overlay_passes(pass: SketchOverlayPass<'_>) {
     }
 
     if construction_lines.vertex_count > 0 {
-        let bind_group = create_line_bind_group(
-            device,
-            uniform_layout,
-            view_proj,
-            CONSTRUCTION_LINE_COLOR,
-        );
+        let bind_group =
+            create_line_bind_group(device, uniform_layout, view_proj, CONSTRUCTION_LINE_COLOR);
         encode_line_pass(
             encoder,
             pipeline,
@@ -575,12 +567,8 @@ pub(crate) fn encode_sketch_overlay_passes(pass: SketchOverlayPass<'_>) {
 
     if let Some(label_lines) = label_lines {
         if label_lines.vertex_count > 0 {
-            let bind_group = create_line_bind_group(
-                device,
-                uniform_layout,
-                view_proj,
-                LABEL_LINE_COLOR,
-            );
+            let bind_group =
+                create_line_bind_group(device, uniform_layout, view_proj, LABEL_LINE_COLOR);
             encode_line_pass(
                 encoder,
                 label_pipeline,

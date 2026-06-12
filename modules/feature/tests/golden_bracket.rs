@@ -57,8 +57,12 @@ fn golden_bracket_patch_increases_volume() {
     );
 
     let mut patched_model = bracket_with_hole().expect("model");
-    let (patched_volume, patched_mass) =
-        regen_volume_mass(&kernel, &mut patched_model, &params, fixture.density_kg_per_m3);
+    let (patched_volume, patched_mass) = regen_volume_mass(
+        &kernel,
+        &mut patched_model,
+        &params,
+        fixture.density_kg_per_m3,
+    );
 
     assert_near(
         patched_volume,
@@ -66,7 +70,12 @@ fn golden_bracket_patch_increases_volume() {
         patched.volume_tol,
         "patched volume_m3",
     );
-    assert_near(patched_mass, patched.mass_kg, patched.mass_tol, "patched mass_kg");
+    assert_near(
+        patched_mass,
+        patched.mass_kg,
+        patched.mass_tol,
+        "patched mass_kg",
+    );
 
     let min_delta = patched.min_volume_delta_m3.expect("min delta");
     assert!(

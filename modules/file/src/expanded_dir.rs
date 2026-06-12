@@ -211,12 +211,7 @@ fn extract_constraints(sketches: &[Sketch]) -> Vec<ConstraintEntry> {
             });
         }
     }
-    constraints.sort_by(|a, b| {
-        a.constraint
-            .id()
-            .as_str()
-            .cmp(b.constraint.id().as_str())
-    });
+    constraints.sort_by(|a, b| a.constraint.id().as_str().cmp(b.constraint.id().as_str()));
     constraints
 }
 

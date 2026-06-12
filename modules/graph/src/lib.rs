@@ -14,5 +14,5 @@ pub use diff::{
     GeometricDiff, SemanticChange,
 };
 pub use feature_graph::{FeatureEntry, FeatureGraph};
-pub use param_eval::{bracket_parameters, evaluate_param_graph, eval_length_expr};
+pub use param_eval::{bracket_parameters, eval_length_expr, evaluate_param_graph};
 pub use param_graph::{ParamGraph, ParameterEntry};

@@ -61,12 +61,7 @@ pub fn resolve_kernel_face_id_for_topo_ref(
     face_history: &[FaceDerivation],
     ref_id: &str,
 ) -> Result<u64> {
-    resolve_kernel_face_id_for_topo_ref_with_discoveries(
-        semantic_refs,
-        face_history,
-        ref_id,
-        None,
-    )
+    resolve_kernel_face_id_for_topo_ref_with_discoveries(semantic_refs, face_history, ref_id, None)
 }
 
 /// Resolve a topo ref id, optionally matching tessellated faces by geometric fingerprint.
@@ -246,20 +241,17 @@ pub fn sync_semantic_refs_with_history(
 }
 
 /// Merge discovered kernel faces into persisted semantic references.
-pub fn sync_semantic_refs(
-    existing: &[TopoRef],
-    discoveries: &[FaceRefDiscovery],
-) -> Vec<TopoRef> {
+pub fn sync_semantic_refs(existing: &[TopoRef], discoveries: &[FaceRefDiscovery]) -> Vec<TopoRef> {
     let mut refs: Vec<TopoRef> = existing.to_vec();
 
     for discovery in discoveries {
-        if let Some(index) = refs.iter().position(|topo_ref| {
-            topo_ref.kernel_face_id() == Some(discovery.kernel_face_id)
-        }) {
+        if let Some(index) = refs
+            .iter()
+            .position(|topo_ref| topo_ref.kernel_face_id() == Some(discovery.kernel_face_id))
+        {
             refs[index].geometric_fingerprint = Some(fingerprint_from(discovery));
             if discovery.feature_id.is_some() {
-                refs[index].semantic.created_by =
-                    discovery.feature_id.clone().unwrap_or_default();
+                refs[index].semantic.created_by = discovery.feature_id.clone().unwrap_or_default();
             }
             if !discovery.role.is_empty() {
                 refs[index].semantic.role = Some(discovery.role.clone());
@@ -277,9 +269,11 @@ pub fn sync_semantic_refs(
                 })
                 .map(|(index, _)| index)
                 .collect();
-            if let Some(index) = candidate_indexes.iter().copied().find(|&index| {
-                refs[index].kernel_face_id().is_none()
-            }) {
+            if let Some(index) = candidate_indexes
+                .iter()
+                .copied()
+                .find(|&index| refs[index].kernel_face_id().is_none())
+            {
                 refs[index].geometric_fingerprint = Some(fingerprint_from(discovery));
                 refs[index].semantic.normal_hint = Some([
                     discovery.normal_m[0] as f64,
@@ -332,9 +326,10 @@ pub fn assign_face_ref_to_refs(
     role: impl Into<String>,
     normal_m: [f32; 3],
 ) -> Result<()> {
-    if let Some(index) = semantic_refs.iter().position(|topo_ref| {
-        topo_ref.kernel_face_id() == Some(kernel_face_id)
-    }) {
+    if let Some(index) = semantic_refs
+        .iter()
+        .position(|topo_ref| topo_ref.kernel_face_id() == Some(kernel_face_id))
+    {
         semantic_refs[index].ref_id = ref_id;
         semantic_refs[index].semantic.created_by = created_by.into();
         semantic_refs[index].semantic.role = Some(role.into());
@@ -345,11 +340,8 @@ pub fn assign_face_ref_to_refs(
             bbox_hint: None,
             adjacent_feature_ids: Vec::new(),
         });
-        semantic_refs[index].semantic.normal_hint = Some([
-            normal_m[0] as f64,
-            normal_m[1] as f64,
-            normal_m[2] as f64,
-        ]);
+        semantic_refs[index].semantic.normal_hint =
+            Some([normal_m[0] as f64, normal_m[1] as f64, normal_m[2] as f64]);
         return Ok(());
     }
 
@@ -390,26 +382,23 @@ pub fn assign_named_face_ref(
     {
         semantic_refs[index].semantic.created_by = created_by.into();
         semantic_refs[index].semantic.role = Some(role.into());
-        semantic_refs[index].semantic.normal_hint = Some([
-            normal_m[0] as f64,
-            normal_m[1] as f64,
-            normal_m[2] as f64,
-        ]);
+        semantic_refs[index].semantic.normal_hint =
+            Some([normal_m[0] as f64, normal_m[1] as f64, normal_m[2] as f64]);
         return Ok(());
     }
 
     let mut topo_ref = TopoRef::face(ref_id, created_by, role);
-    topo_ref.semantic.normal_hint = Some([
-        normal_m[0] as f64,
-        normal_m[1] as f64,
-        normal_m[2] as f64,
-    ]);
+    topo_ref.semantic.normal_hint =
+        Some([normal_m[0] as f64, normal_m[1] as f64, normal_m[2] as f64]);
     semantic_refs.push(topo_ref);
     semantic_refs.sort_by(|left, right| left.ref_id.as_str().cmp(right.ref_id.as_str()));
     Ok(())
 }
 
-pub fn validate_kernel_face_on_mesh(mesh: &crate::tessellation::MeshSet, kernel_face_id: u64) -> Result<()> {
+pub fn validate_kernel_face_on_mesh(
+    mesh: &crate::tessellation::MeshSet,
+    kernel_face_id: u64,
+) -> Result<()> {
     if !mesh.has_triangle_face_ids() {
         return Err(OpenCadError::validation(
             "mesh has no triangle_face_ids; tessellate with OCCT first",
@@ -441,11 +430,7 @@ fn fingerprint_from(discovery: &FaceRefDiscovery) -> GeometricFingerprint {
                 discovery.centroid_m[2] as f64,
             ],
         ]),
-        adjacent_feature_ids: discovery
-            .feature_id
-            .clone()
-            .into_iter()
-            .collect(),
+        adjacent_feature_ids: discovery.feature_id.clone().into_iter().collect(),
     }
 }
 
@@ -583,9 +568,8 @@ mod tests {
             [0.0, 0.0, 1.0],
         )];
         let history = vec![(20, 10), (30, 20)];
-        let resolved =
-            resolve_kernel_face_id_for_topo_ref(&refs, &history, "ref:face:bracket_top")
-                .expect("resolve");
+        let resolved = resolve_kernel_face_id_for_topo_ref(&refs, &history, "ref:face:bracket_top")
+            .expect("resolve");
         assert_eq!(resolved, 30);
     }
 

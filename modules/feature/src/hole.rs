@@ -6,9 +6,7 @@ use opencad_core::{OpenCadError, Result};
 use opencad_geometry::ExtrudeExtent;
 
 use crate::extrude::{ExtrudeFeature, ExtrudeFeatureExecutor};
-use crate::feature::{
-    Feature, FeatureDefinition, FeatureNode, FeatureOutput, RegenContext,
-};
+use crate::feature::{Feature, FeatureDefinition, FeatureNode, FeatureOutput, RegenContext};
 use crate::topo_resolve::target_feature_for_face_ref;
 
 /// Hole feature parameters (sketch circle/profile cut into a body).
@@ -105,9 +103,9 @@ mod tests {
     use super::*;
     use crate::feature::{FeatureDefinition, FeatureNode, RegenContext};
     use crate::regenerate::TestRegenContext;
+    use opencad_core::Length;
     use opencad_core::TopoRefId;
     use opencad_geometry::{ExtrudeExtent, KernelBody, TopoRef};
-    use opencad_core::Length;
 
     struct RefContext {
         inner: TestRegenContext,

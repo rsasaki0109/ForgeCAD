@@ -5,18 +5,23 @@ use opencad_ai::{DesignPatch, FeatureExprField};
 use opencad_feature::{
     bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet, FeatureRegistry,
 };
-use opencad_graph::bracket_parameters;
 use opencad_geometry::GeometryKernel;
+use opencad_graph::bracket_parameters;
 use opencad_kernel_occt::OcctGeometryKernel;
 
 fn measure(label: &str, model: opencad_feature::PartModel, params: &opencad_graph::ParamGraph) {
     let kernel = OcctGeometryKernel::new();
     let registry = FeatureRegistry::with_defaults();
     let mut model = model;
-    model.regenerate(&kernel, &registry, Some(params), None).expect("regen");
+    model
+        .regenerate(&kernel, &registry, Some(params), None)
+        .expect("regen");
     let body = model.active_body().expect("body");
     let mass = kernel.mass_properties(body, 2700.0).expect("mass");
-    println!("{label}: volume_m3={} mass_kg={}", mass.volume_m3, mass.mass_kg);
+    println!(
+        "{label}: volume_m3={} mass_kg={}",
+        mass.volume_m3, mass.mass_kg
+    );
 }
 
 #[test]

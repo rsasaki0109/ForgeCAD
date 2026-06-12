@@ -48,11 +48,9 @@ pub fn edge_selector_for_face_ref(
         .find(|topo_ref| topo_ref.ref_id.as_str() == face_ref)
         .ok_or_else(|| OpenCadError::not_found(format!("topo ref '{face_ref}'")))?;
 
-    if let Ok(kernel_face_id) = resolve_kernel_face_id_for_topo_ref(
-        ctx.semantic_refs(),
-        ctx.face_history(),
-        face_ref,
-    ) {
+    if let Ok(kernel_face_id) =
+        resolve_kernel_face_id_for_topo_ref(ctx.semantic_refs(), ctx.face_history(), face_ref)
+    {
         return Ok(FilletEdgeSelector::FacePerimeter { kernel_face_id });
     }
 
@@ -114,12 +112,9 @@ mod tests {
                 "top",
             )],
         };
-        let target = target_feature_for_face_ref(
-            &ctx,
-            "ref:face:bracket_top",
-            "feature:extrude_base",
-        )
-        .expect("target");
+        let target =
+            target_feature_for_face_ref(&ctx, "ref:face:bracket_top", "feature:extrude_base")
+                .expect("target");
         assert_eq!(target, "feature:extrude_base");
     }
 
@@ -153,7 +148,10 @@ mod tests {
                 self.inner.kernel()
             }
 
-            fn sketch_for_feature(&self, sketch_feature_id: &str) -> Result<&opencad_sketch::Sketch> {
+            fn sketch_for_feature(
+                &self,
+                sketch_feature_id: &str,
+            ) -> Result<&opencad_sketch::Sketch> {
                 self.inner.sketch_for_feature(sketch_feature_id)
             }
 
@@ -190,9 +188,7 @@ mod tests {
                 .expect("selector");
         assert_eq!(
             selector,
-            FilletEdgeSelector::FacePerimeter {
-                kernel_face_id: 88
-            }
+            FilletEdgeSelector::FacePerimeter { kernel_face_id: 88 }
         );
     }
 

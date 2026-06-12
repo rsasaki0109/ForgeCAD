@@ -39,6 +39,9 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
 
+      - name: Example documents
+        run: cargo test -p opencad-file example_ && cargo test -p opencad-cli example_
+
       - name: Golden regression
         run: cargo test -p opencad-feature golden_ && cargo test -p opencad-cli golden_
 

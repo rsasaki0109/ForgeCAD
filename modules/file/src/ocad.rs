@@ -29,8 +29,7 @@ pub fn write_ocad_zip(path: impl AsRef<Path>, doc: &OcadDocument) -> Result<()> 
     let files = serialize_document_files(doc)?;
     let file = File::create(path).map_err(io_error)?;
     let mut zip = ZipWriter::new(file);
-    let options = SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
 
     for (name, bytes) in files {
         zip.start_file(name, options).map_err(zip_error)?;

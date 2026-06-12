@@ -3,15 +3,17 @@
 use indexmap::IndexMap;
 
 use opencad_core::{Length, OpenCadError, Result};
-use opencad_geometry::{ExtrudeExtent, FaceDerivation, FaceRefDiscovery, GeometryKernel, KernelBody, TopoRef};
+use opencad_geometry::{
+    ExtrudeExtent, FaceDerivation, FaceRefDiscovery, GeometryKernel, KernelBody, TopoRef,
+};
 use opencad_graph::FeatureGraph;
 use opencad_sketch::Sketch;
 
 use opencad_graph::ParamGraph;
 
-use crate::face_discover::discover_face_refs_from_body;
-use crate::extrude::ExtrudeFeature;
 use crate::chamfer::ChamferFeature;
+use crate::extrude::ExtrudeFeature;
+use crate::face_discover::discover_face_refs_from_body;
 use crate::feature::{FeatureDefinition, FeatureNode, FeatureOutput, RegenContext};
 use crate::fillet::FilletFeature;
 use crate::hole::HoleFeature;
@@ -64,9 +66,9 @@ impl<K: GeometryKernel> RegenContext for RegenSession<'_, K> {
                 "feature '{sketch_feature_id}' is not a sketch"
             )));
         };
-        self.sketches.get(&def.sketch_id).ok_or_else(|| {
-            OpenCadError::not_found(format!("sketch '{}'", def.sketch_id))
-        })
+        self.sketches
+            .get(&def.sketch_id)
+            .ok_or_else(|| OpenCadError::not_found(format!("sketch '{}'", def.sketch_id)))
     }
 
     fn body_for_feature(&self, feature_id: &str) -> Result<KernelBody> {
@@ -200,13 +202,13 @@ impl PartModel {
 /// Build the bracket base plate model used in architecture samples.
 pub fn bracket_base_plate() -> Result<PartModel> {
     use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
+    use opencad_graph::bracket_parameters;
     use opencad_sketch::{
         constraint::{Constraint, DistanceTarget},
         entity::{Coord, EntityBase, LineEntity, PointEntity, SketchEntity},
         workplane::Workplane,
         Sketch,
     };
-    use opencad_graph::bracket_parameters;
 
     use crate::param_apply::apply_parameters;
 
@@ -263,7 +265,9 @@ pub fn bracket_base_plate() -> Result<PartModel> {
         expr: Expression::new("height")?,
     })?;
     let mut model = PartModel::new();
-    model.sketches.insert(sketch.id.as_str().to_string(), sketch);
+    model
+        .sketches
+        .insert(sketch.id.as_str().to_string(), sketch);
     apply_parameters(&mut model, &bracket_parameters())?;
     model.add_node(FeatureNode::new(
         "feature:sketch_base",
@@ -295,7 +299,7 @@ pub fn bracket_with_hole() -> Result<PartModel> {
     use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
     use opencad_sketch::{
         constraint::Constraint,
-        entity::{Coord, EntityBase, CircleEntity, PointEntity, SketchEntity},
+        entity::{CircleEntity, Coord, EntityBase, PointEntity, SketchEntity},
         workplane::Workplane,
         Sketch,
     };
@@ -401,6 +405,91 @@ pub fn bracket_with_top_chamfer() -> Result<PartModel> {
     Ok(model)
 }
 
+/// Bracket base plate with a linear cut pattern of pin holes (`spacing_expr: hole_pitch`).
+pub fn bracket_hole_row() -> Result<PartModel> {
+    use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
+    use opencad_sketch::{
+        constraint::Constraint,
+        entity::{CircleEntity, Coord, EntityBase, PointEntity, SketchEntity},
+        workplane::Workplane,
+        Sketch,
+    };
+
+    use crate::extrude::ExtrudeFeature;
+    use crate::pattern::LinearPatternFeature;
+    use crate::sketch_feature::SketchFeatureDef;
+    use opencad_graph::bracket_parameters;
+
+    let mut model = bracket_base_plate()?;
+    apply_parameters(&mut model, &bracket_parameters())?;
+
+    let mut pin_sketch = Sketch::new(SketchId::new("sketch:pin")?, "Pin Sketch", Workplane::xy());
+    pin_sketch.add_entity(SketchEntity::Point(PointEntity {
+        base: EntityBase {
+            id: EntityId::new("ent:pin_center")?,
+            construction: false,
+        },
+        x: Coord::literal(0.01),
+        y: Coord::literal(0.01),
+    }))?;
+    pin_sketch.add_entity(SketchEntity::Circle(CircleEntity {
+        base: EntityBase {
+            id: EntityId::new("ent:pin_circle")?,
+            construction: false,
+        },
+        center: EntityId::new("ent:pin_center")?,
+        radius: Coord::literal(0.002),
+    }))?;
+    pin_sketch.add_constraint(Constraint::Radius {
+        id: ConstraintId::new("con:pin_radius")?,
+        target: EntityId::new("ent:pin_circle")?,
+        expr: Expression::new("2 mm")?,
+    })?;
+    model
+        .sketches
+        .insert(pin_sketch.id.as_str().to_string(), pin_sketch);
+
+    model.add_node(FeatureNode::new(
+        "feature:sketch_pin",
+        "Pin Sketch",
+        FeatureDefinition::Sketch(SketchFeatureDef {
+            sketch_id: "sketch:pin".into(),
+        }),
+    ))?;
+    model.add_node(FeatureNode::new(
+        "feature:pin_tool",
+        "Pin Tool",
+        FeatureDefinition::Extrude(ExtrudeFeature {
+            sketch_feature: "feature:sketch_pin".into(),
+            profile_ref: "sketch:pin/profile:outer".into(),
+            extent: ExtrudeExtent::Distance {
+                length: Length::from_meters(0.006),
+            },
+            operation: opencad_geometry::ExtrudeOperation::NewBody,
+            length_expr: Some("thickness".into()),
+            target_feature: None,
+        }),
+    ))?;
+    let mut pattern = LinearPatternFeature::cut(
+        "feature:pin_tool",
+        "feature:extrude_base",
+        [1.0, 0.0, 0.0],
+        Length::from_meters(0.02),
+        2,
+    );
+    pattern.spacing_expr = Some("hole_pitch".into());
+    model.add_node(FeatureNode::new(
+        "feature:pin_holes",
+        "Pin Hole Row",
+        FeatureDefinition::LinearPattern(pattern),
+    ))?;
+
+    model.add_dependency("feature:sketch_pin", "feature:pin_tool")?;
+    model.add_dependency("feature:extrude_base", "feature:pin_holes")?;
+    model.add_dependency("feature:pin_tool", "feature:pin_holes")?;
+    Ok(model)
+}
+
 #[cfg(test)]
 pub(crate) struct TestRegenContext {
     kernel: opencad_geometry::MockGeometryKernel,
@@ -422,12 +511,8 @@ impl TestRegenContext {
 
     pub(crate) fn with_body(feature_id: impl Into<String>, body: KernelBody) -> Self {
         let mut ctx = Self::empty();
-        ctx.outputs.insert(
-            feature_id.into(),
-            FeatureOutput {
-                body: Some(body),
-            },
-        );
+        ctx.outputs
+            .insert(feature_id.into(), FeatureOutput { body: Some(body) });
         ctx
     }
 }
@@ -469,7 +554,9 @@ mod tests {
         let mut model = bracket_base_plate().expect("model");
         let kernel = MockGeometryKernel::new();
         let registry = FeatureRegistry::with_defaults();
-        let report = model.regenerate(&kernel, &registry, None, None).expect("regen");
+        let report = model
+            .regenerate(&kernel, &registry, None, None)
+            .expect("regen");
         assert_eq!(report.regenerated.len(), 2);
         let body = model.active_body().expect("body");
         assert!(body.0 > 0);
@@ -480,11 +567,12 @@ mod tests {
         let mut model = bracket_base_plate().expect("model");
         let kernel = MockGeometryKernel::new();
         let registry = FeatureRegistry::with_defaults();
-        model.regenerate(&kernel, &registry, None, None).expect("regen");
+        model
+            .regenerate(&kernel, &registry, None, None)
+            .expect("regen");
         let sketch = model.sketches.get("sketch:base").expect("sketch");
-        let solved =
-            crate::sketch_bridge::profile_to_solved(sketch, "sketch:base/profile:outer")
-                .expect("solved");
+        let solved = crate::sketch_bridge::profile_to_solved(sketch, "sketch:base/profile:outer")
+            .expect("solved");
         assert_eq!(solved.points.len(), 4, "{:?}", solved.points);
     }
 
@@ -492,9 +580,8 @@ mod tests {
     fn bracket_profile_has_four_corners() {
         let model = bracket_base_plate().expect("model");
         let sketch = model.sketches.get("sketch:base").expect("sketch");
-        let solved =
-            crate::sketch_bridge::profile_to_solved(sketch, "sketch:base/profile:outer")
-                .expect("solved");
+        let solved = crate::sketch_bridge::profile_to_solved(sketch, "sketch:base/profile:outer")
+            .expect("solved");
         assert_eq!(solved.points.len(), 4, "{:?}", solved.points);
         assert!((solved.points[1][0] - 0.08).abs() < 1e-6);
         assert!((solved.points[1][1] - 0.0).abs() < 1e-6);
@@ -505,7 +592,9 @@ mod tests {
         let mut model = bracket_base_plate().expect("model");
         let kernel = MockGeometryKernel::new();
         let registry = FeatureRegistry::with_defaults();
-        model.regenerate(&kernel, &registry, None, None).expect("regen");
+        model
+            .regenerate(&kernel, &registry, None, None)
+            .expect("regen");
         let body = model.active_body().expect("body");
         let mass = kernel.mass_properties(body, 2700.0).expect("mass");
         assert!(mass.volume_m3 > 0.0);
@@ -522,12 +611,11 @@ mod tests {
             .suppressed = true;
         let kernel = MockGeometryKernel::new();
         let registry = FeatureRegistry::with_defaults();
-        let report = model.regenerate(&kernel, &registry, None, None).expect("regen");
+        let report = model
+            .regenerate(&kernel, &registry, None, None)
+            .expect("regen");
         assert_eq!(report.regenerated, vec!["feature:sketch_base"]);
-        assert_eq!(
-            report.skipped_suppressed,
-            vec!["feature:extrude_base"]
-        );
+        assert_eq!(report.skipped_suppressed, vec!["feature:extrude_base"]);
         assert!(model.active_body().is_none());
     }
 
@@ -547,6 +635,19 @@ mod tests {
     #[test]
     fn regenerates_bracket_with_top_chamfer() {
         let mut model = bracket_with_top_chamfer().expect("model");
+        let kernel = MockGeometryKernel::new();
+        let registry = FeatureRegistry::with_defaults();
+        let params = opencad_graph::bracket_parameters();
+        let report = model
+            .regenerate(&kernel, &registry, Some(&params), None)
+            .expect("regen");
+        assert_eq!(report.regenerated.len(), 5);
+        assert!(model.active_body().is_some());
+    }
+
+    #[test]
+    fn regenerates_bracket_hole_row() {
+        let mut model = bracket_hole_row().expect("model");
         let kernel = MockGeometryKernel::new();
         let registry = FeatureRegistry::with_defaults();
         let params = opencad_graph::bracket_parameters();

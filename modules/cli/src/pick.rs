@@ -3,7 +3,7 @@
 use opencad_core::Result;
 use opencad_feature::FeatureNode;
 use opencad_geometry::{FaceDerivation, TopoRef};
-use opencad_render::{OffscreenRenderer, PickResult, triangle_world_positions};
+use opencad_render::{triangle_world_positions, OffscreenRenderer, PickResult};
 use serde::{Deserialize, Serialize};
 
 use crate::mesh::{load_view_data, PREVIEW_HEIGHT, PREVIEW_WIDTH};
@@ -134,9 +134,8 @@ pub fn build_pick_summary(
         }
         PickResult::SolidTriangle(triangle_index) => {
             let face = scene.face_group_at(triangle_index);
-            let inferred = face.and_then(|face| {
-                feature_nodes.map(|nodes| infer_face_refs(nodes, face))
-            });
+            let inferred =
+                face.and_then(|face| feature_nodes.map(|nodes| infer_face_refs(nodes, face)));
             PickTarget::SolidTriangle {
                 triangle_index,
                 vertices_m: triangle_world_positions(scene, triangle_index)
@@ -230,8 +229,8 @@ mod tests {
         let path = dir.path().join("bracket.ocad.d");
         write_bracket_fixture_at(&path);
 
-        let summary = pick_document(path.to_str().expect("path"), &PickOptions::default())
-            .expect("pick");
+        let summary =
+            pick_document(path.to_str().expect("path"), &PickOptions::default()).expect("pick");
         assert!(summary.triangle_count > 0);
         assert!(summary.overlay_line_count > 0);
         assert!(matches!(

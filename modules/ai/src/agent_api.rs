@@ -10,8 +10,8 @@ use serde_json::Value;
 use crate::explain::{explain_design, DesignExplanation, ExplainParams};
 use crate::patch::DesignPatch;
 use crate::query::{run_query, QueryParams, QueryResult};
+use crate::state::{diff_design_state, DesignState};
 use crate::validation::{dry_run_patch_state, PatchDryRunReport};
-use crate::state::{DesignState, diff_design_state};
 
 /// JSON-RPC 2.0 request.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -169,10 +169,9 @@ impl AgentApi {
             "opencad.diff" => self.handle_diff(request),
             "opencad.query" => self.handle_query(request),
             "opencad.explain" => self.handle_explain(request),
-            method => JsonRpcResponse::error(
-                request.id.clone(),
-                JsonRpcError::method_not_found(method),
-            ),
+            method => {
+                JsonRpcResponse::error(request.id.clone(), JsonRpcError::method_not_found(method))
+            }
         }
     }
 
@@ -366,10 +365,7 @@ mod tests {
 
     fn bracket_state() -> DesignState {
         let part = bracket_with_hole().expect("model");
-        DesignState::new(
-            bracket_parameters(),
-            part.nodes.into_values().collect(),
-        )
+        DesignState::new(bracket_parameters(), part.nodes.into_values().collect())
     }
 
     fn bracket_part() -> opencad_feature::PartModel {
@@ -443,10 +439,7 @@ mod tests {
         let response = AgentApi.handle_request(&request);
         assert!(response.error.is_none());
         let result = response.result.expect("result");
-        assert_eq!(
-            result["changes"][0]["kind"],
-            "parameter_changed"
-        );
+        assert_eq!(result["changes"][0]["kind"], "parameter_changed");
     }
 
     #[test]

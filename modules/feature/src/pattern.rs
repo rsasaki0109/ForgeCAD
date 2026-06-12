@@ -7,9 +7,7 @@ use serde::{Deserialize, Serialize};
 use opencad_core::{Length, OpenCadError, Result};
 use opencad_geometry::BooleanOp;
 
-use crate::feature::{
-    Feature, FeatureDefinition, FeatureNode, FeatureOutput, RegenContext,
-};
+use crate::feature::{Feature, FeatureDefinition, FeatureNode, FeatureOutput, RegenContext};
 
 /// How patterned instances combine with the target body.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -140,12 +138,8 @@ impl Feature for CircularPatternFeatureExecutor {
             },
             |ctx, source, index, _spacing_m, _direction| {
                 let angle = TAU * f64::from(index) / f64::from(def.count);
-                ctx.kernel().rotate_body(
-                    source,
-                    def.axis_origin_m,
-                    axis_direction,
-                    angle,
-                )
+                ctx.kernel()
+                    .rotate_body(source, def.axis_origin_m, axis_direction, angle)
             },
         )
     }
@@ -210,47 +204,30 @@ fn execute_pattern(
     match run.operation {
         PatternOperation::Union => {
             if run.count == 1 {
-                return Ok(FeatureOutput {
-                    body: Some(source),
-                });
+                return Ok(FeatureOutput { body: Some(source) });
             }
             let mut result = source.clone();
             for index in 1..run.count {
-                let instance = instance_at(
-                    run.ctx,
-                    source.clone(),
-                    index,
-                    run.spacing_m,
-                    run.direction,
-                )?;
+                let instance =
+                    instance_at(run.ctx, source.clone(), index, run.spacing_m, run.direction)?;
                 result = kernel.boolean(result, instance, BooleanOp::Union)?;
             }
-            Ok(FeatureOutput {
-                body: Some(result),
-            })
+            Ok(FeatureOutput { body: Some(result) })
         }
         PatternOperation::Cut => {
-            let target_id = run.target_feature.ok_or_else(|| {
-                OpenCadError::validation("cut pattern requires target_feature")
-            })?;
+            let target_id = run
+                .target_feature
+                .ok_or_else(|| OpenCadError::validation("cut pattern requires target_feature"))?;
             let mut result = run.ctx.body_for_feature(target_id)?;
             for index in 0..run.count {
                 let instance = if index == 0 {
                     source.clone()
                 } else {
-                    instance_at(
-                        run.ctx,
-                        source.clone(),
-                        index,
-                        run.spacing_m,
-                        run.direction,
-                    )?
+                    instance_at(run.ctx, source.clone(), index, run.spacing_m, run.direction)?
                 };
                 result = kernel.boolean(result, instance, BooleanOp::Subtract)?;
             }
-            Ok(FeatureOutput {
-                body: Some(result),
-            })
+            Ok(FeatureOutput { body: Some(result) })
         }
     }
 }

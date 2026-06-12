@@ -48,8 +48,12 @@ fn golden_fillet_radius_patch_reduces_volume() {
     let kernel = OcctGeometryKernel::new();
     let params = bracket_parameters();
     let mut default_model = bracket_with_top_fillet().expect("model");
-    let (default_volume, _) =
-        regen_volume_mass(&kernel, &mut default_model, &params, fixture.density_kg_per_m3);
+    let (default_volume, _) = regen_volume_mass(
+        &kernel,
+        &mut default_model,
+        &params,
+        fixture.density_kg_per_m3,
+    );
 
     let mut patched_model = bracket_with_top_fillet().expect("model");
     let mut patched_params = bracket_parameters();

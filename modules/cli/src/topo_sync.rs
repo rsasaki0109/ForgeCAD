@@ -1,7 +1,9 @@
 //! Document semantic topology reference sync and assignment.
 
 use opencad_core::{OpenCadError, Result};
-use opencad_file::{apply_assign_face_ref, read_ocad, write_expanded_dir, AssignFaceRefOp, OcadDocument};
+use opencad_file::{
+    apply_assign_face_ref, read_ocad, write_expanded_dir, AssignFaceRefOp, OcadDocument,
+};
 use opencad_geometry::{sync_semantic_refs_with_history, FaceRefDiscovery, TopoRef};
 use opencad_render::RenderScene;
 

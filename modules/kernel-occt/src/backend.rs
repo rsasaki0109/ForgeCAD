@@ -278,9 +278,11 @@ impl GeometryKernel for OcctGeometryKernel {
             if self.store.borrow().body(body.0).is_none() {
                 return Err(OpenCadError::not_found(format!("body {}", body.0)));
             }
-            self.store
-                .borrow_mut()
-                .tag_face_ref(body.0, kernel_face_id, ref_id.as_str().to_string());
+            self.store.borrow_mut().tag_face_ref(
+                body.0,
+                kernel_face_id,
+                ref_id.as_str().to_string(),
+            );
             Ok(())
         }
         #[cfg(not(feature = "occt"))]
@@ -338,7 +340,9 @@ impl GeometryKernel for OcctGeometryKernel {
         #[cfg(feature = "occt")]
         {
             if distance_m <= 0.0 {
-                return Err(OpenCadError::validation("chamfer distance must be positive"));
+                return Err(OpenCadError::validation(
+                    "chamfer distance must be positive",
+                ));
             }
 
             let solid = self
@@ -438,16 +442,8 @@ impl GeometryKernel for OcctGeometryKernel {
                 .body(body.0)
                 .ok_or_else(|| OpenCadError::not_found(format!("body {}", body.0)))?
                 .clone();
-            let plane_origin = DVec3::new(
-                plane_origin_m[0],
-                plane_origin_m[1],
-                plane_origin_m[2],
-            );
-            let plane_normal = DVec3::new(
-                plane_normal_m[0],
-                plane_normal_m[1],
-                plane_normal_m[2],
-            );
+            let plane_origin = DVec3::new(plane_origin_m[0], plane_origin_m[1], plane_origin_m[2]);
+            let plane_normal = DVec3::new(plane_normal_m[0], plane_normal_m[1], plane_normal_m[2]);
             let mirrored = solid.mirror(plane_origin, plane_normal);
             let id = self.store.borrow_mut().insert_body(mirrored);
             Ok(KernelBody::new(id))
@@ -651,7 +647,12 @@ mod tests {
             .expect("extrude");
         let before = kernel.mass_properties(&body, 2700.0).expect("before");
         let rotated = kernel
-            .rotate_body(body, [0.04, 0.03, 0.0], [0.0, 0.0, 1.0], std::f64::consts::FRAC_PI_2)
+            .rotate_body(
+                body,
+                [0.04, 0.03, 0.0],
+                [0.0, 0.0, 1.0],
+                std::f64::consts::FRAC_PI_2,
+            )
             .expect("rotate");
         let after = kernel.mass_properties(&rotated, 2700.0).expect("after");
         assert!(

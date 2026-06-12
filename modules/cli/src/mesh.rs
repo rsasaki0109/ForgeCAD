@@ -3,8 +3,8 @@
 use opencad_core::Result;
 use opencad_feature::{apply_parameters, FeatureNode};
 use opencad_file::read_ocad;
-use opencad_graph::evaluate_param_graph;
 use opencad_geometry::{FaceDerivation, TopoRef};
+use opencad_graph::evaluate_param_graph;
 use opencad_render::{build_sketch_overlay, OffscreenRenderer, RenderScene, SketchOverlay};
 use serde::{Deserialize, Serialize};
 
@@ -82,7 +82,8 @@ pub fn mesh_document(input: &str, options: &MeshOptions) -> Result<MeshSummary> 
             let parameters = doc.parameters.clone();
             let semantic_refs = doc.semantic_refs.clone();
             let mut model = doc.into_part_model();
-            let mesh_set = tessellate_active_body(&mut model, Some(&parameters), Some(&semantic_refs))?;
+            let mesh_set =
+                tessellate_active_body(&mut model, Some(&parameters), Some(&semantic_refs))?;
             RenderScene::from_mesh_set(&mesh_set)?
         };
         ViewData {
@@ -130,12 +131,8 @@ pub fn mesh_document(input: &str, options: &MeshOptions) -> Result<MeshSummary> 
             )?;
             (Some(output.non_background_pixels), Some(path.clone()))
         } else {
-            let output = renderer.render_scene_image(
-                &data.scene,
-                overlay,
-                PREVIEW_WIDTH,
-                PREVIEW_HEIGHT,
-            )?;
+            let output =
+                renderer.render_scene_image(&data.scene, overlay, PREVIEW_WIDTH, PREVIEW_HEIGHT)?;
             (Some(output.non_background_pixels), None)
         }
     } else {
@@ -189,10 +186,8 @@ pub(crate) fn write_bracket_fixture_at(path: &std::path::Path) {
     use opencad_graph::bracket_parameters;
 
     let part = bracket_base_plate().expect("model");
-    let metadata = DocumentMetadata::new(
-        DocumentId::new("doc:bracket_001").expect("id"),
-        "Bracket",
-    );
+    let metadata =
+        DocumentMetadata::new(DocumentId::new("doc:bracket_001").expect("id"), "Bracket");
     let mut doc = OcadDocument::from_part_model(metadata, &part);
     doc.parameters = bracket_parameters();
     write_expanded_dir(path, &doc).expect("write");
@@ -213,8 +208,8 @@ mod tests {
         let path = dir.path().join("bracket.ocad.d");
         write_bracket_fixture(&path);
 
-        let summary = mesh_document(path.to_str().expect("path"), &MeshOptions::default())
-            .expect("mesh");
+        let summary =
+            mesh_document(path.to_str().expect("path"), &MeshOptions::default()).expect("mesh");
         assert!(summary.triangles > 0);
         assert!(summary.vertices > 0);
         assert!(summary.camera_distance_m > 0.0);

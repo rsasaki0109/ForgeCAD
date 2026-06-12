@@ -3,7 +3,7 @@
   "id": 1,
   "method": "opencad.pick_document",
   "params": {
-    "path": "bracket.ocad.d",
+    "path": "examples/bracket.ocad.d",
     "x": 256,
     "y": 256
   }

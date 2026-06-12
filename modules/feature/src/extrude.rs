@@ -63,15 +63,16 @@ impl Feature for ExtrudeFeatureExecutor {
                         "cut extrude requires target_feature",
                     ));
                 };
-                kernel.extrude(wire, def.extent.clone(), ExtrudeOperation::Cut, Some(target))?
-            }
-            ExtrudeOperation::Join => {
-                let new_body = kernel.extrude(
+                kernel.extrude(
                     wire,
                     def.extent.clone(),
-                    ExtrudeOperation::NewBody,
-                    None,
-                )?;
+                    ExtrudeOperation::Cut,
+                    Some(target),
+                )?
+            }
+            ExtrudeOperation::Join => {
+                let new_body =
+                    kernel.extrude(wire, def.extent.clone(), ExtrudeOperation::NewBody, None)?;
                 let Some(target) = target_body else {
                     return Err(OpenCadError::validation(
                         "join extrude requires target_feature",
@@ -81,9 +82,7 @@ impl Feature for ExtrudeFeatureExecutor {
             }
         };
 
-        Ok(FeatureOutput {
-            body: Some(body),
-        })
+        Ok(FeatureOutput { body: Some(body) })
     }
 }
 

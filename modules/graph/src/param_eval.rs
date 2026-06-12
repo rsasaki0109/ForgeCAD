@@ -11,9 +11,9 @@ pub fn evaluate_param_graph(graph: &ParamGraph) -> Result<IndexMap<String, f64>>
     let order = graph.evaluation_order()?;
     let mut values = IndexMap::new();
     for id in order {
-        let entry = graph.get(&id).ok_or_else(|| {
-            OpenCadError::not_found(format!("parameter '{id}'"))
-        })?;
+        let entry = graph
+            .get(&id)
+            .ok_or_else(|| OpenCadError::not_found(format!("parameter '{id}'")))?;
         let value = eval_length_expr(&entry.expr, &values)?;
         values.insert(entry.name.clone(), value);
     }
@@ -117,7 +117,10 @@ fn tokenize(input: &str) -> Result<Vec<Token>> {
     Ok(tokens)
 }
 
-fn parse_expr<'a>(tokens: &'a [Token], scope: &IndexMap<String, f64>) -> Result<(f64, &'a [Token])> {
+fn parse_expr<'a>(
+    tokens: &'a [Token],
+    scope: &IndexMap<String, f64>,
+) -> Result<(f64, &'a [Token])> {
     let (mut value, mut rest) = parse_term(tokens, scope)?;
     while let Some(token) = rest.first() {
         match token {
@@ -137,7 +140,10 @@ fn parse_expr<'a>(tokens: &'a [Token], scope: &IndexMap<String, f64>) -> Result<
     Ok((value, rest))
 }
 
-fn parse_term<'a>(tokens: &'a [Token], scope: &IndexMap<String, f64>) -> Result<(f64, &'a [Token])> {
+fn parse_term<'a>(
+    tokens: &'a [Token],
+    scope: &IndexMap<String, f64>,
+) -> Result<(f64, &'a [Token])> {
     let (mut value, mut rest) = parse_factor(tokens, scope)?;
     while let Some(token) = rest.first() {
         match token {

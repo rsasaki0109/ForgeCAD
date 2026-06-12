@@ -19,6 +19,8 @@ pub use kernel::{
 pub use mass::{BoundingBox, MassProperties};
 pub use nurbs::NurbsSurface;
 pub use refs::{GeometricFingerprint, TopoRef, TopoRefKind, TopoRefSemantic};
+pub use stl::write_binary_stl;
+pub use tessellation::{MeshSet, TessellationSettings};
 pub use topo_sync::{
     assign_face_ref_to_refs, assign_named_face_ref, build_src_to_post_map,
     compose_face_derivation_histories, kernel_topo_ref_id, match_face_discovery_for_topo_ref,
@@ -27,5 +29,3 @@ pub use topo_sync::{
     resolve_topo_ref_id_with_history, sync_semantic_refs, sync_semantic_refs_with_history,
     validate_kernel_face_on_mesh, FaceDerivation, FaceRefDiscovery,
 };
-pub use tessellation::{MeshSet, TessellationSettings};
-pub use stl::write_binary_stl;

@@ -2,7 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use opencad_geometry::{FaceRefDiscovery, GeometryKernel, KernelBody, MeshSet, TessellationSettings};
+use opencad_geometry::{
+    FaceRefDiscovery, GeometryKernel, KernelBody, MeshSet, TessellationSettings,
+};
 
 use crate::feature::FeatureNode;
 

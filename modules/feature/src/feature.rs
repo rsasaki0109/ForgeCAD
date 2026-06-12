@@ -53,7 +53,11 @@ pub struct FeatureNode {
 }
 
 impl FeatureNode {
-    pub fn new(id: impl Into<String>, name: impl Into<String>, definition: FeatureDefinition) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        definition: FeatureDefinition,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),

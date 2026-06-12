@@ -1,9 +1,12 @@
 //! OCCT-backed feature regeneration integration tests.
 
 use opencad_core::Length;
-use opencad_feature::{bracket_base_plate, bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet, profile_to_solved, FeatureRegistry};
-use opencad_graph::bracket_parameters;
+use opencad_feature::{
+    bracket_base_plate, bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet,
+    profile_to_solved, FeatureRegistry,
+};
 use opencad_geometry::{build_src_to_post_map, ExtrudeExtent, ExtrudeOperation, GeometryKernel};
+use opencad_graph::bracket_parameters;
 use opencad_kernel_occt::OcctGeometryKernel;
 
 #[test]
@@ -230,9 +233,7 @@ fn occt_fillet_on_face_ref_matches_top_perimeter() {
 
 #[test]
 fn occt_linear_pattern_unions_translated_bodies() {
-    use opencad_feature::{
-        apply_parameters, FeatureDefinition, FeatureNode, LinearPatternFeature,
-    };
+    use opencad_feature::{apply_parameters, FeatureDefinition, FeatureNode, LinearPatternFeature};
 
     let mut model = bracket_base_plate().expect("model");
     let params = bracket_parameters();
@@ -286,13 +287,12 @@ fn pin_tool_plate() -> opencad_feature::PartModel {
 fn pin_tool_plate_at(center_x: f64, center_y: f64) -> opencad_feature::PartModel {
     use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
     use opencad_feature::{
-        apply_parameters, ExtrudeFeature, FeatureDefinition, FeatureNode,
-        SketchFeatureDef,
+        apply_parameters, ExtrudeFeature, FeatureDefinition, FeatureNode, SketchFeatureDef,
     };
     use opencad_geometry::{ExtrudeExtent, ExtrudeOperation};
     use opencad_sketch::{
         constraint::Constraint,
-        entity::{Coord, EntityBase, CircleEntity, PointEntity, SketchEntity},
+        entity::{CircleEntity, Coord, EntityBase, PointEntity, SketchEntity},
         workplane::Workplane,
         Sketch,
     };
@@ -446,9 +446,7 @@ fn occt_linear_cut_pattern_subtracts_more_than_single_cut() {
 
 #[test]
 fn occt_circular_pattern_unions_rotated_bodies() {
-    use opencad_feature::{
-        CircularPatternFeature, FeatureDefinition, FeatureNode,
-    };
+    use opencad_feature::{CircularPatternFeature, FeatureDefinition, FeatureNode};
 
     let kernel = OcctGeometryKernel::new();
     let registry = FeatureRegistry::with_defaults();

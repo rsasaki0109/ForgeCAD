@@ -5,7 +5,9 @@ use std::path::Path;
 
 use opencad_ai::ensure_patch_valid;
 use opencad_core::Result;
-use opencad_file::{apply_patch_to_document, dry_run_patch_document, read_ocad, write_ocad, OcadDocument};
+use opencad_file::{
+    apply_patch_to_document, dry_run_patch_document, read_ocad, write_ocad, OcadDocument,
+};
 
 use crate::diff::{self, DiffOptions};
 
@@ -33,9 +35,8 @@ pub fn read_patch_file(patch_path: &str) -> Result<opencad_ai::DesignPatch> {
             Path::new(patch_path).display()
         ))
     })?;
-    serde_json::from_str(&patch_json).map_err(|err| {
-        opencad_core::OpenCadError::validation(format!("invalid patch JSON: {err}"))
-    })
+    serde_json::from_str(&patch_json)
+        .map_err(|err| opencad_core::OpenCadError::validation(format!("invalid patch JSON: {err}")))
 }
 
 /// Apply a DesignPatch JSON file to a document in memory.

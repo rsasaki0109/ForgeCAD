@@ -11,12 +11,14 @@ Welcome to ForgeCAD development.
 ## Getting started
 
 ```bash
-git clone <repo-url> opencad
-cd opencad
+git clone https://github.com/rsasaki0109/ForgeCAD.git
+cd ForgeCAD
 cargo test --workspace
 cargo run -p opencad-cli -- help
-cargo run -p opencad-cli -- new bracket.ocad.d
-cargo run -p opencad-cli -- regen bracket.ocad.d
+
+# Use committed samples
+cargo run -p opencad-cli -- regen examples/bracket.ocad.d
+cargo run -p opencad-cli -- new my_part.ocad.d hole-row
 ```
 
 ## Workspace layout
@@ -71,12 +73,16 @@ See `AGENTS.md` section 7. The Design Graph is always the source of truth.
 
 ## Next tasks
 
-Foundation (completed in bootstrap):
+Recent milestones (post-bootstrap):
 
-- Task-001 … Task-015
+- Linear / circular / mirror patterns with union/cut
+- Semantic `TopoRef` patches and fingerprint fallback
+- Agent API query/pick/explain over documents
+- OCCT integration tests for patterns and topo sync
 
-Up next:
+Up next (recommended):
 
-- Task-016: DesignGraph type
-- Task-026: Sketch type
-- Task-046: Solver variable model
+- Face-ref-driven hole placement in sample documents
+- Mirror plane from semantic face refs
+- CI green + committed `examples/*.ocad.d` fixtures
+- Optional `forgecad` CLI crate rename

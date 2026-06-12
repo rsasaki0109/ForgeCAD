@@ -36,9 +36,7 @@ pub fn list_overlay_line_infos(overlay: &SketchOverlay) -> Vec<OverlayLineInfo> 
                     .as_ref()
                     .map(|entity| entity.entity_id.clone())
                     .or_else(|| line.entity_id.clone()),
-                entity_kind: entity
-                    .as_ref()
-                    .map(|entity| entity.entity_kind.to_string()),
+                entity_kind: entity.as_ref().map(|entity| entity.entity_kind.to_string()),
                 segment_index: entity.and_then(|entity| entity.segment_index),
                 construction: line.construction,
                 start_m: line.start,
@@ -177,8 +175,12 @@ mod tests {
 
         let items = list_overlay_line_infos(&overlay);
         assert!(!items.is_empty());
-        assert!(items.iter().any(|item| item.entity_id.as_deref() == Some("ent:e0")));
-        assert!(items.iter().all(|item| item.line_index < overlay.lines.len()));
+        assert!(items
+            .iter()
+            .any(|item| item.entity_id.as_deref() == Some("ent:e0")));
+        assert!(items
+            .iter()
+            .all(|item| item.line_index < overlay.lines.len()));
     }
 
     #[test]
@@ -196,11 +198,11 @@ mod tests {
         );
         assert!(!items.is_empty());
         assert!(items.iter().any(|item| item.face_role == "top"));
-        assert!(items
-            .iter()
-            .any(|item| item.kernel_face_id.is_some()));
-        assert!(items
-            .iter()
-            .any(|item| item.inferred_topo_ref_id.as_deref().map(|id| id.starts_with("ref:face:kernel_")).unwrap_or(false)));
+        assert!(items.iter().any(|item| item.kernel_face_id.is_some()));
+        assert!(items.iter().any(|item| item
+            .inferred_topo_ref_id
+            .as_deref()
+            .map(|id| id.starts_with("ref:face:kernel_"))
+            .unwrap_or(false)));
     }
 }
