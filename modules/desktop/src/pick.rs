@@ -3,7 +3,9 @@
 use opencad_core::Result;
 use opencad_feature::FeatureNode;
 use opencad_geometry::{FaceDerivation, TopoRef};
-use opencad_render::{triangle_world_positions, OffscreenRenderer, PickResult, RenderScene};
+use opencad_render::{
+    face_group_boundary_edges, triangle_world_positions, OffscreenRenderer, PickResult, RenderScene,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::preview::{load_view_data, PREVIEW_HEIGHT, PREVIEW_WIDTH};
@@ -198,7 +200,20 @@ fn highlight_segments_for_selection(
         PickTarget::SketchLine { start_m, end_m, .. } => {
             project_segment(*start_m, *end_m).into_iter().collect()
         }
-        PickTarget::SolidTriangle { vertices_m, .. } => {
+        PickTarget::SolidTriangle {
+            face_group_index,
+            vertices_m,
+            ..
+        } => {
+            if let Some(group_index) = face_group_index {
+                let edges = face_group_boundary_edges(scene, *group_index);
+                if !edges.is_empty() {
+                    return edges
+                        .into_iter()
+                        .filter_map(|(start, end)| project_segment(start, end))
+                        .collect();
+                }
+            }
             let [v0, v1, v2] = *vertices_m;
             [
                 project_segment(v0, v1),
@@ -237,6 +252,23 @@ mod tests {
             } | PickTarget::SketchLine { .. }
         ));
         assert!(!summary.highlight_segments_px.is_empty());
+    }
+
+    #[test]
+    fn solid_pick_highlights_face_group_boundary() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("bracket.ocad.d");
+        write_bracket_fixture_at(&path);
+
+        let summary =
+            pick_document(path.to_str().expect("path"), &PickOptions::default()).expect("pick");
+        if let PickTarget::SolidTriangle { .. } = summary.selection {
+            assert!(
+                summary.highlight_segments_px.len() >= 4,
+                "expected face-group boundary highlight, got {}",
+                summary.highlight_segments_px.len()
+            );
+        }
     }
 
     #[test]

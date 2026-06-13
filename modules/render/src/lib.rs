@@ -20,6 +20,8 @@ pub use overlay::{
 };
 pub use png::write_png;
 pub use scene::{BoundingBox, RenderScene};
-pub use selection::{triangle_world_positions, PickResult, SelectionCatalog, SelectionId};
+pub use selection::{
+    face_group_boundary_edges, triangle_world_positions, PickResult, SelectionCatalog, SelectionId,
+};
 pub use viewport::run_viewport;
 pub use wgpu_renderer::{OffscreenRenderer, RenderImage, RenderOutput};

@@ -101,6 +101,17 @@ impl FaceCatalog {
         let group_index = *self.triangle_group.get(triangle_index)?;
         self.groups.get(group_index)
     }
+
+    /// Triangle indices that belong to a face group.
+    pub fn triangle_indices_in_group(&self, group_index: usize) -> Vec<usize> {
+        self.triangle_group
+            .iter()
+            .enumerate()
+            .filter_map(|(triangle_index, mapped_group)| {
+                (*mapped_group == group_index).then_some(triangle_index)
+            })
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -275,6 +286,13 @@ mod tests {
             .iter()
             .any(|group| group.role == FaceRole::Bottom));
         assert!(catalog.group_at(0).is_some());
+        let top_group = catalog
+            .groups
+            .iter()
+            .find(|group| group.role == FaceRole::Top)
+            .expect("top");
+        let top_triangles = catalog.triangle_indices_in_group(top_group.index);
+        assert!(top_triangles.len() >= 2);
     }
 
     #[test]

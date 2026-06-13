@@ -184,6 +184,72 @@ pub fn triangle_world_positions(
     ])
 }
 
+/// Boundary edges of a tessellated face group (shared internal edges excluded).
+pub fn face_group_boundary_edges(
+    scene: &crate::scene::RenderScene,
+    group_index: usize,
+) -> Vec<([f32; 3], [f32; 3])> {
+    use std::collections::HashMap;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct EdgeKey([i32; 3], [i32; 3]);
+
+    #[derive(Debug, Clone, Copy)]
+    struct EdgeCount {
+        edge: ([f32; 3], [f32; 3]),
+        count: u8,
+    }
+
+    fn quantize_axis(value: f32) -> i32 {
+        (value * 1_000_000.0).round() as i32
+    }
+
+    fn quantize_point(point: [f32; 3]) -> [i32; 3] {
+        [
+            quantize_axis(point[0]),
+            quantize_axis(point[1]),
+            quantize_axis(point[2]),
+        ]
+    }
+
+    fn canonical_edge(
+        start: [f32; 3],
+        end: [f32; 3],
+    ) -> (EdgeKey, ([f32; 3], [f32; 3])) {
+        let start_q = quantize_point(start);
+        let end_q = quantize_point(end);
+        if start_q <= end_q {
+            (EdgeKey(start_q, end_q), (start, end))
+        } else {
+            (EdgeKey(end_q, start_q), (start, end))
+        }
+    }
+
+    let triangle_indices = scene
+        .face_catalog
+        .triangle_indices_in_group(group_index);
+    let mut edge_counts: HashMap<EdgeKey, EdgeCount> = HashMap::new();
+
+    for triangle_index in triangle_indices {
+        let Some(vertices) = triangle_world_positions(scene, triangle_index) else {
+            continue;
+        };
+        for (start, end) in [(vertices[0], vertices[1]), (vertices[1], vertices[2]), (vertices[2], vertices[0])]
+        {
+            let (key, edge) = canonical_edge(start, end);
+            edge_counts
+                .entry(key)
+                .and_modify(|entry| entry.count += 1)
+                .or_insert(EdgeCount { edge, count: 1 });
+        }
+    }
+
+    edge_counts
+        .into_values()
+        .filter_map(|entry| (entry.count == 1).then_some(entry.edge))
+        .collect()
+}
+
 pub(crate) fn triangle_edge_vertices(
     vertices: &[GpuVertex],
     indices: &[u32],
@@ -593,6 +659,22 @@ mod tests {
         let indices = vec![0, 1, 2];
         let edges = triangle_edge_vertices(&vertices, &indices, 0).expect("edges");
         assert_eq!(edges.len(), 6);
+    }
+
+    #[test]
+    fn face_group_boundary_edges_outline_planar_face() {
+        use crate::scene::RenderScene;
+        use opencad_geometry::MeshSet;
+
+        let scene = RenderScene::from_mesh_set(&MeshSet::box_prism(0.08, 0.001)).expect("scene");
+        let top_group = scene
+            .face_catalog
+            .groups
+            .iter()
+            .find(|group| group.role == crate::face_catalog::FaceRole::Top)
+            .expect("top");
+        let edges = face_group_boundary_edges(&scene, top_group.index);
+        assert_eq!(edges.len(), 4);
     }
 
     #[test]
