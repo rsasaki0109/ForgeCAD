@@ -6,6 +6,8 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 rust-version = "1.78"
 
+[workspace]
+
 [lib]
 name = "forgecad_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]

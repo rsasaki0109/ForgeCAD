@@ -17,6 +17,9 @@ members = [
     "modules/desktop",
     "modules/plugin-api",
 ]
+exclude = [
+    "apps/desktop/src-tauri",
+]
 
 [workspace.package]
 version = "0.1.0"
