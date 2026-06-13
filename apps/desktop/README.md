@@ -33,6 +33,7 @@ The app loads `examples/bracket.ocad.d` automatically when launched from the wor
 - Regenerate + PNG preview (sketch overlay included)
 - Edit parameters inline (persist + live preview refresh)
 - Click preview to pick faces/sketch lines (topo ref + feature inference)
+- Selected geometry is highlighted on the preview image
 - Open interactive wgpu 3D viewport (separate window)
 - Create built-in sample templates
 - Document inspect panel (features, sketches, bounds)

@@ -2,6 +2,7 @@ const { invoke } = window.__TAURI__.core;
 const { open, save } = window.__TAURI__.dialog;
 
 const preview = document.getElementById("preview");
+const highlightOverlay = document.getElementById("highlight-overlay");
 const status = document.getElementById("status");
 const docInfo = document.getElementById("doc-info");
 const previewInfo = document.getElementById("preview-info");
@@ -95,6 +96,19 @@ function renderSelection(summary) {
 
 function clearSelection() {
   renderInfo(selectionInfo, [["Kind", "none"]]);
+  renderHighlight([]);
+}
+
+function renderHighlight(segments) {
+  highlightOverlay.replaceChildren();
+  for (const segment of segments) {
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", String(segment.start_px[0]));
+    line.setAttribute("y1", String(segment.start_px[1]));
+    line.setAttribute("x2", String(segment.end_px[0]));
+    line.setAttribute("y2", String(segment.end_px[1]));
+    highlightOverlay.append(line);
+  }
 }
 
 async function pickAtPreview(event) {
@@ -114,6 +128,7 @@ async function pickAtPreview(event) {
       y: coords.y,
     });
     renderSelection(summary);
+    renderHighlight(summary.highlight_segments_px ?? []);
     if (summary.selection.kind === "none") {
       setStatus("No geometry at click point.");
     } else {
@@ -308,6 +323,8 @@ async function createSample() {
   });
   await loadDocument(selected);
 }
+
+highlightOverlay.setAttribute("viewBox", `0 0 ${PREVIEW_WIDTH} ${PREVIEW_HEIGHT}`);
 
 async function boot() {
   try {

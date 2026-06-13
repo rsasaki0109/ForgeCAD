@@ -3,7 +3,7 @@
 use opencad_core::Result;
 use opencad_feature::FeatureNode;
 use opencad_geometry::{FaceDerivation, TopoRef};
-use opencad_render::{triangle_world_positions, OffscreenRenderer, PickResult};
+use opencad_render::{triangle_world_positions, OffscreenRenderer, PickResult, RenderScene};
 use serde::{Deserialize, Serialize};
 
 use crate::preview::{load_view_data, PREVIEW_HEIGHT, PREVIEW_WIDTH};
@@ -68,6 +68,13 @@ pub enum PickTarget {
     },
 }
 
+/// Screen-space line segment for preview highlight overlays.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ScreenSegment {
+    pub start_px: [f64; 2],
+    pub end_px: [f64; 2],
+}
+
 /// Summary returned by `pick_document`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PickSummary {
@@ -78,6 +85,7 @@ pub struct PickSummary {
     pub overlay_line_count: usize,
     pub triangle_count: usize,
     pub selection: PickTarget,
+    pub highlight_segments_px: Vec<ScreenSegment>,
 }
 
 pub fn pick_document(path: &str, options: &PickOptions) -> Result<PickSummary> {
@@ -155,6 +163,9 @@ pub fn build_pick_summary(
         }
     };
 
+    let highlight_segments_px =
+        highlight_segments_for_selection(scene, &selection, options.width, options.height);
+
     PickSummary {
         x: options.x,
         y: options.y,
@@ -163,6 +174,41 @@ pub fn build_pick_summary(
         overlay_line_count: overlay.lines.len(),
         triangle_count: scene.triangle_count(),
         selection,
+        highlight_segments_px,
+    }
+}
+
+fn highlight_segments_for_selection(
+    scene: &RenderScene,
+    selection: &PickTarget,
+    width: u32,
+    height: u32,
+) -> Vec<ScreenSegment> {
+    let aspect = width as f32 / height.max(1) as f32;
+    let camera = scene.default_camera(aspect);
+
+    let project_segment = |start: [f32; 3], end: [f32; 3]| -> Option<ScreenSegment> {
+        let start_px = camera.project_to_screen(width, height, start)?;
+        let end_px = camera.project_to_screen(width, height, end)?;
+        Some(ScreenSegment { start_px, end_px })
+    };
+
+    match selection {
+        PickTarget::None => Vec::new(),
+        PickTarget::SketchLine { start_m, end_m, .. } => {
+            project_segment(*start_m, *end_m).into_iter().collect()
+        }
+        PickTarget::SolidTriangle { vertices_m, .. } => {
+            let [v0, v1, v2] = *vertices_m;
+            [
+                project_segment(v0, v1),
+                project_segment(v1, v2),
+                project_segment(v2, v0),
+            ]
+            .into_iter()
+            .flatten()
+            .collect()
+        }
     }
 }
 
@@ -190,6 +236,7 @@ mod tests {
                 ..
             } | PickTarget::SketchLine { .. }
         ));
+        assert!(!summary.highlight_segments_px.is_empty());
     }
 
     #[test]
@@ -208,5 +255,6 @@ mod tests {
         )
         .expect("pick");
         assert!(matches!(summary.selection, PickTarget::None));
+        assert!(summary.highlight_segments_px.is_empty());
     }
 }

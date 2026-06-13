@@ -62,6 +62,11 @@ impl OrbitCamera {
         multiply_mat4(self.projection_matrix(), self.view_matrix())
     }
 
+    /// Project a world-space point into preview pixel coordinates.
+    pub fn project_to_screen(&self, width: u32, height: u32, world: [f32; 3]) -> Option<[f64; 2]> {
+        project_world_to_screen(&self.view_projection_matrix(), width, height, world)
+    }
+
     /// Screen-aligned basis vectors for billboard text overlays.
     pub fn billboard_basis(&self) -> ([f32; 3], [f32; 3]) {
         let view = self.view_matrix();
@@ -153,6 +158,33 @@ fn multiply_mat4(a: [f32; 16], b: [f32; 16]) -> [f32; 16] {
     out
 }
 
+fn transform_point(m: &[f32; 16], p: [f32; 3]) -> [f32; 4] {
+    [
+        m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12],
+        m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13],
+        m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14],
+        m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15],
+    ]
+}
+
+/// Project a world-space point into viewport pixel coordinates.
+pub fn project_world_to_screen(
+    view_proj: &[f32; 16],
+    width: u32,
+    height: u32,
+    world: [f32; 3],
+) -> Option<[f64; 2]> {
+    let clip = transform_point(view_proj, world);
+    if clip[3] <= f32::EPSILON {
+        return None;
+    }
+    let ndc_x = clip[0] / clip[3];
+    let ndc_y = clip[1] / clip[3];
+    let x = (ndc_x as f64 * 0.5 + 0.5) * width as f64;
+    let y = (1.0 - (ndc_y as f64 * 0.5 + 0.5)) * height as f64;
+    Some([x, y])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,5 +231,22 @@ mod tests {
         assert!((right_len - 1.0).abs() < 1e-5);
         assert!((up_len - 1.0).abs() < 1e-5);
         assert!(dot.abs() < 1e-5);
+    }
+
+    #[test]
+    fn projects_bounds_center_near_preview_center() {
+        let bounds = BoundingBox {
+            min: [0.0, 0.0, 0.0],
+            max: [0.08, 0.06, 0.006],
+        };
+        let width = 960;
+        let height = 540;
+        let camera = OrbitCamera::fit_bounds(&bounds, width as f32 / height as f32);
+        let center = bounds.center();
+        let projected = camera
+            .project_to_screen(width, height, center)
+            .expect("projected");
+        assert!((projected[0] - width as f64 * 0.5).abs() < width as f64 * 0.15);
+        assert!((projected[1] - height as f64 * 0.5).abs() < height as f64 * 0.15);
     }
 }
