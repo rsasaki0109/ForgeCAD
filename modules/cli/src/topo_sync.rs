@@ -8,7 +8,7 @@ use opencad_geometry::{sync_semantic_refs_with_history, FaceRefDiscovery, TopoRe
 use opencad_render::RenderScene;
 
 use crate::export::tessellate_active_body_detailed;
-use crate::scene_query::infer_face_refs;
+use opencad_desktop::infer_face_refs;
 
 pub fn discover_face_refs(
     scene: &RenderScene,

@@ -23,7 +23,8 @@
 
     <main class="layout">
       <section class="preview-panel">
-        <img id="preview" alt="Model preview" />
+        <img id="preview" alt="Model preview" title="Click to pick geometry" />
+        <p id="pick-hint" class="pick-hint">Click the preview to inspect faces and sketch lines.</p>
         <p id="status" class="status">Loading…</p>
       </section>
       <aside class="info-panel">
@@ -33,6 +34,8 @@
         <dl id="preview-info"></dl>
         <h2>Parameters</h2>
         <div id="parameters" class="parameters"></div>
+        <h2>Selection</h2>
+        <dl id="selection-info"></dl>
       </aside>
     </main>
 

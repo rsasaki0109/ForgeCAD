@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use opencad_desktop::{
     create_document, inspect_document, list_document_parameters, load_view_data,
-    preview_document, set_document_parameter, DocumentInspect, DocumentPreview,
-    DocumentTemplate, ParameterRow,
+    pick_document, preview_document, set_document_parameter, DocumentInspect, DocumentPreview,
+    DocumentTemplate, ParameterRow, PickOptions, PickSummary, PREVIEW_HEIGHT, PREVIEW_WIDTH,
 };
 use opencad_render::run_viewport;
 use serde::Serialize;
@@ -96,6 +96,17 @@ fn open_viewport_cmd(path: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn pick_document_cmd(path: String, x: f64, y: f64) -> Result<PickSummary, String> {
+    let options = PickOptions {
+        x,
+        y,
+        width: PREVIEW_WIDTH,
+        height: PREVIEW_HEIGHT,
+    };
+    pick_document(&path, &options).map_err(map_error)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -109,6 +120,7 @@ pub fn run() {
             list_document_parameters_cmd,
             set_document_parameter_cmd,
             open_viewport_cmd,
+            pick_document_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running ForgeCAD desktop");

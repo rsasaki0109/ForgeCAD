@@ -3,13 +3,18 @@
 pub mod fixture;
 pub mod inspect;
 pub mod parameters;
+pub mod pick;
 pub mod preview;
 pub mod regen;
+pub mod scene_query;
 pub mod template;
 
 pub use inspect::{inspect_document, DocumentInspect};
 pub use parameters::{
     list_document_parameters, set_document_parameter, ParameterRow,
+};
+pub use pick::{
+    build_pick_summary, pick_document, PickOptions, PickSummary, PickTarget,
 };
 pub use preview::{
     load_view_data, preview_document, DocumentPreview, ViewData, PREVIEW_HEIGHT, PREVIEW_WIDTH,
@@ -18,6 +23,8 @@ pub use regen::{
     tessellate_active_body, tessellate_active_body_detailed, TessellatedBody,
 };
 pub use template::{create_document, DocumentTemplate};
+
+pub use scene_query::{infer_face_refs, topo_ref_for_group};
 
 #[cfg(test)]
 mod tests {

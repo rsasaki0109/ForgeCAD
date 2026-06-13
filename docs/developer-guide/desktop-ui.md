@@ -14,6 +14,7 @@ See [apps/desktop/README.md](../../apps/desktop/README.md).
 | `inspect_document(path)` | Document metadata summary |
 | `list_document_parameters(path)` | Parameter expressions + evaluated mm values |
 | `set_document_parameter(path, id, expr)` | Update one parameter and persist |
+| `pick_document(path, options)` | Headless GPU pick at preview pixel coordinates |
 | `create_document(path, template)` | Built-in sample templates |
 | `load_view_data(path)` | Scene + sketch overlay for advanced viewers |
 

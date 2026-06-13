@@ -5,6 +5,7 @@ const preview = document.getElementById("preview");
 const status = document.getElementById("status");
 const docInfo = document.getElementById("doc-info");
 const previewInfo = document.getElementById("preview-info");
+const selectionInfo = document.getElementById("selection-info");
 const parametersPanel = document.getElementById("parameters");
 const templateSelect = document.getElementById("template-select");
 const openBtn = document.getElementById("open-btn");
@@ -14,6 +15,9 @@ const createBtn = document.getElementById("create-btn");
 
 let currentPath = null;
 let parameterRows = [];
+
+const PREVIEW_WIDTH = 960;
+const PREVIEW_HEIGHT = 540;
 
 function setStatus(message) {
   status.textContent = message;
@@ -27,6 +31,96 @@ function renderInfo(container, entries) {
     const dd = document.createElement("dd");
     dd.textContent = String(value);
     container.append(dt, dd);
+  }
+}
+
+function formatVec3(values) {
+  return values.map((v) => v.toFixed(4)).join(", ");
+}
+
+function previewImageCoords(event) {
+  const rect = preview.getBoundingClientRect();
+  const naturalW = preview.naturalWidth || PREVIEW_WIDTH;
+  const naturalH = preview.naturalHeight || PREVIEW_HEIGHT;
+  const scale = Math.min(rect.width / naturalW, rect.height / naturalH);
+  const renderW = naturalW * scale;
+  const renderH = naturalH * scale;
+  const offsetX = (rect.width - renderW) / 2;
+  const offsetY = (rect.height - renderH) / 2;
+  const x = ((event.clientX - rect.left - offsetX) / renderW) * naturalW;
+  const y = ((event.clientY - rect.top - offsetY) / renderH) * naturalH;
+  if (x < 0 || y < 0 || x > naturalW || y > naturalH) {
+    return null;
+  }
+  return { x, y };
+}
+
+function renderSelection(summary) {
+  const entries = [
+    ["Pixel", `${summary.x.toFixed(1)}, ${summary.y.toFixed(1)}`],
+    ["Kind", summary.selection.kind ?? "none"],
+  ];
+
+  if (summary.selection.kind === "sketch_line") {
+    const line = summary.selection;
+    entries.push(
+      ["Line index", line.line_index],
+      ["Sketch", line.sketch_id ?? "—"],
+      ["Entity", line.entity_id ?? "—"],
+      ["Entity kind", line.entity_kind ?? "—"],
+      ["Construction", line.construction],
+      ["Start (m)", formatVec3(line.start_m)],
+      ["End (m)", formatVec3(line.end_m)],
+    );
+  } else if (summary.selection.kind === "solid_triangle") {
+    const solid = summary.selection;
+    entries.push(
+      ["Triangle", solid.triangle_index],
+      ["Face group", solid.face_group_index ?? "—"],
+      ["Face role", solid.face_role ?? "—"],
+      ["Kernel face", solid.kernel_face_id ?? "—"],
+      ["Feature", solid.inferred_feature_id ?? "—"],
+      ["Topo ref", solid.inferred_topo_ref_id ?? "—"],
+    );
+    if (solid.face_centroid_m) {
+      entries.push(["Centroid (m)", formatVec3(solid.face_centroid_m)]);
+    }
+    if (solid.face_normal_m) {
+      entries.push(["Normal (m)", formatVec3(solid.face_normal_m)]);
+    }
+  }
+
+  renderInfo(selectionInfo, entries);
+}
+
+function clearSelection() {
+  renderInfo(selectionInfo, [["Kind", "none"]]);
+}
+
+async function pickAtPreview(event) {
+  if (!currentPath) {
+    return;
+  }
+  const coords = previewImageCoords(event);
+  if (!coords) {
+    return;
+  }
+
+  setStatus(`Picking at ${coords.x.toFixed(0)}, ${coords.y.toFixed(0)}…`);
+  try {
+    const summary = await invoke("pick_document_cmd", {
+      path: currentPath,
+      x: coords.x,
+      y: coords.y,
+    });
+    renderSelection(summary);
+    if (summary.selection.kind === "none") {
+      setStatus("No geometry at click point.");
+    } else {
+      setStatus(`Selected ${summary.selection.kind.replaceAll("_", " ")}`);
+    }
+  } catch (error) {
+    setStatus(`Error: ${error}`);
   }
 }
 
@@ -174,10 +268,11 @@ async function loadDocument(path, options = {}) {
     renderParameters(results[2]);
   }
 
+  clearSelection();
   setStatus(`Loaded ${previewData.name}`);
 }
 
-async function pickDocument() {
+async function openDocument() {
   const selected = await open({
     directory: true,
     multiple: false,
@@ -223,6 +318,7 @@ async function boot() {
     } else {
       setStatus("Open a .ocad.d directory to preview.");
       renderParameters([]);
+      clearSelection();
     }
   } catch (error) {
     setStatus(`Error: ${error}`);
@@ -230,7 +326,11 @@ async function boot() {
 }
 
 openBtn.addEventListener("click", () => {
-  pickDocument().catch((error) => setStatus(`Error: ${error}`));
+  openDocument().catch((error) => setStatus(`Error: ${error}`));
+});
+
+preview.addEventListener("click", (event) => {
+  pickAtPreview(event).catch((error) => setStatus(`Error: ${error}`));
 });
 
 refreshBtn.addEventListener("click", () => {
