@@ -250,6 +250,16 @@ button:disabled:hover {
   font-variant-numeric: tabular-nums;
 }
 
+.param-hint {
+  grid-column: 1 / -1;
+  color: #7a8aa3;
+  font-size: 0.75rem;
+}
+
+.param-row input::placeholder {
+  color: #5a6a82;
+}
+
 .parameters-empty {
   color: #9aa8bd;
   font-size: 0.85rem;

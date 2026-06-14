@@ -447,6 +447,8 @@ function renderParameters(rows) {
     input.id = `param-${row.id}`;
     input.type = "text";
     input.value = row.expr;
+    input.placeholder = row.expr_hint ?? "";
+    input.title = row.unit_hint ?? "";
     input.spellcheck = false;
     input.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
@@ -463,6 +465,12 @@ function renderParameters(rows) {
     value.textContent = formatParameterValue(row);
 
     wrapper.append(label, input, value);
+    if (row.unit_hint) {
+      const hint = document.createElement("span");
+      hint.className = "param-hint";
+      hint.textContent = row.unit_hint;
+      wrapper.append(hint);
+    }
     parametersPanel.append(wrapper);
   }
 }
