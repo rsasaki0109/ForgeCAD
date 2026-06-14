@@ -38,6 +38,9 @@ pub struct TurntableOptions {
     pub width: u32,
     pub height: u32,
     pub pitch_deg: f32,
+    /// Starting yaw offset in degrees added to the fitted camera yaw. Lets a
+    /// single-frame still be framed to reveal a specific feature (e.g. pins).
+    pub yaw_deg: f32,
     pub overlay: bool,
 }
 
@@ -49,6 +52,7 @@ impl Default for TurntableOptions {
             width: 1600,
             height: 900,
             pitch_deg: 28.0,
+            yaw_deg: 0.0,
             overlay: false,
         }
     }
@@ -82,7 +86,7 @@ pub fn turntable_document(
     let aspect = options.width as f32 / options.height.max(1) as f32;
     let mut base_camera = data.scene.default_camera(aspect);
     base_camera.pitch_rad = options.pitch_deg.to_radians();
-    let yaw0 = base_camera.yaw_rad;
+    let yaw0 = base_camera.yaw_rad + options.yaw_deg.to_radians();
 
     let mut written = Vec::with_capacity(options.frames as usize);
     for frame in 0..options.frames {

@@ -246,12 +246,12 @@ fn cmd_turntable(
 ) -> Result<()> {
     let input = input.ok_or_else(|| {
         opencad_core::OpenCadError::validation(
-            "usage: opencad turntable <input> <out_dir> [--frames N] [--width W] [--height H] [--pitch DEG] [--overlay]",
+            "usage: opencad turntable <input> <out_dir> [--frames N] [--width W] [--height H] [--pitch DEG] [--yaw DEG] [--overlay]",
         )
     })?;
     let out_dir = out_dir.ok_or_else(|| {
         opencad_core::OpenCadError::validation(
-            "usage: opencad turntable <input> <out_dir> [--frames N] [--width W] [--height H] [--pitch DEG] [--overlay]",
+            "usage: opencad turntable <input> <out_dir> [--frames N] [--width W] [--height H] [--pitch DEG] [--yaw DEG] [--overlay]",
         )
     })?;
     let options = parse_turntable_options(&extra_args)?;
@@ -278,6 +278,10 @@ fn parse_turntable_options(args: &[String]) -> Result<view::TurntableOptions> {
             }
             "--pitch" => {
                 options.pitch_deg = parse_f64_arg(args, index, "--pitch")? as f32;
+                index += 1;
+            }
+            "--yaw" => {
+                options.yaw_deg = parse_f64_arg(args, index, "--yaw")? as f32;
                 index += 1;
             }
             "--overlay" => options.overlay = true,
@@ -408,6 +412,7 @@ EXAMPLES:
     opencad view bracket.ocad.d
     opencad screenshot bracket.ocad.d preview.png
     opencad turntable bracket.ocad.d frames/ --frames 48 --width 1600 --height 900
+    opencad turntable bracket_pin_row.ocad.d frames/ --frames 1 --pitch 24 --yaw 26
     opencad patch bracket.ocad.d width.patch.json
     opencad patch bracket.ocad.d combined.patch.json --dry-run --geometry
     opencad diff bracket.ocad.d --patch width.patch.json --geometry

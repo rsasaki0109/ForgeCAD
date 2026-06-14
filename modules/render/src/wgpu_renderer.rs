@@ -4,6 +4,7 @@ use std::path::Path;
 
 use opencad_core::{OpenCadError, Result};
 
+use crate::edges::feature_edge_vertices;
 use crate::overlay::{label_depth_offset_for_bounds, label_scale_for_bounds, SketchOverlay};
 use crate::png::write_png;
 use crate::scene::RenderScene;
@@ -13,10 +14,14 @@ use crate::selection::{
 };
 use crate::solid::{
     background_srgb, create_background_pipeline, create_depth_texture, create_label_line_pipeline,
-    create_line_buffers, create_line_pipeline, create_mesh_buffers, create_solid_pipeline,
-    create_uniform_bind_group, encode_background_pass, encode_sketch_overlay_passes,
-    encode_solid_pass, pack_scene, SketchOverlayPass, Uniforms,
+    create_line_bind_group, create_line_buffers, create_line_pipeline, create_mesh_buffers,
+    create_solid_pipeline, create_uniform_bind_group, encode_background_pass, encode_line_pass,
+    encode_sketch_overlay_passes, encode_solid_pass, pack_scene, SketchOverlayPass, Uniforms,
+    EDGE_LINE_COLOR,
 };
+
+/// Crease angle (degrees) above which a shared edge is drawn as a feature edge.
+const EDGE_CREASE_ANGLE_DEG: f32 = 25.0;
 
 /// Color target for offscreen previews. sRGB so the shader's linear output is
 /// gamma-encoded on store, matching the interactive viewport's sRGB surface.
@@ -213,6 +218,7 @@ impl OffscreenRenderer {
 
         encode_background_pass(&mut encoder, &self.background_pipeline, &color_view);
 
+        // Preserve depth so feature edges and overlays test against the solid.
         encode_solid_pass(
             &mut encoder,
             &self.pipeline,
@@ -220,8 +226,29 @@ impl OffscreenRenderer {
             &mesh_buffers,
             &color_view,
             &depth_view,
-            has_overlay,
+            true,
         );
+
+        // Feature edges (silhouette + creases) give every raised feature a CAD
+        // outline regardless of the camera angle.
+        let edge_vertices = feature_edge_vertices(&vertices, &indices, EDGE_CREASE_ANGLE_DEG);
+        let edge_lines = create_line_buffers(&self.device, &edge_vertices);
+        if edge_lines.vertex_count > 0 {
+            let edge_bind_group = create_line_bind_group(
+                &self.device,
+                &self.line_uniform_layout,
+                view_proj,
+                EDGE_LINE_COLOR,
+            );
+            encode_line_pass(
+                &mut encoder,
+                &self.label_line_pipeline,
+                &edge_bind_group,
+                &edge_lines,
+                &color_view,
+                &depth_view,
+            );
+        }
 
         if has_overlay {
             encode_sketch_overlay_passes(SketchOverlayPass {

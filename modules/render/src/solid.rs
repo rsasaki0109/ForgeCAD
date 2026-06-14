@@ -457,6 +457,9 @@ fn fs_main() -> @location(0) vec4<f32> {
 }
 "#;
 
+/// Dark feature edges drawn over the shaded solid (linear; sRGB-encoded on
+/// store to a near-black graphite line).
+pub(crate) const EDGE_LINE_COLOR: [f32; 4] = [0.02, 0.025, 0.035, 1.0];
 pub(crate) const MODEL_LINE_COLOR: [f32; 4] = [1.0, 0.55, 0.1, 1.0];
 pub(crate) const CONSTRUCTION_LINE_COLOR: [f32; 4] = [0.55, 0.58, 0.62, 0.85];
 pub(crate) const LABEL_LINE_COLOR: [f32; 4] = [0.95, 0.92, 0.55, 1.0];

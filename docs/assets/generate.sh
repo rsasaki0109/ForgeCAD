@@ -37,17 +37,19 @@ ffmpeg -y -loglevel error -i "$WORK/hero/frame_0000.png" \
   -vf "scale=${OUT_W}:-1:flags=lanczos" "$ASSETS/preview.png"
 
 # --- Pattern stills --------------------------------------------------------
+# Pin bosses protrude toward the viewer, so a grazing 3/4 angle (per pattern)
+# lets the bosses break the silhouette and read against the plate.
 render_still() {
-  local doc="$1" out="$2"
+  local doc="$1" out="$2" pitch="$3" yaw="$4"
   "${CLI[@]}" turntable "$doc" "$WORK/still" \
-    --frames 1 --width "$RW" --height "$RH"
+    --frames 1 --width "$RW" --height "$RH" --pitch "$pitch" --yaw "$yaw"
   ffmpeg -y -loglevel error -i "$WORK/still/frame_0000.png" \
     -vf "scale=${OUT_W}:-1:flags=lanczos" "$out"
   rm -rf "$WORK/still"
 }
-render_still "$ROOT/examples/bracket_pin_row.ocad.d" "$ASSETS/preview_pin_row.png"
-render_still "$ROOT/examples/bracket_pin_ring.ocad.d" "$ASSETS/preview_pin_ring.png"
-render_still "$ROOT/examples/bracket_pin_mirror.ocad.d" "$ASSETS/preview_pin_mirror.png"
+render_still "$ROOT/examples/bracket_pin_row.ocad.d"    "$ASSETS/preview_pin_row.png"    24 26
+render_still "$ROOT/examples/bracket_pin_ring.ocad.d"   "$ASSETS/preview_pin_ring.png"   26 32
+render_still "$ROOT/examples/bracket_pin_mirror.ocad.d" "$ASSETS/preview_pin_mirror.png" 24 30
 
 # --- Hero GIF: 360° turntable orbit ----------------------------------------
 "${CLI[@]}" turntable "$ROOT/examples/bracket.ocad.d" "$WORK/orbit" \

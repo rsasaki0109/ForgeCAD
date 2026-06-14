@@ -10,6 +10,7 @@ Lighting and backdrop are defined in `modules/render/src/solid.rs`:
 
 - **Solids:** studio three-point lighting (key, fill, rim) on a brushed-steel base.
 - **Background:** a vertical gradient backdrop drawn before the mesh passes.
+- **Feature edges:** boundary edges and sharp creases (`modules/render/src/edges.rs`) are drawn over the shaded solid in graphite, so holes, bosses, fillets, and chamfers read as a CAD outline at any camera angle. The crease threshold defaults to 25°.
 
 ## CLI commands
 
