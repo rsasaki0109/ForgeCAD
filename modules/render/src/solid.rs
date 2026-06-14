@@ -32,21 +32,168 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     return output;
 }
 
+// Studio three-point lighting (key + fill + rim) on a brushed-steel base.
+// Output is linear; the sRGB color target applies gamma encoding on store.
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let light = normalize(vec3<f32>(0.35, 0.85, 0.4));
-    let ndotl = max(dot(normalize(input.normal), light), 0.18);
-    let base = vec3<f32>(0.72, 0.76, 0.82);
-    return vec4<f32>(base * ndotl, 1.0);
+    let n = normalize(input.normal);
+    let key_dir = normalize(vec3<f32>(0.45, 0.80, 0.55));
+    let fill_dir = normalize(vec3<f32>(-0.65, 0.25, 0.35));
+    let rim_dir = normalize(vec3<f32>(-0.25, 0.45, -0.85));
+
+    let key = max(dot(n, key_dir), 0.0);
+    let fill = max(dot(n, fill_dir), 0.0) * 0.38;
+    let rim = pow(max(dot(n, rim_dir), 0.0), 2.5) * 0.55;
+
+    let base = vec3<f32>(0.52, 0.57, 0.66);
+    let ambient = 0.24;
+    let lit = base * (ambient + key * 0.95 + fill) + vec3<f32>(0.55, 0.68, 0.92) * rim;
+    return vec4<f32>(clamp(lit, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
 }
 "#;
 
+/// Initial clear written before the gradient backdrop is drawn over it.
 pub(crate) const CLEAR_COLOR: wgpu::Color = wgpu::Color {
-    r: 0.12,
-    g: 0.14,
-    b: 0.18,
+    r: 0.05,
+    g: 0.06,
+    b: 0.08,
     a: 1.0,
 };
+
+/// Vertical gradient backdrop endpoints in linear space (top, bottom).
+/// Kept in sync with the WGSL background shader and `background_srgb` so the
+/// offscreen non-background heuristic can reconstruct the backdrop on the CPU.
+pub(crate) const BG_TOP_LINEAR: [f32; 3] = [0.040, 0.050, 0.072];
+pub(crate) const BG_BOTTOM_LINEAR: [f32; 3] = [0.115, 0.140, 0.200];
+
+fn linear_to_srgb(c: f32) -> f32 {
+    if c <= 0.003_130_8 {
+        12.92 * c
+    } else {
+        1.055 * c.powf(1.0 / 2.4) - 0.055
+    }
+}
+
+/// sRGB-encoded backdrop color for framebuffer row `y` of `height` rows.
+pub(crate) fn background_srgb(y: u32, height: u32) -> [u8; 3] {
+    let t = (y as f32 + 0.5) / height.max(1) as f32;
+    let mut out = [0_u8; 3];
+    for channel in 0..3 {
+        let lin = BG_TOP_LINEAR[channel] + (BG_BOTTOM_LINEAR[channel] - BG_TOP_LINEAR[channel]) * t;
+        out[channel] = (linear_to_srgb(lin).clamp(0.0, 1.0) * 255.0).round() as u8;
+    }
+    out
+}
+
+fn background_shader_source() -> String {
+    format!(
+        r#"
+struct VsOut {{
+    @builtin(position) clip: vec4<f32>,
+    @location(0) t: f32,
+}}
+
+@vertex
+fn vs_main(@builtin(vertex_index) idx: u32) -> VsOut {{
+    // Fullscreen triangle covering the viewport.
+    var xy = array<vec2<f32>, 3>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>( 3.0, -1.0),
+        vec2<f32>(-1.0,  3.0),
+    );
+    let p = xy[idx];
+    var out: VsOut;
+    out.clip = vec4<f32>(p, 0.0, 1.0);
+    out.t = (1.0 - p.y) * 0.5;
+    return out;
+}}
+
+@fragment
+fn fs_main(in: VsOut) -> @location(0) vec4<f32> {{
+    let top = vec3<f32>({tr}, {tg}, {tb});
+    let bottom = vec3<f32>({br}, {bg}, {bb});
+    let color = mix(top, bottom, clamp(in.t, 0.0, 1.0));
+    return vec4<f32>(color, 1.0);
+}}
+"#,
+        tr = BG_TOP_LINEAR[0],
+        tg = BG_TOP_LINEAR[1],
+        tb = BG_TOP_LINEAR[2],
+        br = BG_BOTTOM_LINEAR[0],
+        bg = BG_BOTTOM_LINEAR[1],
+        bb = BG_BOTTOM_LINEAR[2],
+    )
+}
+
+/// Pipeline that draws the gradient backdrop with a fullscreen triangle.
+pub(crate) fn create_background_pipeline(
+    device: &wgpu::Device,
+    color_format: wgpu::TextureFormat,
+) -> wgpu::RenderPipeline {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("opencad-background"),
+        source: wgpu::ShaderSource::Wgsl(background_shader_source().into()),
+    });
+
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("background-pipeline-layout"),
+        bind_group_layouts: &[],
+        push_constant_ranges: &[],
+    });
+
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("background-pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            buffers: &[],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: color_format,
+                blend: Some(wgpu::BlendState::REPLACE),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: Default::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            ..Default::default()
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    })
+}
+
+/// Draw the gradient backdrop, replacing the previous color clear.
+pub(crate) fn encode_background_pass(
+    encoder: &mut wgpu::CommandEncoder,
+    pipeline: &wgpu::RenderPipeline,
+    color_view: &wgpu::TextureView,
+) {
+    let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        label: Some("background-pass"),
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            view: color_view,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(CLEAR_COLOR),
+                store: wgpu::StoreOp::Store,
+            },
+        })],
+        depth_stencil_attachment: None,
+        occlusion_query_set: None,
+        timestamp_writes: None,
+    });
+    pass.set_pipeline(pipeline);
+    pass.draw(0..3, 0..1);
+}
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -256,7 +403,8 @@ pub(crate) fn encode_solid_pass(
             view: color_view,
             resolve_target: None,
             ops: wgpu::Operations {
-                load: wgpu::LoadOp::Clear(CLEAR_COLOR),
+                // The gradient backdrop is drawn first via encode_background_pass.
+                load: wgpu::LoadOp::Load,
                 store: wgpu::StoreOp::Store,
             },
         })],
