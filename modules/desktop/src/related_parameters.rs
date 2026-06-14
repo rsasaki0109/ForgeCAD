@@ -38,16 +38,18 @@ pub fn related_parameter_ids_for_features(
         sketches,
         parameter_name_to_id,
     );
-    let merged = if graph_ids.is_empty() {
-        related_parameter_candidates_heuristic(selection)
-    } else {
-        let mut ids = graph_ids;
-        for id in related_parameter_candidates_heuristic(selection) {
-            if !ids.iter().any(|existing| existing == &id) {
-                ids.push(id);
+    let merged = match selection {
+        PickTarget::SketchLine { .. } if !graph_ids.is_empty() => graph_ids,
+        _ if graph_ids.is_empty() => related_parameter_candidates_heuristic(selection),
+        _ => {
+            let mut ids = graph_ids;
+            for id in related_parameter_candidates_heuristic(selection) {
+                if !ids.iter().any(|existing| existing == &id) {
+                    ids.push(id);
+                }
             }
+            ids
         }
-        ids
     };
     merged
         .into_iter()
@@ -448,6 +450,40 @@ mod tests {
                 "param:thickness".to_string(),
                 "param:hole_diameter".to_string(),
             ]
+        );
+    }
+
+    #[test]
+    fn base_sketch_line_prefers_width_and_height_from_graph() {
+        let selection = PickTarget::SketchLine {
+            line_index: 0,
+            sketch_id: Some("sketch:base".into()),
+            entity_id: Some("ent:e0".into()),
+            entity_kind: Some("line".into()),
+            segment_index: None,
+            construction: false,
+            start_m: [0.0; 3],
+            end_m: [1.0, 0.0, 0.0],
+        };
+        let model = opencad_feature::bracket_base_plate().expect("model");
+        let params = bracket_parameters();
+        let (nodes, sketches, name_map) = model_context(model, params);
+        let available = vec![
+            "param:width".into(),
+            "param:height".into(),
+            "param:inner_radius".into(),
+            "param:outer_radius".into(),
+        ];
+        let ids = related_parameter_ids_for_features(
+            &selection,
+            &available,
+            &nodes,
+            &sketches,
+            &name_map,
+        );
+        assert_eq!(
+            ids,
+            vec!["param:width".to_string(), "param:height".to_string()]
         );
     }
 

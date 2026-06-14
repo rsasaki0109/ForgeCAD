@@ -247,6 +247,7 @@ button:disabled:hover {
 .param-value {
   text-align: right;
   color: #c5d0e0;
+  font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
 

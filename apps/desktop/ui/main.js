@@ -327,9 +327,24 @@ function formatValueMm(valueMm) {
   return `${valueMm.toFixed(2)} mm`;
 }
 
+function formatAngleRad(valueDeg) {
+  const radians = (valueDeg * Math.PI) / 180;
+  const piMultiple = radians / Math.PI;
+  if (Math.abs(piMultiple - 1) < 0.01) {
+    return "π rad";
+  }
+  if (Math.abs(piMultiple - 2) < 0.01) {
+    return "2π rad";
+  }
+  if (Math.abs(piMultiple - 0.5) < 0.01) {
+    return "π/2 rad";
+  }
+  return `${radians.toFixed(2)} rad`;
+}
+
 function formatParameterValue(row) {
   if (row.value_deg != null) {
-    return `${row.value_deg.toFixed(1)}°`;
+    return `${row.value_deg.toFixed(1)}° (${formatAngleRad(row.value_deg)})`;
   }
   return formatValueMm(row.value_mm);
 }
