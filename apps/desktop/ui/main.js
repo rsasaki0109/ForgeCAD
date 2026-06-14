@@ -3,6 +3,8 @@ const { open, save } = window.__TAURI__.dialog;
 const { listen } = window.__TAURI__.event;
 
 const preview = document.getElementById("preview");
+const previewFrame = document.getElementById("preview-frame");
+const previewSyncBadge = document.getElementById("preview-sync-badge");
 const highlightOverlay = document.getElementById("highlight-overlay");
 const status = document.getElementById("status");
 const docInfo = document.getElementById("doc-info");
@@ -281,11 +283,33 @@ async function pickAtPreview(event) {
   }
 }
 
+let previewSyncTimer = null;
+
+function flashPreviewSync() {
+  previewFrame.classList.add("camera-synced");
+  previewSyncBadge.hidden = false;
+  if (previewSyncTimer) {
+    clearTimeout(previewSyncTimer);
+  }
+  previewSyncTimer = setTimeout(() => {
+    previewFrame.classList.remove("camera-synced");
+    previewSyncBadge.hidden = true;
+    previewSyncTimer = null;
+  }, 450);
+}
+
 function formatValueMm(valueMm) {
   if (valueMm == null) {
     return "—";
   }
   return `${valueMm.toFixed(2)} mm`;
+}
+
+function formatParameterValue(row) {
+  if (row.value_deg != null) {
+    return `${row.value_deg.toFixed(1)}°`;
+  }
+  return formatValueMm(row.value_mm);
 }
 
 function updateUndoRedoButtons() {
@@ -414,7 +438,7 @@ function renderParameters(rows) {
 
     const value = document.createElement("span");
     value.className = "param-value";
-    value.textContent = formatValueMm(row.value_mm);
+    value.textContent = formatParameterValue(row);
 
     wrapper.append(label, input, value);
     parametersPanel.append(wrapper);
@@ -531,6 +555,7 @@ async function listenPreviewSync() {
     const synced = event.payload;
     preview.src = `data:image/png;base64,${synced.png_base64}`;
     renderHighlight(synced.highlight_segments_px ?? []);
+    flashPreviewSync();
   });
 }
 

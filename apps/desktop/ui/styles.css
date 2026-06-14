@@ -90,6 +90,35 @@ button:disabled:hover {
   width: 100%;
 }
 
+.preview-frame.camera-synced #preview {
+  border-color: #5ac8fa;
+  box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.35);
+}
+
+.preview-sync-badge {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  z-index: 2;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(90, 200, 250, 0.18);
+  border: 1px solid rgba(90, 200, 250, 0.55);
+  color: #b8ecff;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.preview-frame.camera-synced .preview-sync-badge {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 #preview {
   width: 100%;
   max-height: calc(100vh - 180px);

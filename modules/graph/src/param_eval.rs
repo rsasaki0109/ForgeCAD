@@ -6,7 +6,8 @@ use opencad_core::{OpenCadError, Result};
 
 use crate::param_graph::{ParamGraph, ParameterEntry};
 
-/// Evaluate all parameters in dependency order. Values are meters.
+/// Evaluate all parameters in dependency order.
+/// Length parameters resolve to meters; angle parameters ending in `_rad` resolve to radians.
 pub fn evaluate_param_graph(graph: &ParamGraph) -> Result<IndexMap<String, f64>> {
     let order = graph.evaluation_order()?;
     let mut values = IndexMap::new();
@@ -14,7 +15,11 @@ pub fn evaluate_param_graph(graph: &ParamGraph) -> Result<IndexMap<String, f64>>
         let entry = graph
             .get(&id)
             .ok_or_else(|| OpenCadError::not_found(format!("parameter '{id}'")))?;
-        let value = eval_length_expr(&entry.expr, &values)?;
+        let value = if is_angle_parameter(&entry.name) {
+            eval_angle_expr(&entry.expr, &values)?
+        } else {
+            eval_length_expr(&entry.expr, &values)?
+        };
         values.insert(entry.name.clone(), value);
     }
     Ok(values)
@@ -22,7 +27,24 @@ pub fn evaluate_param_graph(graph: &ParamGraph) -> Result<IndexMap<String, f64>>
 
 /// Evaluate a length expression in meters using resolved parameter names.
 pub fn eval_length_expr(expr: &str, scope: &IndexMap<String, f64>) -> Result<f64> {
-    let tokens = tokenize(expr)?;
+    eval_expr(expr, scope, convert_length)
+}
+
+/// Evaluate an angle expression in radians using resolved parameter names.
+pub fn eval_angle_expr(expr: &str, scope: &IndexMap<String, f64>) -> Result<f64> {
+    eval_expr(expr, scope, convert_angle)
+}
+
+fn is_angle_parameter(name: &str) -> bool {
+    name.ends_with("_rad") || name.ends_with("_deg") || name.contains("angle")
+}
+
+fn eval_expr(
+    expr: &str,
+    scope: &IndexMap<String, f64>,
+    convert_unit: fn(f64, &str) -> f64,
+) -> Result<f64> {
+    let tokens = tokenize(expr, convert_unit)?;
     let (value, rest) = parse_expr(&tokens, scope)?;
     if !rest.is_empty() {
         return Err(OpenCadError::InvalidExpression(expr.into()));
@@ -40,7 +62,7 @@ enum Token {
     Slash,
 }
 
-fn tokenize(input: &str) -> Result<Vec<Token>> {
+fn tokenize(input: &str, convert_unit: fn(f64, &str) -> f64) -> Result<Vec<Token>> {
     let mut tokens = Vec::new();
     let mut chars = input.chars().peekable();
 
@@ -74,7 +96,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>> {
                     unit.push(c);
                     chars.next();
                 }
-                tokens.push(Token::Number(convert_length(value, &unit)));
+                tokens.push(Token::Number(convert_unit(value, &unit)));
                 continue;
             }
             tokens.push(Token::Number(value));
@@ -197,6 +219,18 @@ fn parse_factor<'a>(
     }
 }
 
+fn convert_angle(value: f64, unit: &str) -> f64 {
+    value * angle_unit_factor(unit)
+}
+
+fn angle_unit_factor(unit: &str) -> f64 {
+    match unit {
+        "deg" | "degree" | "degrees" => std::f64::consts::PI / 180.0,
+        "rad" | "radian" | "radians" => 1.0,
+        _ => 1.0,
+    }
+}
+
 fn convert_length(value: f64, unit: &str) -> f64 {
     value * unit_factor(unit)
 }
@@ -254,8 +288,8 @@ pub fn bracket_parameters() -> ParamGraph {
     graph
 }
 
-/// Default revolve bushing/sector parameters (lengths in mm, angle in radians).
-pub fn revolve_parameters(angle_rad_expr: &str) -> ParamGraph {
+/// Default revolve bushing/sector parameters (lengths in mm, angle in degrees).
+pub fn revolve_parameters(angle_expr: &str) -> ParamGraph {
     let mut graph = ParamGraph::new();
     graph
         .add_parameter(ParameterEntry::new(
@@ -278,7 +312,7 @@ pub fn revolve_parameters(angle_rad_expr: &str) -> ParamGraph {
         .add_parameter(ParameterEntry::new(
             "param:revolve_angle",
             "revolve_angle_rad",
-            angle_rad_expr,
+            angle_expr,
         ))
         .expect("revolve_angle");
     graph
@@ -287,6 +321,13 @@ pub fn revolve_parameters(angle_rad_expr: &str) -> ParamGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn evaluates_angle_degrees_to_radians() {
+        let values = IndexMap::new();
+        let radians = eval_angle_expr("180 deg", &values).expect("eval");
+        assert!((radians - std::f64::consts::PI).abs() < 1e-9);
+    }
 
     #[test]
     fn evaluates_simple_units() {

@@ -320,7 +320,7 @@ fn occt_revolve_bushing_has_annulus_volume() {
 
     let kernel = OcctGeometryKernel::new();
     let registry = FeatureRegistry::with_defaults();
-    let params = revolve_parameters("6.283185307179586");
+    let params = revolve_parameters("360 deg");
     let mut model = revolve_bushing().expect("model");
     model
         .regenerate(&kernel, &registry, Some(&params), None)
@@ -348,8 +348,8 @@ fn occt_revolve_sector_is_half_bushing_volume() {
 
     let kernel = OcctGeometryKernel::new();
     let registry = FeatureRegistry::with_defaults();
-    let full_params = revolve_parameters("6.283185307179586");
-    let sector_params = revolve_parameters("3.141592653589793");
+    let full_params = revolve_parameters("360 deg");
+    let sector_params = revolve_parameters("180 deg");
 
     let mut full = revolve_bushing().expect("model");
     full

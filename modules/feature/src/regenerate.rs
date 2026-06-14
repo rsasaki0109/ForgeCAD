@@ -463,7 +463,7 @@ pub fn revolve_bushing() -> Result<PartModel> {
         "Revolve Bushing",
         "feature:revolve_bushing",
         std::f64::consts::TAU,
-        "6.283185307179586",
+        "360 deg",
     )
 }
 
@@ -474,7 +474,7 @@ pub fn revolve_sector() -> Result<PartModel> {
         "Revolve Sector",
         "feature:revolve_sector",
         std::f64::consts::PI,
-        "3.141592653589793",
+        "180 deg",
     )
 }
 
@@ -483,7 +483,7 @@ fn revolve_annulus_model(
     revolve_name: &str,
     revolve_feature_id: &str,
     default_angle_rad: f64,
-    angle_rad_expr: &str,
+    angle_expr: &str,
 ) -> Result<PartModel> {
     use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
     use opencad_graph::revolve_parameters;
@@ -585,7 +585,7 @@ fn revolve_annulus_model(
         line: EntityId::new(edges[3])?,
     })?;
 
-    let params = revolve_parameters(angle_rad_expr);
+    let params = revolve_parameters(angle_expr);
     let mut model = PartModel::new();
     model
         .sketches
@@ -1368,7 +1368,7 @@ mod tests {
         let mut model = revolve_bushing().expect("model");
         let kernel = MockGeometryKernel::new();
         let registry = FeatureRegistry::with_defaults();
-        let params = opencad_graph::revolve_parameters("6.283185307179586");
+        let params = opencad_graph::revolve_parameters("360 deg");
         let report = model
             .regenerate(&kernel, &registry, Some(&params), None)
             .expect("regen");
@@ -1381,7 +1381,7 @@ mod tests {
         let mut model = revolve_sector().expect("model");
         let kernel = MockGeometryKernel::new();
         let registry = FeatureRegistry::with_defaults();
-        let params = opencad_graph::revolve_parameters("3.141592653589793");
+        let params = opencad_graph::revolve_parameters("180 deg");
         let report = model
             .regenerate(&kernel, &registry, Some(&params), None)
             .expect("regen");

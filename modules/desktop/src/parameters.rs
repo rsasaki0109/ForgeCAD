@@ -11,6 +11,12 @@ pub struct ParameterRow {
     pub name: String,
     pub expr: String,
     pub value_mm: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_deg: Option<f64>,
+}
+
+fn is_angle_parameter(name: &str) -> bool {
+    name.ends_with("_rad") || name.ends_with("_deg") || name.contains("angle")
 }
 
 pub fn list_document_parameters(path: &str) -> Result<Vec<ParameterRow>> {
@@ -27,7 +33,18 @@ pub fn list_document_parameters(path: &str) -> Result<Vec<ParameterRow>> {
             id: entry.id.clone(),
             name: entry.name.clone(),
             expr: entry.expr.clone(),
-            value_mm: values.get(&entry.name).map(|meters| meters * 1000.0),
+            value_mm: if is_angle_parameter(&entry.name) {
+                None
+            } else {
+                values.get(&entry.name).map(|meters| meters * 1000.0)
+            },
+            value_deg: if is_angle_parameter(&entry.name) {
+                values
+                    .get(&entry.name)
+                    .map(|radians| radians.to_degrees())
+            } else {
+                None
+            },
         });
     }
     Ok(rows)

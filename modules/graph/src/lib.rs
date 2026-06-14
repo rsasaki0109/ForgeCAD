@@ -15,6 +15,6 @@ pub use diff::{
 };
 pub use feature_graph::{FeatureEntry, FeatureGraph};
 pub use param_eval::{
-    bracket_parameters, eval_length_expr, evaluate_param_graph, revolve_parameters,
+    bracket_parameters, eval_angle_expr, eval_length_expr, evaluate_param_graph, revolve_parameters,
 };
 pub use param_graph::{ParamGraph, ParameterEntry};

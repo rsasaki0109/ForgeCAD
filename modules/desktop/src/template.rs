@@ -149,7 +149,7 @@ pub fn create_revolve_bushing_document(path: &str) -> Result<()> {
         "Revolved Bushing",
     );
     let mut doc = OcadDocument::from_part_model(metadata, &part);
-    doc.parameters = revolve_parameters("6.283185307179586");
+    doc.parameters = revolve_parameters("360 deg");
     write_ocad(path, &doc)
 }
 
@@ -160,7 +160,7 @@ pub fn create_revolve_sector_document(path: &str) -> Result<()> {
         "Revolved Sector (180°)",
     );
     let mut doc = OcadDocument::from_part_model(metadata, &part);
-    doc.parameters = revolve_parameters("3.141592653589793");
+    doc.parameters = revolve_parameters("180 deg");
     write_ocad(path, &doc)
 }
 
