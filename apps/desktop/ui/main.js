@@ -285,8 +285,30 @@ async function pickAtPreview(event) {
 
 let previewSyncTimer = null;
 
+function clearPreviewSyncing() {
+  if (previewSyncTimer) {
+    clearTimeout(previewSyncTimer);
+    previewSyncTimer = null;
+  }
+  previewFrame.classList.remove("camera-syncing", "camera-synced");
+  previewSyncBadge.hidden = true;
+}
+
+function showPreviewSyncing() {
+  if (previewSyncTimer) {
+    clearTimeout(previewSyncTimer);
+    previewSyncTimer = null;
+  }
+  previewFrame.classList.remove("camera-synced");
+  previewFrame.classList.add("camera-syncing");
+  previewSyncBadge.textContent = "syncing";
+  previewSyncBadge.hidden = false;
+}
+
 function flashPreviewSync() {
+  previewFrame.classList.remove("camera-syncing");
   previewFrame.classList.add("camera-synced");
+  previewSyncBadge.textContent = "camera";
   previewSyncBadge.hidden = false;
   if (previewSyncTimer) {
     clearTimeout(previewSyncTimer);
@@ -551,11 +573,17 @@ async function listenViewportPicks() {
 }
 
 async function listenPreviewSync() {
+  await listen("preview-syncing", () => {
+    showPreviewSyncing();
+  });
   await listen("preview-synced", (event) => {
     const synced = event.payload;
     preview.src = `data:image/png;base64,${synced.png_base64}`;
     renderHighlight(synced.highlight_segments_px ?? []);
     flashPreviewSync();
+  });
+  await listen("preview-sync-failed", () => {
+    clearPreviewSyncing();
   });
 }
 

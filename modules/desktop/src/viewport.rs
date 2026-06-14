@@ -32,18 +32,20 @@ pub fn run_document_viewport<F>(data: ViewData, title: &str, on_pick: Option<F>)
 where
     F: Fn(PickSummary) + Send + 'static,
 {
-    run_document_viewport_with_sync(data, title, on_pick, None::<fn(PreviewSynced)>)
+    run_document_viewport_with_sync::<F, fn(PreviewSynced), fn(), fn()>(data, title, on_pick, None)
 }
 
-pub fn run_document_viewport_with_sync<F, G>(
+pub fn run_document_viewport_with_sync<F, G, H, I>(
     data: ViewData,
     title: &str,
     on_pick: Option<F>,
-    on_camera_sync: Option<G>,
+    on_camera_sync: Option<(H, G, I)>,
 ) -> Result<()>
 where
     F: Fn(PickSummary) + Send + 'static,
     G: Fn(PreviewSynced) + Send + 'static,
+    H: Fn() + Send + 'static,
+    I: Fn() + Send + 'static,
 {
     let overlay_empty = data.overlay.is_empty();
     let scene = data.scene.clone();
@@ -71,8 +73,15 @@ where
         ) as ViewportPickCallback
     });
 
-    let camera_callback = on_camera_sync.map(|handler| {
-        spawn_camera_sync_sender(data.clone(), scene, last_selection, handler)
+    let camera_callback = on_camera_sync.map(|(on_syncing, on_synced, on_aborted)| {
+        spawn_camera_sync_sender(
+            data.clone(),
+            scene,
+            last_selection,
+            on_syncing,
+            on_synced,
+            on_aborted,
+        )
     });
 
     let overlay_ref = if overlay_empty {
@@ -89,24 +98,30 @@ where
     )
 }
 
-fn spawn_camera_sync_sender<G>(
+fn spawn_camera_sync_sender<G, H, I>(
     data: ViewData,
     scene: opencad_render::RenderScene,
     last_selection: Arc<Mutex<Option<PickTarget>>>,
-    handler: G,
+    on_syncing: H,
+    on_synced: G,
+    on_aborted: I,
 ) -> ViewportCameraCallback
 where
     G: Fn(PreviewSynced) + Send + 'static,
+    H: Fn() + Send + 'static,
+    I: Fn() + Send + 'static,
 {
     let (tx, rx) = mpsc::channel::<OrbitCamera>();
     thread::spawn(move || {
         let debounce = Duration::from_millis(CAMERA_SYNC_DEBOUNCE_MS);
         while let Ok(mut latest) = rx.recv() {
+            on_syncing();
             while let Ok(next) = rx.recv_timeout(debounce) {
                 latest = next;
             }
             let camera_state = CameraState::from(latest);
             let Ok(png_base64) = render_preview_png(&data, Some(camera_state)) else {
+                on_aborted();
                 continue;
             };
             let highlight_segments_px = last_selection
@@ -123,7 +138,7 @@ where
                     )
                 })
                 .unwrap_or_default();
-            handler(PreviewSynced {
+            on_synced(PreviewSynced {
                 png_base64,
                 camera: camera_state,
                 highlight_segments_px,

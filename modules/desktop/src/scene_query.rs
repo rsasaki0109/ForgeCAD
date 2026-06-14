@@ -39,14 +39,24 @@ pub fn infer_face_refs(
     face: &FaceGroup,
 ) -> (Option<String>, Option<String>) {
     let feature_id = match face.role {
-        FaceRole::Cylindrical => find_feature_by_type(features, "hole")
+        FaceRole::Cylindrical => find_feature_id_contains(features, "hole_mount")
+            .or_else(|| find_feature_id_contains(features, "pin_hole"))
+            .or_else(|| find_feature_id_contains(features, "pin_tool"))
+            .or_else(|| find_feature_by_type(features, "hole"))
+            .or_else(|| find_feature_by_type(features, "linear_pattern"))
+            .or_else(|| find_feature_by_type(features, "circular_pattern"))
             .or_else(|| find_feature_by_type(features, "revolve")),
-        FaceRole::Top => find_feature_by_type(features, "fillet")
+        FaceRole::Top => find_feature_id_contains(features, "boss_join")
+            .or_else(|| find_feature_id_contains(features, "face_pin"))
+            .or_else(|| find_feature_id_contains(features, "pin_boss"))
+            .or_else(|| find_feature_by_type(features, "fillet"))
             .or_else(|| find_feature_by_type(features, "chamfer"))
+            .or_else(|| find_feature_id_contains(features, "extrude_base"))
             .or_else(|| find_feature_by_type(features, "extrude"))
             .or_else(|| find_feature_by_type(features, "revolve")),
         FaceRole::Bottom | FaceRole::PosX | FaceRole::NegX | FaceRole::PosY | FaceRole::NegY => {
-            find_feature_by_type(features, "extrude")
+            find_feature_id_contains(features, "extrude_base")
+                .or_else(|| find_feature_by_type(features, "extrude"))
                 .or_else(|| find_feature_by_type(features, "revolve"))
         }
         FaceRole::Other => find_feature_by_type(features, "revolve"),
@@ -64,6 +74,13 @@ fn find_feature_by_type(features: &[FeatureNode], feature_type: &str) -> Option<
         .map(|node| node.id.clone())
 }
 
+fn find_feature_id_contains(features: &[FeatureNode], needle: &str) -> Option<String> {
+    features
+        .iter()
+        .find(|node| node.id.contains(needle))
+        .map(|node| node.id.clone())
+}
+
 fn infer_topo_ref_id(feature_id: &str, role: FaceRole) -> Option<String> {
     let suffix = match role {
         FaceRole::Top => "top",
@@ -77,4 +94,48 @@ fn infer_topo_ref_id(feature_id: &str, role: FaceRole) -> Option<String> {
     };
     let stem = feature_id.strip_prefix("feature:").unwrap_or(feature_id);
     Some(format!("ref:face:{stem}_{suffix}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use opencad_feature::{bracket_hole_row, FeatureNode};
+    use opencad_render::FaceRole;
+
+    #[test]
+    fn cylindrical_face_prefers_pattern_feature_on_hole_row_model() {
+        let model = bracket_hole_row().expect("model");
+        let nodes: Vec<FeatureNode> = model.nodes.into_values().collect();
+        let face = FaceGroup {
+            index: 0,
+            role: FaceRole::Cylindrical,
+            normal: [1.0, 0.0, 0.0],
+            centroid: [0.0, 0.0, 0.0],
+            kernel_face_id: None,
+            triangle_count: 1,
+        };
+        let (feature_id, _) = infer_face_refs(&nodes, &face);
+        assert!(
+            feature_id
+                .as_deref()
+                .is_some_and(|id| id.contains("pin_holes") || id.contains("pin_tool")),
+            "expected pattern/hole feature, got {feature_id:?}"
+        );
+    }
+
+    #[test]
+    fn top_face_prefers_boss_join_feature() {
+        let model = opencad_feature::bracket_boss_join().expect("model");
+        let nodes: Vec<FeatureNode> = model.nodes.into_values().collect();
+        let face = FaceGroup {
+            index: 0,
+            role: FaceRole::Top,
+            normal: [0.0, 1.0, 0.0],
+            centroid: [0.0, 0.0, 0.0],
+            kernel_face_id: None,
+            triangle_count: 1,
+        };
+        let (feature_id, _) = infer_face_refs(&nodes, &face);
+        assert_eq!(feature_id.as_deref(), Some("feature:boss_join"));
+    }
 }

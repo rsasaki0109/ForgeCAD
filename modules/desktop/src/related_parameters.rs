@@ -42,27 +42,33 @@ pub fn related_parameter_candidates(selection: &PickTarget) -> Vec<String> {
                     "param:height".into(),
                 ];
             }
+            if feature.contains("boss_join")
+                || feature.contains("face_pin")
+                || feature.contains("pin_boss")
+            {
+                return vec![
+                    "param:thickness".into(),
+                    "param:hole_diameter".into(),
+                ];
+            }
+            if feature.contains("pin_holes")
+                || feature.contains("pin_hole_ring")
+                || feature.contains("pin_ring")
+                || feature.contains("pin_mirror")
+                || feature.contains("linear_pattern")
+                || feature.contains("circular_pattern")
+            {
+                return vec![
+                    "param:hole_pitch".into(),
+                    "param:hole_diameter".into(),
+                    "param:thickness".into(),
+                ];
+            }
             if feature.contains("hole") || role == "cylindrical" {
                 return vec![
                     "param:hole_diameter".into(),
                     "param:hole_pitch".into(),
                     "param:thickness".into(),
-                ];
-            }
-            if feature.contains("boss") {
-                return vec![
-                    "param:boss_diameter".into(),
-                    "param:boss_height".into(),
-                    "param:thickness".into(),
-                ];
-            }
-            if feature.contains("pattern")
-                || feature.contains("pin_row")
-                || feature.contains("hole_row")
-            {
-                return vec![
-                    "param:hole_pitch".into(),
-                    "param:hole_diameter".into(),
                 ];
             }
             if feature.contains("mirror") {
@@ -131,6 +137,35 @@ mod tests {
                 "param:outer_radius".to_string(),
                 "param:inner_radius".to_string(),
                 "param:height".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn pattern_hole_pick_suggests_pitch_and_diameter() {
+        let selection = PickTarget::SolidTriangle {
+            triangle_index: 0,
+            vertices_m: [[0.0; 3]; 3],
+            face_group_index: Some(0),
+            face_role: Some("cylindrical".into()),
+            face_normal_m: None,
+            face_centroid_m: None,
+            kernel_face_id: None,
+            inferred_feature_id: Some("feature:pin_holes".into()),
+            inferred_topo_ref_id: None,
+        };
+        let available = vec![
+            "param:hole_pitch".into(),
+            "param:hole_diameter".into(),
+            "param:thickness".into(),
+        ];
+        let ids = related_parameter_ids(&selection, &available);
+        assert_eq!(
+            ids,
+            vec![
+                "param:hole_pitch".to_string(),
+                "param:hole_diameter".to_string(),
+                "param:thickness".to_string(),
             ]
         );
     }

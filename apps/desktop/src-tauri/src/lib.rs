@@ -83,19 +83,34 @@ fn open_viewport_cmd(app: AppHandle, path: String) -> Result<(), String> {
     let data = load_view_data(&path).map_err(map_error)?;
     let title = data.name.clone();
     let app_handle = app.clone();
-    let app_sync = app.clone();
+    let app_syncing = app.clone();
+    let app_synced = app.clone();
+    let app_aborted = app.clone();
     std::thread::spawn(move || {
         let on_pick = move |summary: PickSummary| {
             if let Err(err) = app_handle.emit("viewport-pick", &summary) {
                 eprintln!("failed to emit viewport pick: {err}");
             }
         };
-        let on_camera_sync = move |synced: PreviewSynced| {
-            if let Err(err) = app_sync.emit("preview-synced", &synced) {
-                eprintln!("failed to emit preview sync: {err}");
-            }
-        };
-        if let Err(err) = run_document_viewport_with_sync(data, &title, Some(on_pick), Some(on_camera_sync))
+        let on_camera_sync = (
+            move || {
+                if let Err(err) = app_syncing.emit("preview-syncing", ()) {
+                    eprintln!("failed to emit preview syncing: {err}");
+                }
+            },
+            move |synced: PreviewSynced| {
+                if let Err(err) = app_synced.emit("preview-synced", &synced) {
+                    eprintln!("failed to emit preview sync: {err}");
+                }
+            },
+            move || {
+                if let Err(err) = app_aborted.emit("preview-sync-failed", ()) {
+                    eprintln!("failed to emit preview sync failed: {err}");
+                }
+            },
+        );
+        if let Err(err) =
+            run_document_viewport_with_sync(data, &title, Some(on_pick), Some(on_camera_sync))
         {
             eprintln!("viewport error: {err}");
         }

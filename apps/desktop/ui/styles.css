@@ -90,6 +90,12 @@ button:disabled:hover {
   width: 100%;
 }
 
+.preview-frame.camera-syncing #preview {
+  border-color: #7aa7ff;
+  box-shadow: 0 0 0 2px rgba(122, 167, 255, 0.25);
+  animation: preview-sync-pulse 900ms ease-in-out infinite;
+}
+
 .preview-frame.camera-synced #preview {
   border-color: #5ac8fa;
   box-shadow: 0 0 0 2px rgba(90, 200, 250, 0.35);
@@ -117,6 +123,16 @@ button:disabled:hover {
 .preview-frame.camera-synced .preview-sync-badge {
   opacity: 1;
   transform: translateY(0);
+}
+
+@keyframes preview-sync-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(122, 167, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(122, 167, 255, 0.45);
+  }
 }
 
 #preview {
