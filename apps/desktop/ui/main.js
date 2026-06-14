@@ -62,6 +62,87 @@ function previewImageCoords(event) {
   return { x, y };
 }
 
+function relatedParameterIds(selection) {
+  if (selection.kind === "none") {
+    return [];
+  }
+  if (selection.kind === "sketch_line") {
+    return ["param:width", "param:height"];
+  }
+
+  const feature = selection.inferred_feature_id ?? "";
+  const role = selection.face_role ?? "";
+  if (feature.includes("hole") || role === "cylindrical") {
+    return ["param:hole_diameter", "param:hole_pitch"];
+  }
+  if (feature.includes("fillet")) {
+    return ["param:fillet_radius"];
+  }
+  if (feature.includes("chamfer")) {
+    return ["param:chamfer_distance"];
+  }
+  if (feature.includes("extrude")) {
+    if (role === "top" || role === "bottom") {
+      return ["param:thickness"];
+    }
+    if (role === "+x" || role === "-x") {
+      return ["param:width"];
+    }
+    if (role === "+y" || role === "-y") {
+      return ["param:height"];
+    }
+    return ["param:width", "param:height", "param:thickness"];
+  }
+  return [];
+}
+
+let paramFocusTimer = null;
+
+function clearParameterFocus() {
+  for (const row of parametersPanel.querySelectorAll(".param-row.related")) {
+    row.classList.remove("related");
+  }
+  if (paramFocusTimer) {
+    clearTimeout(paramFocusTimer);
+    paramFocusTimer = null;
+  }
+}
+
+function focusRelatedParameters(ids) {
+  clearParameterFocus();
+  if (!ids.length) {
+    return [];
+  }
+
+  const names = [];
+  let firstInput = null;
+  for (const id of ids) {
+    const input = document.getElementById(`param-${id}`);
+    if (!input) {
+      continue;
+    }
+    const row = input.closest(".param-row");
+    if (row) {
+      row.classList.add("related");
+    }
+    const rowData = parameterRows.find((entry) => entry.id === id);
+    if (rowData) {
+      names.push(rowData.name);
+    }
+    if (!firstInput) {
+      firstInput = input;
+    }
+  }
+
+  if (firstInput) {
+    firstInput.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    firstInput.focus({ preventScroll: true });
+  }
+
+  paramFocusTimer = setTimeout(clearParameterFocus, 8000);
+  return names;
+}
+
 function renderSelection(summary) {
   const entries = [
     ["Pixel", `${summary.x.toFixed(1)}, ${summary.y.toFixed(1)}`],
@@ -97,12 +178,20 @@ function renderSelection(summary) {
     }
   }
 
+  const relatedNames = relatedParameterIds(summary.selection)
+    .map((id) => parameterRows.find((row) => row.id === id)?.name)
+    .filter(Boolean);
+  if (relatedNames.length) {
+    entries.push(["Related params", relatedNames.join(", ")]);
+  }
+
   renderInfo(selectionInfo, entries);
 }
 
 function clearSelection() {
   renderInfo(selectionInfo, [["Kind", "none"]]);
   renderHighlight([]);
+  clearParameterFocus();
 }
 
 function renderHighlight(segments) {
@@ -131,9 +220,15 @@ function handlePickSummary(summary, sourceLabel) {
     return;
   }
   const label = summary.selection.kind.replaceAll("_", " ");
-  setStatus(
-    sourceLabel === "preview" ? `Selected ${label}` : `3D viewport: ${label}`,
+  const relatedNames = focusRelatedParameters(
+    relatedParameterIds(summary.selection),
   );
+  let message =
+    sourceLabel === "preview" ? `Selected ${label}` : `3D viewport: ${label}`;
+  if (relatedNames.length) {
+    message += ` — related: ${relatedNames.join(", ")}`;
+  }
+  setStatus(message);
 }
 
 async function pickAtPreview(event) {

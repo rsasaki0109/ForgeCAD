@@ -165,6 +165,19 @@ button:disabled:hover {
   gap: 0.35rem 0.5rem;
   align-items: center;
   font-size: 0.85rem;
+  border-radius: 6px;
+  padding: 0.25rem;
+  margin: -0.25rem;
+  transition: background 0.2s ease;
+}
+
+.param-row.related {
+  background: #1f2a3d;
+}
+
+.param-row.related input {
+  border-color: #5b8def;
+  box-shadow: 0 0 0 1px rgb(91 141 239 / 25%);
 }
 
 .param-row label {
