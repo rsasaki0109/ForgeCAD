@@ -1,6 +1,6 @@
 # Assembly modeling
 
-Static assembly support (Phase 3, M3.1) lives in `opencad-assembly` and integrates
+Static assembly support (historical implementation Phase 3, M3.1–M3.3) lives in `opencad-assembly` and integrates
 with the existing `.ocad` document pipeline.
 
 ## Document model
@@ -16,7 +16,7 @@ On disk (expanded `.ocad.d` format), the model is stored in
 AssemblyModel
 ├─ components  — child part references (relative path + DocumentId)
 ├─ instances   — placed copies with RigidTransform
-└─ mates       — reserved for M3.2 (empty in MVP)
+└─ mates       — solver constraints (implemented in M3.2)
 ```
 
 ## Placement

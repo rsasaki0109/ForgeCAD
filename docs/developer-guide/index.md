@@ -2,6 +2,11 @@
 
 Welcome to MusubiCAD development.
 
+Start with the [canonical development roadmap](../plans/roadmap.md) and its
+[implementation status](../plans/implementation-status.md). The roadmap uses
+`MCAD-P{phase}-{number}` IDs for new work; historical `Task-###` references are
+kept only for traceability.
+
 ## Prerequisites
 
 - Rust stable (see `rust-toolchain.toml`)
@@ -43,8 +48,8 @@ cargo run -p opencad-cli -- animate examples/assembly_two_brackets.ocad.d showca
 | `opencad-cli` | Command-line interface |
 | `opencad-desktop` | Shared preview + template helpers for desktop UI |
 | `opencad-render` | wgpu viewport |
-| `opencad-assembly` | Assembly model (Phase 3) |
-| `opencad-drawing` | Drawing model (Phase 4) |
+| `opencad-assembly` | Assembly model (historical implementation Phase 3) |
+| `opencad-drawing` | Drawing model (historical implementation Phase 4) |
 | `opencad-plugin-api` | Plugin extension points |
 
 See [ocad-format.md](../architecture/ocad-format.md) for the native file layout.
@@ -52,7 +57,7 @@ See [releases.md](releases.md) for the multi-platform CLI release contract.
 
 ## Development workflow
 
-1. Pick a task from the roadmap (e.g. `Task-026`).
+1. Pick a task from the roadmap (for example, `MCAD-P2-001`).
 2. Read `AGENTS.md` for module boundaries.
 3. Implement the smallest correct change in the relevant crate.
 4. Add unit tests.
@@ -94,19 +99,12 @@ so Design Graph, flagship patch, or renderer changes may require updating the bu
 
 See `AGENTS.md` section 7. The Design Graph is always the source of truth.
 
-## Next tasks
+## Current roadmap
 
-Recent milestones (post-bootstrap):
+Completed modeling, Assembly, Drawing, and review-demo milestones are recorded in
+the [implementation status](../plans/implementation-status.md). Current planned
+work is maintained in the [roadmap](../plans/roadmap.md), including desktop
+distribution, Sketch solver completion, transaction/DesignPatch unification,
+Plugin API contracts, and CAD reference/output quality.
 
-- Linear / circular / mirror patterns with union/cut
-- Semantic `TopoRef` patches and fingerprint fallback
-- Agent API query/pick/explain over documents
-- OCCT integration tests for patterns and topo sync
-
-Up next (recommended):
-
-- Face-ref-driven hole placement in sample documents
-- Mirror plane from semantic face refs
-- CI green + committed `examples/*.ocad.d` fixtures
-- Optional MusubiCAD CLI/crate rename from the current `opencad` prefix
-- Desktop UI: [desktop-ui.md](desktop-ui.md)
+The desktop-specific setup remains in [desktop-ui.md](desktop-ui.md).

@@ -20,6 +20,8 @@
   <a href="docs/architecture/overview.md">Architecture</a>
   ·
   <a href="docs/api/agent.md">Agent API</a>
+  ·
+  <a href="docs/plans/roadmap.md">Roadmap</a>
 </p>
 
 <p align="center">
@@ -223,9 +225,17 @@ MusubiCAD is an early-stage engineering project, not yet a production CAD replac
 The Design Graph, `.ocad` format, geometry pipeline, and Agent API are functional and
 covered by deterministic tests, but APIs and schemas may evolve before 1.0.
 
-Current priorities:
+The canonical [development roadmap](docs/plans/roadmap.md) and
+[implementation status](docs/plans/implementation-status.md) distinguish shipped
+capabilities from planned work. The next active priorities are:
 
-1. Downloadable desktop builds
+1. Downloadable desktop builds (Phase 1)
+2. Complete Equal, Parallel, and Perpendicular sketch constraints (Phase 2)
+3. Unify backend transactions, DesignPatch, and undo/redo (Phase 3)
+
+Assembly and Drawing are implemented milestones; their remaining quality work is
+tracked in Phase 5. The Plugin API is currently a reserved stub and is planned for
+Phase 4.
 
 Recently delivered: GitHub-native review summaries, reproducible README demos, and a zero-build
 60-second tour.
@@ -248,6 +258,7 @@ modules/     Rust crates: core, graph, geometry, feature, AI, rendering, file, C
 apps/        Tauri desktop shell and web UI
 schemas/     Deterministic .ocad JSON schemas
 docs/        Architecture, ADRs, API references, and developer guides
+             plus the canonical roadmap and implementation inventory
 examples/    Parametric documents and Agent API requests
 ```
 

@@ -15,7 +15,8 @@ Building a custom kernel from scratch is out of scope for MVP.
 2. Keep a **kernel-neutral trait** in `opencad-geometry` (`GeometryKernel`).
 3. Implement the backend in `opencad-kernel-occt`.
 4. MVP links OCCT via **cadrum** (static OCCT 8.0.0 prebuilt) to avoid system install friction.
-5. A direct C++ `cxx` bridge may replace cadrum later (Task-076).
+5. A direct C++ `cxx` bridge may replace cadrum later (historical Task-076;
+   any new work requires a current roadmap ID and ADR update).
 
 ## Boundaries
 

@@ -72,4 +72,5 @@ feature:sketch_base → feature:extrude_base → feature:hole_pattern
 
 Crate: `modules/graph` (`opencad-graph`)
 
-Tasks: Task-016 through Task-025
+Historical bootstrap tasks: Task-016 through Task-025. Current work uses the
+[canonical roadmap IDs](../plans/roadmap.md).

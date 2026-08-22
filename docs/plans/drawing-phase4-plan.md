@@ -1,8 +1,12 @@
-# Phase 4 Drawing plan
+# Drawing milestone plan (historical Phase 4)
 
 ## Status
 
 Complete
+
+This is the historical Drawing implementation record. The active roadmap uses
+Phase 4 for the Plugin API; remaining Drawing quality work is tracked as
+`MCAD-P5-003` and `MCAD-P5-005` in the [canonical roadmap](roadmap.md).
 
 ## Goal
 
@@ -11,7 +15,7 @@ SVG sheets.
 
 ## Milestones
 
-### M4.1 — Drawing document + wireframe SVG (Task-174–178)
+### M4.1 — Drawing document + wireframe SVG (historical Task-174–178)
 
 - [x] ADR-004: drawing document model
 - [x] Core IDs: `SheetId`, `ViewId`, `DocumentKind::Drawing`
@@ -21,13 +25,13 @@ SVG sheets.
 - [x] Template: `bracket_front_view` with child `parts/bracket.ocad.d`
 - [x] Schemas: `ocad.drawing.schema.json`, document `kind: drawing`
 - [x] Example committed under `examples/bracket_front_view.ocad.d`
-- [x] Agent API drawing queries/patches (Task-180+)
+- [x] Agent API drawing queries/patches (historical Task-180+)
 
-### M4.2 — Hidden-line removal (Task-177)
+### M4.2 — Hidden-line removal (historical Task-177)
 
 - [x] Deterministic mesh-based HLR with dashed hidden edges in SVG
 
-### M4.3 — Dimensions (Task-179)
+### M4.3 — Dimensions (historical Task-179)
 
 - [x] Model-driven aligned linear dimensions on sheets and SVG export
 

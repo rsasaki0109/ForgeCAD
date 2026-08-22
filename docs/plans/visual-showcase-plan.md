@@ -4,6 +4,11 @@
 
 Complete
 
+This is the completed showcase milestone record. The active roadmap and current
+evidence are maintained in the [roadmap](roadmap.md) and
+[implementation status](implementation-status.md); future release and regression
+work is tracked by `MCAD-P1-003` and `MCAD-P5-005`.
+
 ## Goal
 
 Produce deterministic, high-quality presentation renders and animated GIFs from

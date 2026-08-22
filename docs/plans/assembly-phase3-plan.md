@@ -1,16 +1,20 @@
-# MusubiCAD Assembly (Phase 3) 実装計画
+# MusubiCAD Assembly (historical Phase 3) 実装計画
 
-> Status: Complete (M3.1–M3.3 implemented)
+> Status: Complete (M3.1–M3.3 implemented). This file is retained as the
+> historical design record; the active roadmap is
+> [docs/plans/roadmap.md](roadmap.md), and current evidence is in
+> [implementation-status.md](implementation-status.md).
 > Scope: `modules/assembly` を中心とした組立モデリング機能
 > Related: [Architecture overview](../architecture/overview.md), [AGENTS.md](../../AGENTS.md)
 
-現状 `modules/assembly` は空スタブ（`component.rs` / `instance.rs` / `mate.rs` / `connector.rs` /
-`solve.rs` が各1行）。ただし合流点は既に整備済み:
+着手時点では `modules/assembly` は空スタブ（`component.rs` / `instance.rs` / `mate.rs` /
+`connector.rs` / `solve.rs` が各1行）だった。現在は M3.1–M3.3 が実装済みで、合流点は次のとおり:
 
 - `modules/core/src/manifest.rs` が `graph/assemblies.json` スロットを予約済み。
 - `modules/core/src/id.rs` に `ComponentId`（`component:` プレフィックス）を定義済み。
 
-つまり Assembly は「設計時に想定済みだが未実装」の状態。
+当時の「設計時に想定済みだが未実装」という記述は着手前の状態であり、現在の状態ではない。
+実装済み範囲と残課題は [implementation-status.md](implementation-status.md) を参照する。
 
 ---
 
@@ -135,5 +139,6 @@ Placement  { transform: RigidTransform }   // geometry の RigidTransform を保
 
 ## 9. 次アクション
 
-- Phase 3 完了。Definition of Done は §8 を参照。
-- 次フェーズ候補: **Phase 4 Drawing**（`opencad-drawing`、Task-174+）または CI / 例の E2E 強化。
+- Historical Phase 3 is complete; Definition of Done は §8 を参照。
+- 現行ロードマップでは、Assembly の品質・回帰作業を
+  `MCAD-P5-004` / `MCAD-P5-005` で管理する。

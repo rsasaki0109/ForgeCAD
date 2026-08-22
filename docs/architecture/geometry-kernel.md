@@ -43,5 +43,5 @@ All geometry comparisons use explicit tolerances. Never compare raw `f64` with `
 
 ## Further reading
 
-- [ADR-002 OCCT backend](../adr/ADR-002-occt-backend.md) (planned)
-- [Topological naming](./topological-naming.md) (planned)
+- [ADR-002 OCCT backend](../adr/ADR-002-occt-backend.md)
+- Topological reference specification: [MCAD-P5-001 in the roadmap](../plans/roadmap.md)
