@@ -13,14 +13,14 @@ use opencad_file::{
     DocumentHistoryState,
 };
 use opencad_plugin_api::{
-    ExportRequest, ExportResult, ExporterPlugin, FeaturePlugin, FeatureRequest, FeatureResult,
-    ImportRequest, ImportResult, ImporterPlugin, PluginCapability, PluginDiagnostic, PluginKind,
-    PluginManifest, PluginRegistry,
+    ExportRequest, ExportResult, ExporterPlugin, FeatureRequest, FeatureResult, ImportRequest,
+    ImportResult, ImporterPlugin, PluginCapability, PluginDiagnostic, PluginKind, PluginManifest,
+    PluginRegistry,
 };
+use opencad_plugin_example::BracketFeaturePlugin;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-const FEATURE_PLUGIN_ID: &str = "example.bracket-feature";
 const IMPORTER_PLUGIN_ID: &str = "example.patch-importer";
 const EXPORTER_PLUGIN_ID: &str = "example.json-exporter";
 
@@ -38,7 +38,7 @@ impl PluginHost {
     /// Build the deterministic local example registry used by CLI and Agent.
     pub fn with_builtins() -> Result<Self> {
         let mut registry = PluginRegistry::new();
-        registry.register_feature(BuiltinFeature::default())?;
+        registry.register_feature(BracketFeaturePlugin::default())?;
         registry.register_importer(BuiltinImporter::default())?;
         registry.register_exporter(BuiltinExporter::default())?;
         Ok(Self { registry })
@@ -309,45 +309,6 @@ pub fn invoke_plugin_on_path(
     Ok(result)
 }
 
-struct BuiltinFeature {
-    manifest: PluginManifest,
-}
-
-impl Default for BuiltinFeature {
-    fn default() -> Self {
-        Self {
-            manifest: PluginManifest::new(
-                FEATURE_PLUGIN_ID,
-                "Bracket Feature Example",
-                "0.1.0",
-                PluginKind::Feature,
-            )
-            .with_capability(PluginCapability::FeaturePatch),
-        }
-    }
-}
-
-impl FeaturePlugin for BuiltinFeature {
-    fn manifest(&self) -> &PluginManifest {
-        &self.manifest
-    }
-
-    fn apply(&self, request: FeatureRequest) -> Result<FeatureResult> {
-        let parameter_id = request
-            .parameters
-            .get("parameter_id")
-            .ok_or_else(|| OpenCadError::validation("feature request requires 'parameter_id'"))?;
-        let expr = request
-            .parameters
-            .get("expr")
-            .ok_or_else(|| OpenCadError::validation("feature request requires 'expr'"))?;
-        Ok(FeatureResult::new(DesignPatch::set_parameter(
-            parameter_id,
-            expr,
-        )))
-    }
-}
-
 struct BuiltinImporter {
     manifest: PluginManifest,
 }
@@ -426,6 +387,7 @@ mod tests {
     use opencad_feature::bracket_with_hole;
     use opencad_file::{expanded_dir::serialize_document_files, write_expanded_dir, OcadDocument};
     use opencad_graph::bracket_parameters;
+    use opencad_plugin_example::PLUGIN_ID as FEATURE_PLUGIN_ID;
     use tempfile::tempdir;
 
     fn fixture(path: &std::path::Path) {
@@ -513,6 +475,36 @@ mod tests {
     }
 
     #[test]
+    fn plugin_returned_error_is_isolated_from_document_persistence() {
+        let host = PluginHost::with_builtins().expect("builtins");
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("plugin.ocad.d");
+        fixture(&path);
+        let before = read_ocad(path.to_str().expect("path")).expect("before");
+        let before_files = serialize_document_files(&before).expect("before files");
+        let error = invoke_plugin_on_path(
+            &host,
+            FEATURE_PLUGIN_ID,
+            path.to_str().expect("path"),
+            serde_json::json!({
+                "feature_id": "feature:width_edit",
+                "feature_type": FEATURE_PLUGIN_ID,
+                "parameters": { "parameter_id": "param:width" }
+            }),
+            false,
+            None,
+            None,
+        )
+        .expect_err("plugin request error");
+        assert!(error.to_string().contains("'expr'"));
+        let after = read_ocad(path.to_str().expect("path")).expect("after");
+        assert_eq!(
+            serialize_document_files(&after).expect("after files"),
+            before_files
+        );
+    }
+
+    #[test]
     fn exporter_returns_host_persistable_bytes_without_mutating_document() {
         let host = PluginHost::with_builtins().expect("builtins");
         let dir = tempdir().expect("tempdir");
@@ -530,6 +522,46 @@ mod tests {
         .expect("export");
         assert!(result.invocation.data.unwrap_or_default().len() > 10);
         assert!(!result.applied);
+    }
+
+    #[test]
+    fn importer_and_exporter_outputs_match_checked_in_golden_files() {
+        let host = PluginHost::with_builtins().expect("builtins");
+        let patch = DesignPatch::set_parameter("param:width", "100 mm");
+        let imported = host
+            .invoke(
+                IMPORTER_PLUGIN_ID,
+                PluginRequest::Importer(ImportRequest {
+                    format: "designpatch-json".into(),
+                    source_name: Some("width.patch.json".into()),
+                    data: serde_json::to_vec(&patch).expect("patch JSON"),
+                }),
+            )
+            .expect("import");
+        assert_eq!(
+            serde_json::to_vec(&imported).expect("import result JSON"),
+            include_str!("../tests/golden/plugin-import-result.json")
+                .trim_ascii_end()
+                .as_bytes()
+        );
+
+        let exported = host
+            .invoke(
+                EXPORTER_PLUGIN_ID,
+                PluginRequest::Exporter(ExportRequest {
+                    format: "json".into(),
+                    state: serde_json::json!({
+                        "parameters": {"param:width": "100 mm"}
+                    }),
+                }),
+            )
+            .expect("export");
+        assert_eq!(
+            serde_json::to_vec(&exported).expect("export result JSON"),
+            include_str!("../tests/golden/plugin-export-result.json")
+                .trim_ascii_end()
+                .as_bytes()
+        );
     }
 
     #[test]

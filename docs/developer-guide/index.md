@@ -53,8 +53,8 @@ cargo run -p opencad-cli -- animate examples/assembly_two_brackets.ocad.d showca
 | `opencad-plugin-api` | Plugin extension points |
 
 See [ocad-format.md](../architecture/ocad-format.md) for the native file layout.
-See [plugin-api.md](../api/plugin-api.md) for the P4-001 linked Rust plugin
-contracts and manifest compatibility policy.
+See [plugins.md](plugins.md) for the linked-plugin authoring workflow and
+[plugin-api.md](../api/plugin-api.md) for the complete public contract.
 See [releases.md](releases.md) for the multi-platform CLI release contract.
 See [desktop-releases.md](desktop-releases.md) for the Tauri installer/archive and checksum contract.
 See [ADR-005](../adr/ADR-005-desktop-release-trust.md) for the credential-gated desktop trust policy.

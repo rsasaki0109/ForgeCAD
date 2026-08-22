@@ -1,11 +1,11 @@
-# Plugin API (P4-001/P4-002)
+# Plugin API
 
 `opencad-plugin-api` defines the first versioned extension boundary for
 MusubiCAD. It is a linked, stable-Rust contract: plugin implementations are
-compiled against the crate and exchange request/result DTOs in process. P4-001
-does not claim an ABI-stable dynamic-loading format. P4-002 adds a
-deterministic in-process registry and capability policy; CLI/Agent invocation
-remains a P4-003 concern.
+compiled against the crate and exchange request/result DTOs in process. It does
+not claim an ABI-stable dynamic-loading format. The API includes deterministic
+registration, host-controlled CLI/Agent invocation, compatibility tests, and a
+standalone example crate.
 
 ## Boundary
 
@@ -127,5 +127,6 @@ no filesystem handle or path capability.
 
 The equivalent Agent methods are `opencad.plugin_list` and
 `opencad.plugin_invoke`; see the checked-in requests under `examples/agent/`.
-Loading and security isolation remain future work; compatibility and failure
-evidence are completed by P4-004.
+Loading and security isolation remain future work. See the
+[plugin developer guide](../developer-guide/plugins.md) for authoring steps and
+the exact compatibility and failure evidence.

@@ -81,14 +81,14 @@ path against a direct patch transaction.
 
 ## Plugin API contract example
 
-[`plugin-example/manifest.json`](plugin-example/manifest.json) is a serialized
-P4-001 manifest for a feature plugin. It demonstrates the explicit linked Rust
-API version and manifest schema used by
+[`plugin-example`](plugin-example) is a buildable linked feature-plugin crate.
+Its checked-in manifest demonstrates the explicit Rust API version and schema used by
 [`opencad-plugin-api`](../docs/api/plugin-api.md). The contract tests can be
-run without a registry, loader, OCCT, filesystem, or network service:
+run without OCCT, filesystem, or network service:
 
 ```bash
 cargo test -p opencad-plugin-api
+cargo test -p opencad-plugin-example
 ```
 
 Feature and importer implementations return validated `DesignPatch` DTOs;

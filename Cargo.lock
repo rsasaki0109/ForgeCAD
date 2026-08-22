@@ -1409,6 +1409,7 @@ dependencies = [
  "opencad-graph",
  "opencad-kernel-occt",
  "opencad-plugin-api",
+ "opencad-plugin-example",
  "opencad-render",
  "opencad-sketch",
  "serde",
@@ -1537,6 +1538,16 @@ dependencies = [
  "opencad-ai",
  "opencad-core",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "opencad-plugin-example"
+version = "0.1.0"
+dependencies = [
+ "opencad-ai",
+ "opencad-core",
+ "opencad-plugin-api",
  "serde_json",
 ]
 

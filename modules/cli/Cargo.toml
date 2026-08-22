@@ -26,6 +26,7 @@ opencad-geometry = { workspace = true }
 opencad-graph = { workspace = true }
 opencad-kernel-occt = { workspace = true }
 opencad-plugin-api = { workspace = true }
+opencad-plugin-example = { workspace = true }
 opencad-render = { workspace = true }
 opencad-sketch = { workspace = true }
 serde = { workspace = true }

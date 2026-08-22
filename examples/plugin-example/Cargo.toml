@@ -1,0 +1,18 @@
+[package]
+name = "opencad-plugin-example"
+description = "Reusable linked feature-plugin example for MusubiCAD"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+opencad-ai = { workspace = true }
+opencad-core = { workspace = true }
+opencad-plugin-api = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true
