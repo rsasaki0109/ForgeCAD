@@ -102,5 +102,30 @@ cargo test -p opencad-plugin-api
 cargo clippy -p opencad-plugin-api --all-targets -- -D warnings
 ```
 
-Loading/security isolation and CLI/Agent invocation remain follow-up work in
-P4-003 and P4-004.
+## Product invocation
+
+The CLI constructs a fresh, deterministic `PluginHost` for each command; the
+Agent stdio loop constructs one host for that loop. Neither is global mutable
+state. The linked built-ins demonstrate all three contracts:
+
+- `example.bracket-feature` proposes a unit-bearing parameter `DesignPatch`;
+- `example.patch-importer` decodes caller-owned DesignPatch JSON bytes;
+- `example.json-exporter` serializes immutable document state to bytes.
+
+List or invoke them with:
+
+```text
+opencad plugin list --json
+opencad plugin invoke example.bracket-feature work/bracket.ocad.d examples/plugin-example/feature-request.json --dry-run --json
+```
+
+Feature/importer results are dry-run validated, then applied with the shared
+transaction and backend history only when not in dry-run mode. Invalid plugin
+patches leave the document byte-for-byte unchanged. Export bytes are written
+only by the CLI/Agent host when an output path is supplied; plugin code receives
+no filesystem handle or path capability.
+
+The equivalent Agent methods are `opencad.plugin_list` and
+`opencad.plugin_invoke`; see the checked-in requests under `examples/agent/`.
+Loading and security isolation remain future work; compatibility and failure
+evidence are completed by P4-004.

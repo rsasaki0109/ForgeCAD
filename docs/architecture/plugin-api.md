@@ -31,7 +31,11 @@ in-process implementations are trusted, and registration/listing call their
 `manifest()` accessor. Capabilities are limited to proposing feature/import
 patches or producing export bytes; filesystem, network, UI, kernel, and
 document-owner access cannot be declared. CLI/Agent product integration remains
-P4-003 work.
+host-owned. P4-003 adds a non-global `PluginHost` in the CLI layer. It supplies
+immutable DTOs to linked implementations, routes feature/importer patches
+through the existing dry-run and transaction/history boundary, and persists
+export bytes only after the plugin returns. The CLI and Agent API use the same
+host service, so neither surface can bypass DesignPatch validation.
 
 See [the public API contract](../api/plugin-api.md) and
 [ADR-010](../adr/ADR-010-versioned-plugin-contracts.md).

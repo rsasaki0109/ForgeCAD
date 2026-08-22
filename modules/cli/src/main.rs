@@ -8,6 +8,7 @@ mod mesh;
 mod new;
 mod patch;
 mod pick;
+mod plugin;
 mod policy_check;
 mod regen;
 mod review;

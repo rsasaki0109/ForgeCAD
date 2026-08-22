@@ -1,0 +1,8 @@
+{
+  "feature_id": "feature:width_edit",
+  "feature_type": "example.bracket-feature",
+  "parameters": {
+    "parameter_id": "param:width",
+    "expr": "100 mm"
+  }
+}

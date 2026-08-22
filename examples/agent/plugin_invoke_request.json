@@ -1,0 +1,18 @@
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "opencad.plugin_invoke",
+  "params": {
+    "plugin_id": "example.bracket-feature",
+    "path": "work/bracket.ocad.d",
+    "request": {
+      "feature_id": "feature:width_edit",
+      "feature_type": "example.bracket-feature",
+      "parameters": {
+        "parameter_id": "param:width",
+        "expr": "100 mm"
+      }
+    },
+    "dry_run": true
+  }
+}

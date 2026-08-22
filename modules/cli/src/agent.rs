@@ -16,6 +16,7 @@ use crate::diff::{self, DiffOptions};
 use crate::export;
 use crate::mesh;
 use crate::pick::{self, PickOptions};
+use crate::plugin::{self, PluginHost};
 use crate::regen::{self, RegenBodyParams, RegenResult};
 use crate::scene_query;
 use crate::topo_sync;
@@ -126,8 +127,44 @@ pub struct DocumentInspectResult {
     pub parameters: usize,
 }
 
+/// Parameters for deterministic plugin discovery.
+#[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
+pub struct PluginListParams {}
+
+/// Host-owned parameters for a linked plugin invocation.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct PluginInvokeParams {
+    pub plugin_id: String,
+    pub path: String,
+    pub request: Value,
+    #[serde(default)]
+    pub dry_run: bool,
+    #[serde(default)]
+    pub output: Option<String>,
+    #[serde(default)]
+    pub history: Option<DocumentHistory>,
+}
+
 /// Dispatch JSON-RPC requests, including file-backed methods.
+#[allow(dead_code)]
 pub fn handle_agent_request(request: &JsonRpcRequest) -> JsonRpcResponse {
+    let host = match PluginHost::with_builtins() {
+        Ok(host) => host,
+        Err(err) => {
+            return JsonRpcResponse::error(
+                request.id.clone(),
+                JsonRpcError::application_error(err.to_string()),
+            )
+        }
+    };
+    handle_agent_request_with_plugins(request, &host)
+}
+
+/// Dispatch requests using an injected, non-global plugin host.
+pub fn handle_agent_request_with_plugins(
+    request: &JsonRpcRequest,
+    host: &PluginHost,
+) -> JsonRpcResponse {
     if request.jsonrpc != "2.0" {
         return JsonRpcResponse::error(
             request.id.clone(),
@@ -151,6 +188,8 @@ pub fn handle_agent_request(request: &JsonRpcRequest) -> JsonRpcResponse {
         "opencad.sync_topo_refs_document" => handle_sync_topo_refs_document(request),
         "opencad.assign_face_ref_document" => handle_assign_face_ref_document(request),
         "opencad.explain_document" => handle_explain_document(request),
+        "opencad.plugin_list" => handle_plugin_list(request, host),
+        "opencad.plugin_invoke" => handle_plugin_invoke(request, host),
         _ => AgentApi.handle_request(request),
     }
 }
@@ -159,6 +198,7 @@ pub fn handle_agent_request(request: &JsonRpcRequest) -> JsonRpcResponse {
 pub fn serve_stdio() -> Result<()> {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
+    let plugin_host = PluginHost::with_builtins()?;
     for line in stdin.lock().lines() {
         let line = line.map_err(|err| {
             opencad_core::OpenCadError::Other(format!("failed to read stdin: {err}"))
@@ -166,7 +206,7 @@ pub fn serve_stdio() -> Result<()> {
         if line.trim().is_empty() {
             continue;
         }
-        let response = match handle_json_line_with_documents(&line) {
+        let response = match handle_json_line_with_documents(&line, &plugin_host) {
             Ok(response_line) => response_line,
             Err(err) => error_response_line(&line, err.to_string()),
         };
@@ -180,11 +220,11 @@ pub fn serve_stdio() -> Result<()> {
     Ok(())
 }
 
-fn handle_json_line_with_documents(line: &str) -> Result<String> {
+fn handle_json_line_with_documents(line: &str, host: &PluginHost) -> Result<String> {
     let request: JsonRpcRequest = serde_json::from_str(line).map_err(|err| {
         opencad_core::OpenCadError::validation(format!("invalid JSON-RPC: {err}"))
     })?;
-    let response = handle_agent_request(&request);
+    let response = handle_agent_request_with_plugins(&request, host);
     serde_json::to_string(&response).map_err(|err| {
         opencad_core::OpenCadError::Other(format!("failed to encode response: {err}"))
     })
@@ -199,6 +239,52 @@ fn error_response_line(line: &str, message: String) -> String {
         r#"{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"response encoding failed"}}"#
             .into()
     })
+}
+
+fn handle_plugin_list(request: &JsonRpcRequest, host: &PluginHost) -> JsonRpcResponse {
+    if let Err(err) = serde_json::from_value::<PluginListParams>(request.params.clone()) {
+        return JsonRpcResponse::error(
+            request.id.clone(),
+            JsonRpcError::invalid_params(err.to_string()),
+        );
+    }
+    JsonRpcResponse::success(
+        request.id.clone(),
+        serde_json::json!({ "plugins": host.list() }),
+    )
+}
+
+fn handle_plugin_invoke(request: &JsonRpcRequest, host: &PluginHost) -> JsonRpcResponse {
+    let params = match serde_json::from_value::<PluginInvokeParams>(request.params.clone()) {
+        Ok(params) => params,
+        Err(err) => {
+            return JsonRpcResponse::error(
+                request.id.clone(),
+                JsonRpcError::invalid_params(err.to_string()),
+            )
+        }
+    };
+    match plugin::invoke_plugin_on_path(
+        host,
+        &params.plugin_id,
+        &params.path,
+        params.request,
+        params.dry_run,
+        params.output.as_deref(),
+        params.history,
+    ) {
+        Ok(result) => match serde_json::to_value(result) {
+            Ok(value) => JsonRpcResponse::success(request.id.clone(), value),
+            Err(err) => JsonRpcResponse::error(
+                request.id.clone(),
+                JsonRpcError::application_error(err.to_string()),
+            ),
+        },
+        Err(err) => JsonRpcResponse::error(
+            request.id.clone(),
+            JsonRpcError::application_error(err.to_string()),
+        ),
+    }
 }
 
 fn handle_inspect(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -736,12 +822,136 @@ fn handle_explain_document(request: &JsonRpcRequest) -> JsonRpcResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
+
     use opencad_ai::DesignPatch;
     use opencad_core::{DocumentId, DocumentMetadata};
     use opencad_feature::bracket_with_hole;
-    use opencad_file::{write_expanded_dir, OcadDocument};
+    use opencad_file::{expanded_dir::serialize_document_files, write_expanded_dir, OcadDocument};
     use opencad_graph::bracket_parameters;
     use tempfile::tempdir;
+
+    fn plugin_fixture(path: &Path) {
+        let part = bracket_with_hole().expect("model");
+        let metadata = DocumentMetadata::new(
+            DocumentId::new("doc:agent-plugin").expect("document"),
+            "Agent plugin fixture",
+        );
+        let mut doc = OcadDocument::from_part_model(metadata, &part);
+        doc.parameters = bracket_parameters();
+        write_expanded_dir(path, &doc).expect("fixture");
+    }
+
+    fn feature_plugin_request(path: &Path, expr: &str) -> JsonRpcRequest {
+        JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: serde_json::json!(100),
+            method: "opencad.plugin_invoke".into(),
+            params: serde_json::json!({
+                "plugin_id": "example.bracket-feature",
+                "path": path.to_str().expect("path"),
+                "request": {
+                    "feature_id": "feature:width_edit",
+                    "feature_type": "example.bracket-feature",
+                    "parameters": {
+                        "parameter_id": "param:width",
+                        "expr": expr
+                    }
+                }
+            }),
+        }
+    }
+
+    #[test]
+    fn plugin_list_route_is_sorted_and_serializable() {
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: serde_json::json!(99),
+            method: "opencad.plugin_list".into(),
+            params: serde_json::json!({}),
+        };
+        let response = handle_agent_request(&request);
+        assert!(response.error.is_none());
+        let result = response.result.expect("result");
+        let ids: Vec<_> = result["plugins"]
+            .as_array()
+            .expect("plugins")
+            .iter()
+            .map(|plugin| plugin["id"].as_str().expect("id"))
+            .collect();
+        assert_eq!(
+            ids,
+            vec![
+                "example.bracket-feature",
+                "example.json-exporter",
+                "example.patch-importer"
+            ]
+        );
+    }
+
+    #[test]
+    fn plugin_invoke_route_applies_patch_with_history() {
+        let dir = tempdir().expect("tempdir");
+        let doc_path = dir.path().join("agent-plugin.ocad.d");
+        plugin_fixture(&doc_path);
+        let response = handle_agent_request(&feature_plugin_request(&doc_path, "100 mm"));
+        assert!(response.error.is_none());
+        assert_eq!(response.result.as_ref().expect("result")["applied"], true);
+        assert_eq!(
+            read_ocad(&doc_path)
+                .expect("after")
+                .parameters
+                .get("param:width")
+                .unwrap()
+                .expr,
+            "100 mm"
+        );
+    }
+
+    #[test]
+    fn plugin_invoke_failure_leaves_document_unchanged() {
+        let dir = tempdir().expect("tempdir");
+        let doc_path = dir.path().join("agent-plugin.ocad.d");
+        plugin_fixture(&doc_path);
+        let before = read_ocad(&doc_path).expect("before");
+        let before_files = serialize_document_files(&before).expect("before files");
+        let response = handle_agent_request(&feature_plugin_request(&doc_path, "not_a_length"));
+        assert!(response.error.is_some());
+        let after = read_ocad(&doc_path).expect("after");
+        assert_eq!(
+            serialize_document_files(&after).expect("after files"),
+            before_files
+        );
+    }
+
+    #[test]
+    fn plugin_export_route_returns_bytes_and_metadata() {
+        let dir = tempdir().expect("tempdir");
+        let doc_path = dir.path().join("agent-plugin.ocad.d");
+        plugin_fixture(&doc_path);
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: serde_json::json!(101),
+            method: "opencad.plugin_invoke".into(),
+            params: serde_json::json!({
+                "plugin_id": "example.json-exporter",
+                "path": doc_path.to_str().expect("path"),
+                "request": { "format": "json" }
+            }),
+        };
+        let response = handle_agent_request(&request);
+        assert!(response.error.is_none());
+        let result = response.result.expect("result");
+        assert_eq!(result["invocation"]["format"], "json");
+        assert_eq!(result["invocation"]["media_type"], "application/json");
+        assert!(
+            result["invocation"]["data"]
+                .as_array()
+                .expect("bytes")
+                .len()
+                > 10
+        );
+    }
 
     #[test]
     fn inspect_document_via_json_rpc() {

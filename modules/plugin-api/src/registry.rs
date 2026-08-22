@@ -1,16 +1,17 @@
-//! Deterministic, in-process plugin registration and capability policy.
+//! Deterministic, in-process plugin registration, capability policy, and
+//! invocation.
 //!
-//! This registry stores trusted linked Rust implementations for discovery only;
-//! it deliberately does not invoke plugins or provide a loading/sandboxing
-//! boundary. Product invocation belongs to a later roadmap milestone.
+//! This registry stores trusted linked Rust implementations. It does not load
+//! code or provide a loading/sandboxing boundary; host services decide when to
+//! invoke a registered implementation.
 
 use std::collections::BTreeMap;
 
 use opencad_core::{OpenCadError, Result};
 
-use crate::exporter::ExporterPlugin;
-use crate::feature_plugin::FeaturePlugin;
-use crate::importer::ImporterPlugin;
+use crate::exporter::{ExportRequest, ExportResult, ExporterPlugin};
+use crate::feature_plugin::{FeaturePlugin, FeatureRequest, FeatureResult};
+use crate::importer::{ImportRequest, ImportResult, ImporterPlugin};
 use crate::manifest::{
     PluginApiVersion, PluginCapability, PluginCapabilityPolicy, PluginKind, PluginManifest,
 };
@@ -118,7 +119,8 @@ impl PluginRegistry {
         )
     }
 
-    /// Return manifests in stable ID order. No plugin code is invoked.
+    /// Return manifests in stable ID order. This calls only each plugin's
+    /// metadata accessor; feature/importer/exporter operations are not run.
     pub fn list(&self) -> Vec<PluginManifest> {
         self.plugins
             .values()
@@ -137,6 +139,53 @@ impl PluginRegistry {
 
     pub fn is_empty(&self) -> bool {
         self.plugins.is_empty()
+    }
+
+    /// Return one manifest by ID without invoking a plugin operation.
+    pub fn manifest(&self, id: &str) -> Result<PluginManifest> {
+        self.plugins
+            .get(id)
+            .map(|plugin| plugin.manifest().clone())
+            .ok_or_else(|| OpenCadError::not_found(format!("plugin '{id}' is not registered")))
+    }
+
+    /// Invoke a registered feature plugin with an in-memory DTO request.
+    pub fn invoke_feature(&self, id: &str, request: FeatureRequest) -> Result<FeatureResult> {
+        match self.plugins.get(id) {
+            Some(RegisteredPlugin::Feature(plugin)) => plugin.apply(request),
+            Some(_) => Err(OpenCadError::validation(format!(
+                "plugin '{id}' is not registered as a feature"
+            ))),
+            None => Err(OpenCadError::not_found(format!(
+                "plugin '{id}' is not registered"
+            ))),
+        }
+    }
+
+    /// Invoke a registered importer plugin with caller-owned bytes.
+    pub fn invoke_importer(&self, id: &str, request: ImportRequest) -> Result<ImportResult> {
+        match self.plugins.get(id) {
+            Some(RegisteredPlugin::Importer(plugin)) => plugin.import(request),
+            Some(_) => Err(OpenCadError::validation(format!(
+                "plugin '{id}' is not registered as an importer"
+            ))),
+            None => Err(OpenCadError::not_found(format!(
+                "plugin '{id}' is not registered"
+            ))),
+        }
+    }
+
+    /// Invoke a registered exporter plugin with immutable serializable state.
+    pub fn invoke_exporter(&self, id: &str, request: ExportRequest) -> Result<ExportResult> {
+        match self.plugins.get(id) {
+            Some(RegisteredPlugin::Exporter(plugin)) => plugin.export(request),
+            Some(_) => Err(OpenCadError::validation(format!(
+                "plugin '{id}' is not registered as an exporter"
+            ))),
+            None => Err(OpenCadError::not_found(format!(
+                "plugin '{id}' is not registered"
+            ))),
+        }
     }
 
     fn register(&mut self, plugin: RegisteredPlugin, expected_kind: PluginKind) -> Result<()> {

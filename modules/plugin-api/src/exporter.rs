@@ -14,6 +14,7 @@ use crate::manifest::{PluginDiagnostic, PluginManifest};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExportRequest {
     pub format: String,
+    #[serde(default)]
     pub state: Value,
 }
 

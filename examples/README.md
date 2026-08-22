@@ -94,7 +94,10 @@ cargo test -p opencad-plugin-api
 Feature and importer implementations return validated `DesignPatch` DTOs;
 exporters receive immutable serializable state and return bytes. The example
 declares `feature_patch`, so it passes the deterministic P4-002 registry policy.
-CLI/Agent product integration is intentionally deferred to P4-003.
+Product integration is available through `opencad plugin list`, `opencad plugin
+invoke`, `opencad.plugin_list`, and `opencad.plugin_invoke`. Copy the bracket
+fixture before invoking a mutating example; the checked-in Agent invoke request
+uses dry-run mode and points at `work/bracket.ocad.d`.
 
 ## Backend history
 

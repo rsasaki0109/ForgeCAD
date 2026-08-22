@@ -220,6 +220,7 @@ See the [desktop guide](apps/desktop/README.md) for platform prerequisites.
 | [`bracket_front_view.ocad.d`](examples/bracket_front_view.ocad.d) | Orthographic drawing with an explicit 80 mm dimension |
 | [`sketch_constraints_regression.ocad.d`](examples/sketch_constraints_regression.ocad.d) | Deterministic Equal/Parallel/Perpendicular solver regression cases |
 | [`examples/agent/`](examples/agent) | Ready-to-run JSON-RPC and DesignPatch requests |
+| [`examples/plugin-example/`](examples/plugin-example) | Versioned linked-plugin manifest and unit-bearing feature request |
 
 More examples and commands are listed in [`examples/README.md`](examples/README.md).
 
@@ -238,8 +239,8 @@ capabilities from planned work. The next active priorities are:
 3. Reference-focused geometry and end-to-end golden coverage (Phase 5)
 
 Assembly and Drawing are implemented milestones; their remaining quality work is
-tracked in Phase 5. The Plugin API is currently a reserved stub and is planned for
-Phase 4.
+tracked in Phase 5. The linked Plugin API, deterministic registry, and CLI/Agent
+invocation paths are implemented in Phase 4; dynamic loading is not claimed.
 
 Recently delivered: deterministic solver diagnostics and sketch regression fixtures
 (DOF, rank-based redundancy, contradiction, unit conversion, and canonical

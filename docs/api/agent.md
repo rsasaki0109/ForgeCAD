@@ -413,6 +413,20 @@ Holes accept `face_ref` for semantic targeting; pass `semantic_refs` during rege
 
 `spacing_expr` is evaluated during regeneration (same timing as `length_expr` on extrude). Use `set_feature_expr` with `field: "spacing_expr"` to patch it parametrically.
 
+## Linked plugin discovery and invocation
+
+`opencad.plugin_list` accepts `{}` and returns manifests in stable lexical ID
+order. `opencad.plugin_invoke` accepts `plugin_id`, document `path`, a typed
+`request`, optional `dry_run`, optional exporter `output`, and optional opaque
+backend `history`. Feature/importer results use the same validated
+DesignPatch/history boundary as `opencad.patch_apply_document`; exporter output
+is persisted by the host, not by plugin code.
+
+Use [`plugin_list_request.json`](../../examples/agent/plugin_list_request.json)
+and [`plugin_invoke_request.json`](../../examples/agent/plugin_invoke_request.json)
+as transport examples. The invoke example is a dry run and assumes the caller
+has copied `examples/bracket.ocad.d` to `work/bracket.ocad.d`.
+
 ## Errors
 
 Standard JSON-RPC error codes:
@@ -427,4 +441,6 @@ Standard JSON-RPC error codes:
 
 ## Example
 
-See `examples/agent/inspect_request.json`, `examples/agent/query_request.json`, `examples/agent/query_sketch_constraints_request.json`, `examples/agent/query_overlay_lines_request.json`, `examples/agent/query_face_groups_request.json`, `examples/agent/query_semantic_ref_request.json`, `examples/agent/pick_document_request.json`, `examples/agent/explain_request.json`, `examples/agent/export_request.json`, `examples/agent/diff_document_request.json`, `examples/agent/assign_face_ref_patch.json`, `examples/agent/plane_face_ref_patch.json`, and `examples/agent/spacing_expr_patch.json`.
+See `examples/agent/inspect_request.json`, `examples/agent/query_request.json`,
+`examples/agent/plugin_list_request.json`,
+`examples/agent/plugin_invoke_request.json`, and the other checked-in requests.

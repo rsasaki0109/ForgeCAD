@@ -12,6 +12,7 @@ use crate::mesh;
 use crate::new;
 use crate::patch;
 use crate::pick;
+use crate::plugin;
 use crate::policy_check;
 use crate::regen;
 use crate::review;
@@ -44,6 +45,7 @@ pub fn run() -> Result<()> {
             cmd_animate(input.as_deref(), output.as_deref(), args.collect())
         }
         Some("patch") => cmd_patch(args.collect()),
+        Some("plugin") => cmd_plugin(args.collect()),
         Some("diff") => cmd_diff(args.collect()),
         Some("review") => cmd_review(args.collect()),
         Some("merge") => git_workflow::merge(args.collect()),
@@ -321,6 +323,72 @@ fn cmd_patch(args: Vec<String>) -> Result<()> {
     patch::patch_document_with_options(&parsed)
 }
 
+fn cmd_plugin(args: Vec<String>) -> Result<()> {
+    let parsed = plugin::parse_cli_args(&args)?;
+    let host = plugin::PluginHost::with_builtins()?;
+    match parsed {
+        plugin::PluginCliCommand::List { json } => {
+            let manifests = host.list();
+            if json {
+                println!("{}", serde_json::to_string_pretty(&manifests)?);
+            } else {
+                for manifest in manifests {
+                    let capabilities = manifest
+                        .capabilities
+                        .iter()
+                        .map(|capability| capability.as_str())
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    println!(
+                        "{}\t{:?}\t{}.{}\t{}",
+                        manifest.id,
+                        manifest.kind,
+                        manifest.api_version.major,
+                        manifest.api_version.minor,
+                        capabilities
+                    );
+                }
+            }
+            Ok(())
+        }
+        plugin::PluginCliCommand::Invoke {
+            plugin_id,
+            doc_path,
+            request_path,
+            dry_run,
+            output,
+            json,
+        } => {
+            let request = plugin::read_request_file(&request_path)?;
+            let result = plugin::invoke_plugin_on_path(
+                &host,
+                &plugin_id,
+                &doc_path,
+                request,
+                dry_run,
+                output.as_deref(),
+                None,
+            )?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                println!("plugin: {}", result.invocation.plugin_id);
+                if result.dry_run {
+                    println!("dry-run: ok");
+                } else if result.applied {
+                    println!("patched: {doc_path}");
+                }
+                if let Some(path) = result.output_path {
+                    println!("output: {path}");
+                } else if let Some(data) = result.invocation.data {
+                    println!("bytes: {}", data.len());
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
 fn cmd_diff(args: Vec<String>) -> Result<()> {
     let parsed = diff::parse_diff_args(args)?;
     let options = parsed.options;
@@ -381,6 +449,10 @@ DOCUMENT METHODS:
     opencad.patch_apply_document
     opencad.regen_document
 
+PLUGIN METHODS:
+    opencad.plugin_list
+    opencad.plugin_invoke
+
 See OpenCAD/docs/api/agent.md
 "
     );
@@ -416,6 +488,7 @@ COMMANDS:
     screenshot  Render a PNG preview of the active body
     animate     Render a deterministic presentation orbit GIF
     patch       Apply a DesignPatch JSON to parameters
+    plugin      List or invoke linked feature/importer/exporter plugins
     diff        Show semantic diff between documents or a patch preview
     review      Generate a self-contained DesignPatch review directory
     merge       Semantically merge base/ours/theirs Design Graph documents
