@@ -1,3 +1,5 @@
+use serde::de::{self, Deserializer};
+use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
 
 use opencad_core::{ConstraintId, EntityId, Expression};
@@ -90,13 +92,78 @@ pub enum RectangleEdge {
     Height,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum EqualTarget {
     /// Length of a line entity.
     LineLength(EntityId),
     /// Radius of a circle or arc entity.
     Radius(EntityId),
+}
+
+/// Canonical wire representation for an [`EqualTarget`].
+///
+/// The old untagged representation serialized both variants as a bare entity
+/// ID string. Since both variants contain the same `EntityId` shape, a radius
+/// target was deserialized as `LineLength` after a round trip. Canonical files
+/// now carry the target kind explicitly while the custom deserializer below
+/// still accepts old bare strings as line-length targets.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EqualTargetObject {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    line: Option<EntityId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    radius: Option<EntityId>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+enum EqualTargetWire {
+    Legacy(EntityId),
+    Object(EqualTargetObject),
+}
+
+impl Serialize for EqualTarget {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let object = match self {
+            Self::LineLength(id) => EqualTargetObject {
+                line: Some(id.clone()),
+                radius: None,
+            },
+            Self::Radius(id) => EqualTargetObject {
+                line: None,
+                radius: Some(id.clone()),
+            },
+        };
+        object.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for EqualTarget {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        match EqualTargetWire::deserialize(deserializer)? {
+            // Bare strings are the pre-disambiguation representation. They
+            // were only able to represent line-length targets, so preserve
+            // that interpretation for backward compatibility.
+            EqualTargetWire::Legacy(id) => Ok(Self::LineLength(id)),
+            EqualTargetWire::Object(EqualTargetObject { line, radius }) => match (line, radius) {
+                (Some(id), None) => Ok(Self::LineLength(id)),
+                (None, Some(id)) => Ok(Self::Radius(id)),
+                (Some(_), Some(_)) => Err(de::Error::custom(
+                    "equal target must contain exactly one of 'line' or 'radius'",
+                )),
+                (None, None) => Err(de::Error::custom(
+                    "equal target must contain exactly one of 'line' or 'radius'",
+                )),
+            },
+        }
+    }
 }
 
 impl Constraint {
@@ -217,6 +284,60 @@ mod tests {
             b: EqualTarget::LineLength(eid("ent:line_2")),
         };
         round_trip(&c);
+    }
+
+    #[test]
+    fn equal_line_target_uses_explicit_canonical_object() {
+        let target = EqualTarget::LineLength(eid("ent:line_1"));
+        let json = serde_json::to_string(&target).expect("serialize");
+        assert_eq!(json, r#"{"line":"ent:line_1"}"#);
+        let restored: EqualTarget = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(target, restored);
+    }
+
+    #[test]
+    fn equal_radius_target_round_trips_without_changing_kind() {
+        let target = EqualTarget::Radius(eid("ent:circle_1"));
+        let json = serde_json::to_string(&target).expect("serialize");
+        assert_eq!(json, r#"{"radius":"ent:circle_1"}"#);
+        let restored: EqualTarget = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(target, restored);
+    }
+
+    #[test]
+    fn legacy_equal_target_string_is_a_line_length() {
+        let restored: EqualTarget =
+            serde_json::from_str(r#""ent:legacy_line""#).expect("deserialize legacy target");
+        assert_eq!(restored, EqualTarget::LineLength(eid("ent:legacy_line")));
+    }
+
+    #[test]
+    fn legacy_equal_constraint_strings_are_line_lengths() {
+        let restored: Constraint = serde_json::from_str(
+            r#"{
+                "type":"equal",
+                "id":"con:legacy_equal",
+                "a":"ent:line_a",
+                "b":"ent:line_b"
+            }"#,
+        )
+        .expect("deserialize legacy constraint");
+        assert!(matches!(
+            restored,
+            Constraint::Equal {
+                a: EqualTarget::LineLength(_),
+                b: EqualTarget::LineLength(_),
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn equal_target_rejects_ambiguous_object() {
+        let error =
+            serde_json::from_str::<EqualTarget>(r#"{"line":"ent:line_1","radius":"ent:circle_1"}"#)
+                .expect_err("ambiguous target");
+        assert!(error.to_string().contains("exactly one"));
     }
 
     fn round_trip(c: &Constraint) {

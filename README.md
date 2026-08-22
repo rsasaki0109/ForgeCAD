@@ -215,6 +215,7 @@ See the [desktop guide](apps/desktop/README.md) for platform prerequisites.
 | [`revolve_bushing.ocad.d`](examples/revolve_bushing.ocad.d) | Revolved annular solid |
 | [`assembly_two_brackets.ocad.d`](examples/assembly_two_brackets.ocad.d) | Components, placements, connectors, and mates |
 | [`bracket_front_view.ocad.d`](examples/bracket_front_view.ocad.d) | Orthographic drawing with an explicit 80 mm dimension |
+| [`sketch_constraints_regression.ocad.d`](examples/sketch_constraints_regression.ocad.d) | Deterministic Equal/Parallel/Perpendicular solver regression cases |
 | [`examples/agent/`](examples/agent) | Ready-to-run JSON-RPC and DesignPatch requests |
 
 More examples and commands are listed in [`examples/README.md`](examples/README.md).
@@ -230,16 +231,17 @@ The canonical [development roadmap](docs/plans/roadmap.md) and
 capabilities from planned work. The next active priorities are:
 
 1. Downloadable desktop builds (Phase 1)
-2. Sketch regression coverage (Phase 2; solver diagnostics are complete)
-3. Unify backend transactions, DesignPatch, and undo/redo (Phase 3)
+2. Unify backend transactions, DesignPatch, and undo/redo (Phase 3)
+3. Reference-focused geometry and end-to-end golden coverage (Phase 5)
 
 Assembly and Drawing are implemented milestones; their remaining quality work is
 tracked in Phase 5. The Plugin API is currently a reserved stub and is planned for
 Phase 4.
 
-Recently delivered: deterministic solver diagnostics (DOF, rank-based redundancy,
-contradiction, and non-convergence reporting), GitHub-native review summaries,
-reproducible README demos, and a zero-build 60-second tour.
+Recently delivered: deterministic solver diagnostics and sketch regression fixtures
+(DOF, rank-based redundancy, contradiction, unit conversion, and canonical
+round-trips), GitHub-native review summaries, reproducible README demos, and a
+zero-build 60-second tour.
 
 ## Contributing
 

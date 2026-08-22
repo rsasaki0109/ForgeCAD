@@ -1,0 +1,361 @@
+{
+  "sketches": [
+    {
+      "id": "sketch:mixed",
+      "name": "Mixed Equal Direction Constraints",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:m_p0",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:m_p1",
+          "construction": false,
+          "x": 0.08,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:m_p2",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:m_p3",
+          "construction": false,
+          "x": 0.04,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:m_p4",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:m_p5",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.04
+        },
+        {
+          "type": "line",
+          "id": "ent:m_line_a",
+          "construction": false,
+          "start": "ent:m_p0",
+          "end": "ent:m_p1"
+        },
+        {
+          "type": "line",
+          "id": "ent:m_line_b",
+          "construction": false,
+          "start": "ent:m_p2",
+          "end": "ent:m_p3"
+        },
+        {
+          "type": "line",
+          "id": "ent:m_line_c",
+          "construction": false,
+          "start": "ent:m_p4",
+          "end": "ent:m_p5"
+        }
+      ],
+      "constraints": [
+        {
+          "type": "coincident",
+          "id": "con:mixed_01_start_b",
+          "a": "ent:m_p0",
+          "b": "ent:m_p2"
+        },
+        {
+          "type": "coincident",
+          "id": "con:mixed_02_start_c",
+          "a": "ent:m_p0",
+          "b": "ent:m_p4"
+        },
+        {
+          "type": "horizontal",
+          "id": "con:mixed_03_horizontal",
+          "line": "ent:m_line_a"
+        },
+        {
+          "type": "distance",
+          "id": "con:mixed_04_length_a",
+          "target": {
+            "line": "ent:m_line_a"
+          },
+          "expr": "80 mm"
+        },
+        {
+          "type": "equal",
+          "id": "con:mixed_05_equal",
+          "a": {
+            "line": "ent:m_line_a"
+          },
+          "b": {
+            "line": "ent:m_line_b"
+          }
+        },
+        {
+          "type": "parallel",
+          "id": "con:mixed_06_parallel",
+          "line_a": "ent:m_line_a",
+          "line_b": "ent:m_line_b"
+        },
+        {
+          "type": "perpendicular",
+          "id": "con:mixed_07_perpendicular",
+          "line_a": "ent:m_line_a",
+          "line_b": "ent:m_line_c"
+        },
+        {
+          "type": "distance",
+          "id": "con:mixed_08_length_c",
+          "target": {
+            "line": "ent:m_line_c"
+          },
+          "expr": "40 mm"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      }
+    },
+    {
+      "id": "sketch:radius",
+      "name": "Equal Circle and Arc Radii",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:r_p0",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:r_p1",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "type": "circle",
+          "id": "ent:r_circle",
+          "construction": false,
+          "center": "ent:r_p0",
+          "radius": "80 mm"
+        },
+        {
+          "type": "arc",
+          "id": "ent:r_arc",
+          "construction": false,
+          "center": "ent:r_p1",
+          "radius": 0.04,
+          "start_angle": 0.0,
+          "end_angle": 1.0
+        }
+      ],
+      "constraints": [
+        {
+          "type": "coincident",
+          "id": "con:radius_01_centers",
+          "a": "ent:r_p0",
+          "b": "ent:r_p1"
+        },
+        {
+          "type": "radius",
+          "id": "con:radius_02_circle",
+          "target": "ent:r_circle",
+          "expr": "80 mm"
+        },
+        {
+          "type": "equal",
+          "id": "con:radius_03_equal",
+          "a": {
+            "radius": "ent:r_circle"
+          },
+          "b": {
+            "radius": "ent:r_arc"
+          }
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      }
+    },
+    {
+      "id": "sketch:under",
+      "name": "Under-Constrained Direction",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:u_p0",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:u_p1",
+          "construction": false,
+          "x": 0.08,
+          "y": 0.0
+        },
+        {
+          "type": "line",
+          "id": "ent:u_line",
+          "construction": false,
+          "start": "ent:u_p0",
+          "end": "ent:u_p1"
+        }
+      ],
+      "constraints": [
+        {
+          "type": "horizontal",
+          "id": "con:under_horizontal",
+          "line": "ent:u_line"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "under_constrained",
+        "dof": 1
+      }
+    },
+    {
+      "id": "sketch:over",
+      "name": "Over-Constrained Duplicate",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:o_p0",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:o_p1",
+          "construction": false,
+          "x": 0.08,
+          "y": 0.0
+        },
+        {
+          "type": "line",
+          "id": "ent:o_line",
+          "construction": false,
+          "start": "ent:o_p0",
+          "end": "ent:o_p1"
+        }
+      ],
+      "constraints": [
+        {
+          "type": "horizontal",
+          "id": "con:over_horizontal_a",
+          "line": "ent:o_line"
+        },
+        {
+          "type": "horizontal",
+          "id": "con:over_horizontal_b",
+          "line": "ent:o_line"
+        },
+        {
+          "type": "distance",
+          "id": "con:over_length",
+          "target": {
+            "line": "ent:o_line"
+          },
+          "expr": "80 mm"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "over_constrained",
+        "redundant": 1
+      }
+    },
+    {
+      "id": "sketch:contradictory",
+      "name": "Contradictory Direction",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:c_p0",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:c_p1",
+          "construction": false,
+          "x": 0.08,
+          "y": 0.0
+        },
+        {
+          "type": "line",
+          "id": "ent:c_line",
+          "construction": false,
+          "start": "ent:c_p0",
+          "end": "ent:c_p1"
+        }
+      ],
+      "constraints": [
+        {
+          "type": "horizontal",
+          "id": "con:contradict_horizontal",
+          "line": "ent:c_line"
+        },
+        {
+          "type": "vertical",
+          "id": "con:contradict_vertical",
+          "line": "ent:c_line"
+        },
+        {
+          "type": "distance",
+          "id": "con:contradict_length",
+          "target": {
+            "line": "ent:c_line"
+          },
+          "expr": "80 mm"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "failed",
+        "message": "constraints are contradictory"
+      }
+    }
+  ]
+}

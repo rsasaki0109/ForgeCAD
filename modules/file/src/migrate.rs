@@ -7,7 +7,11 @@ use crate::document::OcadDocument;
 /// Normalize current models after deserialization.
 ///
 /// Legacy drawing sheets deserialize without `dimensions` as an empty collection;
-/// sorting here makes newly added dimension records deterministic.
+/// sorting here makes newly added dimension records deterministic. Equal-target
+/// wire compatibility is handled by `opencad_sketch::EqualTarget` itself:
+/// legacy bare strings are interpreted as line lengths and canonical
+/// serialization emits an explicit target object, so no document schema
+/// version branch is needed for that change.
 pub fn migrate_to_current(mut doc: OcadDocument) -> Result<OcadDocument> {
     if let Some(assembly) = doc.assembly.take() {
         doc.assembly = Some(assembly.sorted_deterministic());

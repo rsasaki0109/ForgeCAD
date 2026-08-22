@@ -42,7 +42,7 @@
     },
     "sketches": {
       "type": "array",
-      "items": { "type": "object" }
+      "items": { "$ref": "#/$defs/sketch" }
     },
     "features": {
       "type": "array",
@@ -68,6 +68,69 @@
     }
   },
   "$defs": {
+    "sketch": {
+      "type": "object",
+      "properties": {
+        "constraints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sketch_constraint" }
+        }
+      }
+    },
+    "sketch_constraint": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string" },
+        "a": {},
+        "b": {}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "equal" } }
+          },
+          "then": {
+            "required": ["a", "b"],
+            "properties": {
+              "a": { "$ref": "#/$defs/equal_target" },
+              "b": { "$ref": "#/$defs/equal_target" }
+            }
+          }
+        }
+      ]
+    },
+    "equal_target": {
+      "description": "Explicit equal-target kind; a bare entity ID is accepted for legacy line-length targets.",
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^ent:[a-zA-Z0-9_-]+$"
+        },
+        {
+          "type": "object",
+          "required": ["line"],
+          "properties": {
+            "line": {
+              "type": "string",
+              "pattern": "^ent:[a-zA-Z0-9_-]+$"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["radius"],
+          "properties": {
+            "radius": {
+              "type": "string",
+              "pattern": "^ent:[a-zA-Z0-9_-]+$"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "parameter": {
       "type": "object",
       "required": ["id", "name", "expr"],

@@ -118,7 +118,7 @@ serializable sketch model and make solve diagnostics trustworthy.
 | MCAD-P2-001 | Equal constraint | Line-length and radius residuals, validation, and unit-aware tests | Complete |
 | MCAD-P2-002 | Parallel and perpendicular | Direction residuals with degeneracy handling and tolerance tests | Complete |
 | MCAD-P2-003 | Solver diagnostics | DOF, redundancy, over-constraint, and non-convergence messages tied to explicit tolerances | Complete |
-| MCAD-P2-004 | Sketch regression coverage | Deterministic fixtures and examples for supported constraint combinations | Planned |
+| MCAD-P2-004 | Sketch regression coverage | Deterministic fixtures and examples for supported constraint combinations | Complete |
 
 **Definition of done:** every serialized constraint that the public API advertises
 contributes equations or returns a clear validation error; solved coordinates,
@@ -126,8 +126,10 @@ DOF, and diagnostics are deterministic across repeated runs; all comparisons use
 documented tolerances.
 
 **Tests:** pure sketch round trips; solver residual/Jacobian tests; under-, fully-,
-and over-constrained cases; unit conversion tests; regression fixtures. No OCCT
-dependency is required for the solver unit suite.
+over-, and contradictory cases; unit conversion tests; and the canonical
+`examples/sketch_constraints_regression.ocad.d` fixture exercised by
+`modules/file/tests/sketch_regression.rs`. No OCCT dependency is required for
+the solver unit suite.
 
 **Known risks:** singular Jacobians, zero-length lines, conflicting constraints,
 expression units, and changing solver convergence behavior for existing fixtures.

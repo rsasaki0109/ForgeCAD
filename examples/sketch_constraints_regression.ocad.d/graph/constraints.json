@@ -1,0 +1,176 @@
+{
+  "constraints": [
+    {
+      "sketch_id": "sketch:contradictory",
+      "constraint": {
+        "type": "horizontal",
+        "id": "con:contradict_horizontal",
+        "line": "ent:c_line"
+      }
+    },
+    {
+      "sketch_id": "sketch:contradictory",
+      "constraint": {
+        "type": "distance",
+        "id": "con:contradict_length",
+        "target": {
+          "line": "ent:c_line"
+        },
+        "expr": "80 mm"
+      }
+    },
+    {
+      "sketch_id": "sketch:contradictory",
+      "constraint": {
+        "type": "vertical",
+        "id": "con:contradict_vertical",
+        "line": "ent:c_line"
+      }
+    },
+    {
+      "sketch_id": "sketch:mixed",
+      "constraint": {
+        "type": "coincident",
+        "id": "con:mixed_01_start_b",
+        "a": "ent:m_p0",
+        "b": "ent:m_p2"
+      }
+    },
+    {
+      "sketch_id": "sketch:mixed",
+      "constraint": {
+        "type": "coincident",
+        "id": "con:mixed_02_start_c",
+        "a": "ent:m_p0",
+        "b": "ent:m_p4"
+      }
+    },
+    {
+      "sketch_id": "sketch:mixed",
+      "constraint": {
+        "type": "horizontal",
+        "id": "con:mixed_03_horizontal",
+        "line": "ent:m_line_a"
+      }
+    },
+    {
+      "sketch_id": "sketch:mixed",
+      "constraint": {
+        "type": "distance",
+        "id": "con:mixed_04_length_a",
+        "target": {
+          "line": "ent:m_line_a"
+        },
+        "expr": "80 mm"
+      }
+    },
+    {
+      "sketch_id": "sketch:mixed",
+      "constraint": {
+        "type": "equal",
+        "id": "con:mixed_05_equal",
+        "a": {
+          "line": "ent:m_line_a"
+        },
+        "b": {
+          "line": "ent:m_line_b"
+        }
+      }
+    },
+    {
+      "sketch_id": "sketch:mixed",
+      "constraint": {
+        "type": "parallel",
+        "id": "con:mixed_06_parallel",
+        "line_a": "ent:m_line_a",
+        "line_b": "ent:m_line_b"
+      }
+    },
+    {
+      "sketch_id": "sketch:mixed",
+      "constraint": {
+        "type": "perpendicular",
+        "id": "con:mixed_07_perpendicular",
+        "line_a": "ent:m_line_a",
+        "line_b": "ent:m_line_c"
+      }
+    },
+    {
+      "sketch_id": "sketch:mixed",
+      "constraint": {
+        "type": "distance",
+        "id": "con:mixed_08_length_c",
+        "target": {
+          "line": "ent:m_line_c"
+        },
+        "expr": "40 mm"
+      }
+    },
+    {
+      "sketch_id": "sketch:over",
+      "constraint": {
+        "type": "horizontal",
+        "id": "con:over_horizontal_a",
+        "line": "ent:o_line"
+      }
+    },
+    {
+      "sketch_id": "sketch:over",
+      "constraint": {
+        "type": "horizontal",
+        "id": "con:over_horizontal_b",
+        "line": "ent:o_line"
+      }
+    },
+    {
+      "sketch_id": "sketch:over",
+      "constraint": {
+        "type": "distance",
+        "id": "con:over_length",
+        "target": {
+          "line": "ent:o_line"
+        },
+        "expr": "80 mm"
+      }
+    },
+    {
+      "sketch_id": "sketch:radius",
+      "constraint": {
+        "type": "coincident",
+        "id": "con:radius_01_centers",
+        "a": "ent:r_p0",
+        "b": "ent:r_p1"
+      }
+    },
+    {
+      "sketch_id": "sketch:radius",
+      "constraint": {
+        "type": "radius",
+        "id": "con:radius_02_circle",
+        "target": "ent:r_circle",
+        "expr": "80 mm"
+      }
+    },
+    {
+      "sketch_id": "sketch:radius",
+      "constraint": {
+        "type": "equal",
+        "id": "con:radius_03_equal",
+        "a": {
+          "radius": "ent:r_circle"
+        },
+        "b": {
+          "radius": "ent:r_arc"
+        }
+      }
+    },
+    {
+      "sketch_id": "sketch:under",
+      "constraint": {
+        "type": "horizontal",
+        "id": "con:under_horizontal",
+        "line": "ent:u_line"
+      }
+    }
+  ]
+}

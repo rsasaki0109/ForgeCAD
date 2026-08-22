@@ -36,6 +36,9 @@ let restored = validate_ocad("bracket.ocad.d")?;
 - JSON is pretty-printed with stable key order where required
 - `checksums.json` covers every payload file
 - Regeneration outputs (`KernelBody`) are not stored in `.ocad`
+- Equal line/radius targets use explicit `{ "line": ... }` or
+  `{ "radius": ... }` objects in canonical JSON; legacy bare target strings
+  remain readable as line-length targets.
 
 ## Schema
 

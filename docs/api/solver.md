@@ -24,10 +24,17 @@ residual adds direction equations.
 
 ## Equal targets
 
-`EqualTarget` keeps its stable untagged public representation:
+`EqualTarget` uses an explicit canonical wire representation:
 
-- `LineLength(entity_id)` references a line entity's Euclidean length.
-- `Radius(entity_id)` references a circle or arc entity's radius.
+- `LineLength(entity_id)` serializes as `{ "line": "ent:..." }` and
+  references a line entity's Euclidean length.
+- `Radius(entity_id)` serializes as `{ "radius": "ent:..." }` and references
+  a circle or arc entity's radius.
+
+The deserializer also accepts the pre-disambiguation bare string form (for
+example, `"ent:line_1"`) and interprets it as `LineLength`. This preserves old
+`.ocad` files while ensuring a newly written document cannot change a radius
+target into a line target during a round trip.
 
 Both targets are lengths and are compared in internal SI meters. Therefore a
 line-length target and a radius target may be mixed in one `Equal` constraint.
@@ -88,3 +95,25 @@ Sketch and assembly consumers do not commit the numeric trial variables for
 `Contradictory`, `NonConvergent`, or legacy `Failed` results. Sketches retain
 their prior coordinates and store the diagnostic message in `SolveState`;
 assemblies return a validation error containing that message.
+
+## Regression fixture
+
+[`examples/sketch_constraints_regression.ocad.d`](../../examples/sketch_constraints_regression.ocad.d)
+is the deterministic serialized regression fixture for the supported
+constraint combinations. Its `sketch:mixed` case combines `Equal`, `Parallel`,
+and `Perpendicular` with coincident, horizontal, and unit-bearing distance
+constraints. Its `sketch:radius` case covers an explicit circle/arc radius
+`Equal` target. The same document also fixes under-constrained, rank-redundant
+over-constrained, and contradictory outcomes.
+
+`modules/file/tests/sketch_regression.rs` validates the expanded directory,
+round-trips every canonical file, checks mm/cm/m/in conversion to SI meters,
+and solves every case twice. Coordinates, DOF, iteration/error diagnostics,
+and the persisted solve state must match exactly across the repeated runs.
+
+The fixture's `checksums.json` is intentionally part of the golden contract.
+It is regenerated with the normal `write_expanded_dir`/`ChecksumManifest`
+canonical JSON procedure whenever a fixture file changes; the golden update is
+therefore limited to recording the new serialized regression evidence. No
+`.ocad` schema version bump is required for the equal-target wire fix: legacy
+strings remain readable and canonical writes use the explicit object form.
