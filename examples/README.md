@@ -79,6 +79,22 @@ The desktop parameter toolbar, `opencad patch`, and
 `DesignPatch`/file boundary; the command-parity test exercises the desktop
 path against a direct patch transaction.
 
+## Plugin API contract example
+
+[`plugin-example/manifest.json`](plugin-example/manifest.json) is a serialized
+P4-001 manifest for a feature plugin. It demonstrates the explicit linked Rust
+API version and manifest schema used by
+[`opencad-plugin-api`](../docs/api/plugin-api.md). The contract tests can be
+run without a registry, loader, OCCT, filesystem, or network service:
+
+```bash
+cargo test -p opencad-plugin-api
+```
+
+Feature and importer implementations return validated `DesignPatch` DTOs;
+exporters receive immutable serializable state and return bytes. Registry and
+CLI/Agent product integration are intentionally deferred to P4-002/P4-003.
+
 ## Backend history
 
 Desktop parameter edits use the same validated file-layer `DesignPatch` path

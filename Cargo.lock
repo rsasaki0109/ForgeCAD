@@ -1533,8 +1533,10 @@ dependencies = [
 name = "opencad-plugin-api"
 version = "0.1.0"
 dependencies = [
+ "opencad-ai",
  "opencad-core",
- "opencad-feature",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

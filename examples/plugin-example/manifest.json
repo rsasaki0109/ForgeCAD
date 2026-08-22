@@ -1,0 +1,11 @@
+{
+  "schema": "musubicad.plugin-manifest.v1",
+  "id": "example.bracket-feature",
+  "name": "Bracket Feature Example",
+  "version": "0.1.0",
+  "api_version": {
+    "major": 1,
+    "minor": 0
+  },
+  "kind": "feature"
+}

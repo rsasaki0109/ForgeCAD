@@ -182,14 +182,16 @@ boundary.
 
 | ID | Scope | Deliverables | Status |
 |---|---|---|---|
-| MCAD-P4-001 | Versioned contracts | Feature, importer, exporter traits; serializable manifest and API version | Planned |
+| MCAD-P4-001 | Versioned contracts | Feature, importer, exporter traits; serializable manifest and API version | Complete |
 | MCAD-P4-002 | Registry and capabilities | Deterministic registration order, capability declarations, and security boundary | Planned |
 | MCAD-P4-003 | Product integration | CLI and Agent API discovery/invocation through validated transactions | Planned |
 | MCAD-P4-004 | Compatibility evidence | Example plugin, contract tests, failure handling, and developer documentation | Planned |
 
 **Definition of done:** a versioned example plugin can be discovered and invoked
 from CLI and Agent API, produces deterministic output, and cannot access document
-ownership, raw OCCT types, or unvalidated mutations.
+ownership, raw OCCT types, or unvalidated mutations. MCAD-P4-001 establishes the
+linked Rust v1 contract, manifest compatibility rule, and serializable request /
+result boundary; registry discovery and product invocation remain P4-002/P4-003.
 
 **Tests:** trait/manifest serialization; registry ordering; capability rejection;
 API compatibility; importer/exporter golden files; plugin failure isolation and

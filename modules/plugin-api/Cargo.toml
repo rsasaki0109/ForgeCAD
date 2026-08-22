@@ -7,8 +7,10 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+opencad-ai = { workspace = true }
 opencad-core = { workspace = true }
-opencad-feature = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

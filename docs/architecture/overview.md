@@ -49,6 +49,13 @@ dry-run and apply expose the same semantic diff and deterministic errors.
 complete patchable DesignState. The revision is checked before candidate
 mutation, while B-Rep and mesh caches remain outside the identity.
 
+The plugin boundary is a linked Rust v1 contract, not an ABI-stable loader:
+feature and importer plugins return serializable `DesignPatch` values, while
+exporters receive immutable serializable state and return bytes. Plugin
+manifests declare an explicit API major/minor version before any future
+registry or product integration invokes them. See
+[plugin-api.md](plugin-api.md) and [ADR-010](../adr/ADR-010-versioned-plugin-contracts.md).
+
 Backend history is a separate serializable transport value, not a document
 schema field. Each successful file-layer `DesignPatch` records a deterministic
 full `OcadDocument` before/after snapshot and a description. Undo and redo
@@ -85,5 +92,7 @@ history.
 - [ADR-007: Serializable backend document history](../adr/ADR-007-backend-document-history.md)
 - [ADR-008: DesignState revision preconditions and patch rebase](../adr/ADR-008-design-state-revision-rebase.md)
 - [ADR-009: Command-surface parity and regeneration boundary](../adr/ADR-009-command-surface-parity-boundary.md)
+- [ADR-010: Versioned linked Rust plugin contracts](../adr/ADR-010-versioned-plugin-contracts.md)
+- [Plugin API architecture](plugin-api.md)
 - [Developer guide](../developer-guide/index.md)
 - [AGENTS.md](../../AGENTS.md)

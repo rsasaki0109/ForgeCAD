@@ -21,6 +21,8 @@
   ·
   <a href="docs/api/agent.md">Agent API</a>
   ·
+  <a href="docs/api/plugin-api.md">Plugin API</a>
+  ·
   <a href="docs/plans/roadmap.md">Roadmap</a>
 </p>
 
@@ -168,6 +170,7 @@ The boundaries are deliberate:
 - `modules/feature` executes features only through the kernel-neutral `GeometryKernel`.
 - `modules/kernel-occt` contains concrete OCCT integration.
 - `modules/ai` orchestrates validated patches and never mutates outside transactions.
+- `modules/plugin-api` exposes linked, versioned request/result contracts and no document or kernel ownership.
 - `modules/render` consumes disposable tessellation and never owns the Design Graph.
 
 Read the [architecture overview](docs/architecture/overview.md) and
