@@ -5,7 +5,7 @@ use opencad_core::{OpenCadError, Result};
 use opencad_drawing::DrawingModel;
 use opencad_feature::FeatureNode;
 use opencad_geometry::TopoRef;
-use opencad_graph::{evaluate_param_graph, DesignDiff, ParamGraph};
+use opencad_graph::{DesignDiff, ParamGraph};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -13,7 +13,7 @@ use crate::explain::{explain_design, DesignExplanation, ExplainParams};
 use crate::patch::DesignPatch;
 use crate::query::{run_query, QueryParams, QueryResult};
 use crate::state::{diff_design_state, DesignState};
-use crate::validation::{dry_run_patch_state, PatchDryRunReport};
+use crate::validation::{build_patch_candidate, dry_run_patch_state, PatchDryRunReport};
 
 /// JSON-RPC 2.0 request.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -216,15 +216,7 @@ impl AgentApi {
             params.assembly,
             params.drawing,
         );
-        let mut after = before.clone();
-        params.patch.apply_to_document(
-            &mut after.parameters,
-            &mut after.feature_nodes,
-            &mut after.semantic_refs,
-            after.assembly.as_mut(),
-            after.drawing.as_mut(),
-        )?;
-        evaluate_param_graph(&after.parameters)?;
+        let after = build_patch_candidate(&before, &params.patch)?;
         let diff = diff_design_state(&before, &after);
         Ok(PatchApplyResult {
             parameters: after.parameters,
@@ -389,9 +381,13 @@ pub fn handle_json_line(line: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::FeatureExprField;
+    use crate::{FeatureExprField, PatchOperation};
+    use opencad_assembly::{AssemblyModel, Component, Instance, Placement};
+    use opencad_core::{ComponentId, DocumentId, InstanceId, SheetId, ViewId};
+    use opencad_drawing::{DrawingModel, DrawingView, ModelReference, ProjectionKind, Sheet};
     use opencad_feature::bracket_with_hole;
-    use opencad_graph::bracket_parameters;
+    use opencad_geometry::RigidTransform;
+    use opencad_graph::{bracket_parameters, SemanticChange};
 
     fn bracket_state() -> DesignState {
         let part = bracket_with_hole().expect("model");
@@ -400,6 +396,52 @@ mod tests {
 
     fn bracket_part() -> opencad_feature::PartModel {
         bracket_with_hole().expect("model")
+    }
+
+    fn assembly_model() -> AssemblyModel {
+        let component_id = ComponentId::new("component:bracket").expect("component id");
+        AssemblyModel {
+            components: vec![Component::new(
+                component_id.clone(),
+                "parts/bracket.ocad.d",
+                DocumentId::new("doc:bracket_001").expect("document id"),
+            )],
+            instances: vec![Instance::new(
+                InstanceId::new("instance:left").expect("instance id"),
+                component_id,
+                Placement::identity(),
+                "Left Bracket",
+            )],
+            ..AssemblyModel::default()
+        }
+    }
+
+    fn drawing_model() -> DrawingModel {
+        let mut sheet = Sheet::a4_portrait(SheetId::new("sheet:main").expect("sheet id"), "Main");
+        sheet.views.push(DrawingView::new(
+            ViewId::new("view:front").expect("view id"),
+            "Front",
+            ModelReference::new(
+                "parts/bracket.ocad.d",
+                DocumentId::new("doc:bracket_001").expect("document id"),
+            ),
+            ProjectionKind::Front,
+            1.0,
+            [0.05, 0.06],
+        ));
+        DrawingModel {
+            sheets: vec![sheet],
+        }
+    }
+
+    fn assembly_and_drawing_state() -> DesignState {
+        DesignState::with_models(
+            bracket_parameters(),
+            Vec::new(),
+            Vec::new(),
+            Some(assembly_model()),
+            Some(drawing_model()),
+        )
     }
 
     #[test]
@@ -447,6 +489,179 @@ mod tests {
             .expect("nodes")
             .iter()
             .any(|node| node["id"] == "feature:extrude_base"));
+    }
+
+    #[test]
+    fn assembly_and_drawing_dry_run_match_apply() {
+        let state = assembly_and_drawing_state();
+        let patch = DesignPatch::new(vec![
+            PatchOperation::SetInstancePlacement {
+                instance_id: "instance:left".into(),
+                translation_m: [0.1, 0.0, 0.0],
+                rotation: RigidTransform::identity_rotation(),
+            },
+            PatchOperation::SetDrawingViewScale {
+                view_id: "view:front".into(),
+                scale: 2.0,
+            },
+        ]);
+        let dry_run = AgentApi.patch_dry_run(PatchDryRunParams {
+            parameters: state.parameters.clone(),
+            feature_nodes: state.feature_nodes.clone(),
+            semantic_refs: state.semantic_refs.clone(),
+            assembly: state.assembly.clone(),
+            drawing: state.drawing.clone(),
+            patch: patch.clone(),
+        });
+        let applied = AgentApi
+            .patch_apply(PatchApplyParams {
+                parameters: state.parameters.clone(),
+                feature_nodes: state.feature_nodes.clone(),
+                semantic_refs: state.semantic_refs.clone(),
+                assembly: state.assembly.clone(),
+                drawing: state.drawing.clone(),
+                patch,
+            })
+            .expect("apply");
+
+        assert!(dry_run.validation.is_ok());
+        assert_eq!(dry_run.diff, applied.diff);
+        assert!(dry_run.diff.changes.iter().any(|change| matches!(
+            change,
+            SemanticChange::AssemblyInstanceChanged { id, field, .. }
+                if id == "instance:left" && field == "placement"
+        )));
+        assert!(dry_run.diff.changes.iter().any(|change| matches!(
+            change,
+            SemanticChange::DrawingViewChanged { id, .. } if id == "view:front"
+        )));
+        assert_eq!(
+            applied.assembly.expect("assembly").instances[0]
+                .placement
+                .transform
+                .translation_m[0],
+            0.1
+        );
+        assert_eq!(
+            applied.drawing.expect("drawing").sheets[0].views[0].scale,
+            2.0
+        );
+    }
+
+    #[test]
+    fn invalid_assembly_operation_has_same_dry_run_and_apply_error() {
+        let state = assembly_and_drawing_state();
+        let before = state.clone();
+        let patch = DesignPatch::new(vec![PatchOperation::SetInstancePlacement {
+            instance_id: "instance:missing".into(),
+            translation_m: [0.1, 0.0, 0.0],
+            rotation: RigidTransform::identity_rotation(),
+        }]);
+        let dry_run = AgentApi.patch_dry_run(PatchDryRunParams {
+            parameters: state.parameters.clone(),
+            feature_nodes: state.feature_nodes.clone(),
+            semantic_refs: state.semantic_refs.clone(),
+            assembly: state.assembly.clone(),
+            drawing: state.drawing.clone(),
+            patch: patch.clone(),
+        });
+        let apply_error = AgentApi
+            .patch_apply(PatchApplyParams {
+                parameters: state.parameters.clone(),
+                feature_nodes: state.feature_nodes.clone(),
+                semantic_refs: state.semantic_refs.clone(),
+                assembly: state.assembly.clone(),
+                drawing: state.drawing.clone(),
+                patch,
+            })
+            .expect_err("unknown instance");
+
+        assert!(!dry_run.validation.is_ok());
+        assert_eq!(dry_run.validation.messages.len(), 1);
+        assert_eq!(
+            dry_run.validation.messages[0].message,
+            apply_error.to_string()
+        );
+        assert!(dry_run.diff.changes.is_empty());
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn invalid_drawing_operation_has_same_dry_run_and_apply_error() {
+        let state = assembly_and_drawing_state();
+        let patch = DesignPatch::new(vec![PatchOperation::SetDrawingViewScale {
+            view_id: "view:missing".into(),
+            scale: 2.0,
+        }]);
+        let dry_run = AgentApi.patch_dry_run(PatchDryRunParams {
+            parameters: state.parameters.clone(),
+            feature_nodes: state.feature_nodes.clone(),
+            semantic_refs: state.semantic_refs.clone(),
+            assembly: state.assembly.clone(),
+            drawing: state.drawing.clone(),
+            patch: patch.clone(),
+        });
+        let apply_error = AgentApi
+            .patch_apply(PatchApplyParams {
+                parameters: state.parameters.clone(),
+                feature_nodes: state.feature_nodes.clone(),
+                semantic_refs: state.semantic_refs.clone(),
+                assembly: state.assembly.clone(),
+                drawing: state.drawing.clone(),
+                patch,
+            })
+            .expect_err("unknown drawing view");
+
+        assert!(!dry_run.validation.is_ok());
+        assert_eq!(dry_run.validation.messages.len(), 1);
+        assert_eq!(
+            dry_run.validation.messages[0].message,
+            apply_error.to_string()
+        );
+        assert!(dry_run.diff.changes.is_empty());
+    }
+
+    #[test]
+    fn missing_assembly_or_drawing_model_has_same_dry_run_and_apply_error() {
+        for patch in [
+            DesignPatch::new(vec![PatchOperation::SetInstancePlacement {
+                instance_id: "instance:left".into(),
+                translation_m: [0.1, 0.0, 0.0],
+                rotation: RigidTransform::identity_rotation(),
+            }]),
+            DesignPatch::new(vec![PatchOperation::SetDrawingViewScale {
+                view_id: "view:front".into(),
+                scale: 2.0,
+            }]),
+        ] {
+            let state = bracket_state();
+            let dry_run = AgentApi.patch_dry_run(PatchDryRunParams {
+                parameters: state.parameters.clone(),
+                feature_nodes: state.feature_nodes.clone(),
+                semantic_refs: state.semantic_refs.clone(),
+                assembly: state.assembly.clone(),
+                drawing: state.drawing.clone(),
+                patch: patch.clone(),
+            });
+            let apply_error = AgentApi
+                .patch_apply(PatchApplyParams {
+                    parameters: state.parameters.clone(),
+                    feature_nodes: state.feature_nodes.clone(),
+                    semantic_refs: state.semantic_refs.clone(),
+                    assembly: state.assembly.clone(),
+                    drawing: state.drawing.clone(),
+                    patch,
+                })
+                .expect_err("missing model context");
+
+            assert!(!dry_run.validation.is_ok());
+            assert_eq!(dry_run.validation.messages.len(), 1);
+            assert_eq!(
+                dry_run.validation.messages[0].message,
+                apply_error.to_string()
+            );
+            assert!(dry_run.diff.changes.is_empty());
+        }
     }
 
     #[test]

@@ -54,3 +54,8 @@ boundary. Rust callers can apply a multi-operation `DesignPatch` and validate
 part regeneration with `opencad_file::apply_patch_and_regenerate`; the
 candidate clone is committed only after regeneration succeeds, so a failure
 leaves the serialized fixture unchanged.
+
+The same validated candidate path drives dry-run and apply for the assembly and
+drawing fixtures `assembly_two_brackets.ocad.d` and
+`bracket_front_view.ocad.d`. Assembly and drawing operations require their
+corresponding model context and appear in the semantic diff before apply.

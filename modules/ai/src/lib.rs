@@ -44,4 +44,7 @@ pub use query::{
     OverlayLineInfo, ParameterInfo, QueryParams, QueryResult, SceneQueryContext, SemanticRefInfo,
 };
 pub use state::{diff_design_state, DesignState};
-pub use validation::{dry_run_patch, dry_run_patch_state, ensure_patch_valid, PatchDryRunReport};
+pub use validation::{
+    build_patch_candidate, dry_run_patch, dry_run_patch_state, ensure_patch_valid,
+    PatchDryRunReport,
+};

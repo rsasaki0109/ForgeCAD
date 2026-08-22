@@ -3,7 +3,10 @@
 use opencad_core::{OpenCadError, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{dry_run_patch_state, ensure_patch_valid, DesignPatch, DesignState, PatchDryRunReport};
+use crate::{
+    build_patch_candidate, dry_run_patch_state, ensure_patch_valid, DesignPatch, DesignState,
+    PatchDryRunReport,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentSelection {
@@ -68,13 +71,8 @@ pub fn apply_approved_proposal(
         return Err(OpenCadError::validation("proposal changed after review"));
     }
     ensure_patch_valid(&dry_run_patch_state(state, &proposal.patch))?;
-    proposal.patch.apply_to_document(
-        &mut state.parameters,
-        &mut state.feature_nodes,
-        &mut state.semantic_refs,
-        state.assembly.as_mut(),
-        state.drawing.as_mut(),
-    )
+    *state = build_patch_candidate(state, &proposal.patch)?;
+    Ok(())
 }
 
 fn validate_selection(selection: &AgentSelection, state: &DesignState) -> Result<()> {

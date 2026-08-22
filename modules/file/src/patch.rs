@@ -1,7 +1,8 @@
 //! Apply DesignPatch operations to `.ocad` documents.
 
 use opencad_ai::{
-    dry_run_patch_state, DesignPatch, DesignState, PatchDryRunReport, PatchOperation,
+    build_patch_candidate, dry_run_patch_state, DesignPatch, DesignState, PatchDryRunReport,
+    PatchOperation,
 };
 use opencad_core::{DocumentKind, OpenCadError, Result};
 use opencad_feature::{FeatureRegistry, RegenReport};
@@ -19,13 +20,19 @@ pub fn apply_patch_to_document(doc: &mut OcadDocument, patch: &DesignPatch) -> R
 }
 
 fn apply_patch_to_document_in_place(doc: &mut OcadDocument, patch: &DesignPatch) -> Result<()> {
-    patch.apply_to_document(
-        &mut doc.parameters,
-        &mut doc.feature_nodes,
-        &mut doc.semantic_refs,
-        doc.assembly.as_mut(),
-        doc.drawing.as_mut(),
-    )?;
+    let state = DesignState::with_models(
+        doc.parameters.clone(),
+        doc.feature_nodes.clone(),
+        doc.semantic_refs.clone(),
+        doc.assembly.clone(),
+        doc.drawing.clone(),
+    );
+    let next = build_patch_candidate(&state, patch)?;
+    doc.parameters = next.parameters;
+    doc.feature_nodes = next.feature_nodes;
+    doc.semantic_refs = next.semantic_refs;
+    doc.assembly = next.assembly;
+    doc.drawing = next.drawing;
 
     for operation in &patch.operations {
         let PatchOperation::AssignFaceRef {
@@ -161,6 +168,23 @@ mod tests {
             SemanticChange::FeatureModified { id, field, .. }
                 if id == "feature:extrude_base" && field == "definition"
         )));
+    }
+
+    #[test]
+    fn apply_and_dry_run_share_validation_error_without_mutation() {
+        let before = bracket_document();
+        let patch = DesignPatch::set_parameter("param:width", "not_a_length");
+        let report = dry_run_patch_document(&before, &patch);
+        let mut after = before.clone();
+        let apply_error = apply_patch_to_document(&mut after, &patch).expect_err("invalid expr");
+
+        assert!(!report.validation.is_ok());
+        assert_eq!(report.validation.messages.len(), 1);
+        assert_eq!(
+            report.validation.messages[0].message,
+            apply_error.to_string()
+        );
+        assert_eq!(before, after);
     }
 
     #[test]

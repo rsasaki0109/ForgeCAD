@@ -400,6 +400,7 @@ impl DesignPatch {
         assembly: Option<&mut opencad_assembly::AssemblyModel>,
         drawing: Option<&mut opencad_drawing::DrawingModel>,
     ) -> Result<()> {
+        self.validate_document_context(assembly.as_deref(), drawing.as_deref())?;
         let mut next_parameters = parameters.clone();
         let mut next_feature_nodes = feature_nodes.to_vec();
         let mut next_semantic_refs = semantic_refs.clone();
@@ -422,6 +423,36 @@ impl DesignPatch {
         }
         if let (Some(target), Some(next)) = (drawing, next_drawing) {
             *target = next;
+        }
+        Ok(())
+    }
+
+    fn validate_document_context(
+        &self,
+        assembly: Option<&opencad_assembly::AssemblyModel>,
+        drawing: Option<&opencad_drawing::DrawingModel>,
+    ) -> Result<()> {
+        for operation in &self.operations {
+            match operation {
+                PatchOperation::SetInstancePlacement { .. }
+                | PatchOperation::SetMateDistance { .. }
+                | PatchOperation::AddConnector { .. }
+                    if assembly.is_none() =>
+                {
+                    return Err(OpenCadError::validation(
+                        "assembly patch operation requires an assembly model",
+                    ));
+                }
+                PatchOperation::SetDrawingViewScale { .. }
+                | PatchOperation::SetDrawingViewOrigin { .. }
+                    if drawing.is_none() =>
+                {
+                    return Err(OpenCadError::validation(
+                        "drawing patch operation requires a drawing model",
+                    ));
+                }
+                _ => {}
+            }
         }
         Ok(())
     }

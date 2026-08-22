@@ -42,6 +42,9 @@ Document mutations use staged candidate state: patch operations and part
 regeneration run on a clone, and the Design Graph is swapped into the document
 only after the complete operation succeeds. A failed operation therefore
 leaves the serialized source document byte-for-byte unchanged.
+The Agent API, CLI document path, and file-layer patch path share the same
+validated candidate builder, including assembly and drawing context checks, so
+dry-run and apply expose the same semantic diff and deterministic errors.
 
 ## Principles
 

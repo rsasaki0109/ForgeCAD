@@ -45,6 +45,14 @@ path and the document patch path stage a candidate state and commit it only
 after every operation validates; a later operation failure cannot retain an
 earlier operation's mutation.
 
+Dry-run and apply share the validated candidate builder. Rust callers that
+need the same contract can use
+`opencad_ai::build_patch_candidate(&DesignState, &DesignPatch)`; it clones the
+Design Graph, applies all operations, and evaluates the resulting parameter
+graph before returning the candidate. Assembly operations require an assembly
+model and drawing operations require a drawing model; missing context is a
+deterministic validation error in both paths.
+
 Rust callers that must validate a part regeneration in the same boundary can
 use `opencad_file::apply_patch_and_regenerate`. It runs the patch and
 regeneration against a cloned candidate and swaps the candidate into the

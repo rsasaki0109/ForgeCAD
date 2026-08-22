@@ -14,32 +14,37 @@ pub struct PatchDryRunReport {
     pub diff: DesignDiff,
 }
 
-/// Validate that a patch can be applied against a full design state.
-pub fn dry_run_patch_state(before: &DesignState, patch: &DesignPatch) -> PatchDryRunReport {
-    let mut validation = ValidationReport::new();
+/// Build and validate the candidate state used by both dry-run and apply.
+pub fn build_patch_candidate(before: &DesignState, patch: &DesignPatch) -> Result<DesignState> {
     let mut after = before.clone();
-
-    if let Err(err) = patch.apply_to_document(
+    patch.apply_to_document(
         &mut after.parameters,
         &mut after.feature_nodes,
         &mut after.semantic_refs,
         after.assembly.as_mut(),
         after.drawing.as_mut(),
-    ) {
-        validation.push(
-            ValidationMessage::error("patch_apply_failed", err.to_string()).with_target("patch"),
-        );
-        return PatchDryRunReport {
-            validation,
-            diff: DesignDiff::semantic("Patch rejected", Vec::new()),
-        };
-    }
+    )?;
+    evaluate_param_graph(&after.parameters)?;
+    Ok(after)
+}
 
-    if let Err(err) = evaluate_param_graph(&after.parameters) {
-        validation.push(
-            ValidationMessage::error("param_eval_failed", err.to_string()).with_target("patch"),
-        );
-    }
+/// Validate that a patch can be applied against a full design state.
+pub fn dry_run_patch_state(before: &DesignState, patch: &DesignPatch) -> PatchDryRunReport {
+    let mut validation = ValidationReport::new();
+
+    let after = match build_patch_candidate(before, patch) {
+        Ok(after) => after,
+        Err(err) => {
+            validation.push(
+                ValidationMessage::error("patch_apply_failed", err.to_string())
+                    .with_target("patch"),
+            );
+            return PatchDryRunReport {
+                validation,
+                diff: DesignDiff::semantic("Patch rejected", Vec::new()),
+            };
+        }
+    };
 
     let diff = diff_design_state(before, &after);
     let summary = if validation.is_ok() {

@@ -145,7 +145,7 @@ and Agent API use the same validated transaction boundary.
 | ID | Scope | Deliverables | Status |
 |---|---|---|---|
 | MCAD-P3-001 | Atomic model transaction | Multi-operation apply, rollback on regeneration failure, and unchanged document on error | Complete |
-| MCAD-P3-002 | DesignPatch parity | Shared validation path for dry-run and apply, including assembly and drawing operations | Planned |
+| MCAD-P3-002 | DesignPatch parity | Shared validation path for dry-run and apply, including assembly and drawing operations | Complete |
 | MCAD-P3-003 | Backend history | Serializable backend undo/redo snapshots or reversible commands, independent of viewport state | Planned |
 | MCAD-P3-004 | Preconditions | Stale-document detection, deterministic conflict errors, and patch rebase coverage | Planned |
 | MCAD-P3-005 | Surface parity | UI commands exposed through CLI and Agent API with one command/patch contract | Planned |
