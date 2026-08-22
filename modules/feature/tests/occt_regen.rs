@@ -1,12 +1,15 @@
 //! OCCT-backed feature regeneration integration tests.
 
-use opencad_core::Length;
+use opencad_core::{Length, TopoRefId};
 use opencad_feature::{
-    bracket_base_plate, bracket_edge_fillet, bracket_pin_mirror, bracket_semantic_refs,
-    bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet, profile_to_solved,
-    FeatureRegistry,
+    bracket_base_plate, bracket_edge_fillet, bracket_hole_row, bracket_pin_mirror,
+    bracket_semantic_refs, bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet,
+    profile_to_solved, FeatureRegistry, PartModel,
 };
-use opencad_geometry::{build_src_to_post_map, ExtrudeExtent, ExtrudeOperation, GeometryKernel};
+use opencad_geometry::{
+    build_src_to_post_map, resolve_kernel_face_id_for_topo_ref_with_discoveries,
+    sync_semantic_refs_with_history, ExtrudeExtent, ExtrudeOperation, GeometryKernel, TopoRef,
+};
 use opencad_graph::bracket_parameters;
 use opencad_kernel_occt::OcctGeometryKernel;
 
@@ -1139,4 +1142,176 @@ fn occt_mirror_pattern_uses_plane_face_ref() {
         mirrored_mass.volume_m3,
         single_mass.volume_m3
     );
+}
+
+type ModelBuilder = fn() -> opencad_core::Result<PartModel>;
+
+struct SemanticReferenceRegression {
+    name: &'static str,
+    seed_model: ModelBuilder,
+    edited_model: ModelBuilder,
+    parameter_id: &'static str,
+    edited_expression: &'static str,
+}
+
+fn discovered_faces(
+    kernel: &OcctGeometryKernel,
+    model: &PartModel,
+) -> Vec<opencad_geometry::FaceRefDiscovery> {
+    let body = model.active_body().expect("active body");
+    let nodes = model.nodes.values().cloned().collect::<Vec<_>>();
+    opencad_feature::face_discover::discover_face_refs_from_body(kernel, body, &nodes)
+        .expect("face discoveries")
+}
+
+fn sync_top_face_reference(
+    kernel: &OcctGeometryKernel,
+    model: &mut PartModel,
+    registry: &FeatureRegistry,
+    parameters: &opencad_graph::ParamGraph,
+    semantic_refs: &[TopoRef],
+) -> (opencad_feature::RegenReport, Vec<TopoRef>) {
+    let report = model
+        .regenerate(kernel, registry, Some(parameters), Some(semantic_refs))
+        .expect("regenerate");
+    let discoveries = discovered_faces(kernel, model);
+    let synced = sync_semantic_refs_with_history(semantic_refs, &report.face_history, &discoveries);
+    (report, synced)
+}
+
+fn assert_top_ref_survives_feature_parameter_edit(case: SemanticReferenceRegression) {
+    const REF_ID: &str = "ref:face:bracket_top";
+    const CREATED_BY: &str = "feature:extrude_base";
+
+    let kernel = OcctGeometryKernel::new();
+    let registry = FeatureRegistry::with_defaults();
+    let mut parameters = bracket_parameters();
+    let initial_refs = vec![TopoRef::face(
+        TopoRefId::new(REF_ID).expect("ref id"),
+        CREATED_BY,
+        "top",
+    )];
+
+    // Seed the semantic reference from the common source feature. This models
+    // a persisted ref before a later boolean/fillet, chamfer, or pattern node
+    // is regenerated.
+    let mut seed = (case.seed_model)().expect("seed model");
+    let (_seed_report, seeded_refs) =
+        sync_top_face_reference(&kernel, &mut seed, &registry, &parameters, &initial_refs);
+    let seeded = seeded_refs
+        .iter()
+        .find(|topo_ref| topo_ref.ref_id.as_str() == REF_ID)
+        .expect("seeded semantic ref");
+    assert_eq!(seeded.ref_id.as_str(), REF_ID, "{}: seed ref id", case.name);
+    assert!(
+        seeded.kernel_face_id().is_some(),
+        "{}: seed should resolve a current kernel face",
+        case.name
+    );
+
+    let mut model = (case.edited_model)().expect("edited model");
+    let (_before_report, before_refs) =
+        sync_top_face_reference(&kernel, &mut model, &registry, &parameters, &seeded_refs);
+    let before = before_refs
+        .iter()
+        .find(|topo_ref| topo_ref.ref_id.as_str() == REF_ID)
+        .expect("pre-edit semantic ref");
+    assert_eq!(
+        before.ref_id.as_str(),
+        REF_ID,
+        "{}: pre-edit ref id",
+        case.name
+    );
+    assert!(
+        before.kernel_face_id().is_some(),
+        "{}: pre-edit kernel face",
+        case.name
+    );
+
+    parameters
+        .set_expr(case.parameter_id, case.edited_expression)
+        .expect("edit parameter");
+    let (after_report, after_refs) =
+        sync_top_face_reference(&kernel, &mut model, &registry, &parameters, &before_refs);
+    assert!(
+        !after_report.face_history.is_empty(),
+        "{}: edit must produce face derivation history",
+        case.name
+    );
+    assert!(
+        after_report
+            .face_history
+            .iter()
+            .any(|(post_id, source_id)| post_id != source_id),
+        "{}: edit must expose a topology rebind candidate",
+        case.name
+    );
+
+    let after = after_refs
+        .iter()
+        .find(|topo_ref| topo_ref.ref_id.as_str() == REF_ID)
+        .expect("post-edit semantic ref");
+    assert_eq!(
+        after.ref_id.as_str(),
+        REF_ID,
+        "{}: post-edit ref id",
+        case.name
+    );
+    let after_discoveries = discovered_faces(&kernel, &model);
+
+    // Resolution is checked against the edited regeneration history rather
+    // than comparing geometry floats. The stored semantic ref must resolve to
+    // the ID belonging to the edited body's current kernel topology.
+    let resolved = resolve_kernel_face_id_for_topo_ref_with_discoveries(
+        &before_refs,
+        &after_report.face_history,
+        REF_ID,
+        Some(&after_discoveries),
+    )
+    .expect("resolve edited kernel face");
+    assert!(
+        after_discoveries
+            .iter()
+            .any(|discovery| discovery.kernel_face_id == resolved),
+        "{}: resolved ID must belong to the edited current topology",
+        case.name
+    );
+}
+
+#[test]
+fn occt_semantic_toporef_survives_boolean_fillet_chamfer_and_linear_pattern_edits() {
+    let cases = [
+        SemanticReferenceRegression {
+            name: "boolean hole",
+            seed_model: bracket_base_plate,
+            edited_model: bracket_with_hole,
+            parameter_id: "param:hole_diameter",
+            edited_expression: "12 mm",
+        },
+        SemanticReferenceRegression {
+            name: "fillet",
+            seed_model: bracket_with_hole,
+            edited_model: bracket_with_top_fillet,
+            parameter_id: "param:fillet_radius",
+            edited_expression: "2 mm",
+        },
+        SemanticReferenceRegression {
+            name: "chamfer",
+            seed_model: bracket_with_hole,
+            edited_model: bracket_with_top_chamfer,
+            parameter_id: "param:chamfer_distance",
+            edited_expression: "1 mm",
+        },
+        SemanticReferenceRegression {
+            name: "linear pattern",
+            seed_model: bracket_base_plate,
+            edited_model: bracket_hole_row,
+            parameter_id: "param:hole_pitch",
+            edited_expression: "25 mm",
+        },
+    ];
+
+    for case in cases {
+        assert_top_ref_survives_feature_parameter_edit(case);
+    }
 }

@@ -50,6 +50,13 @@ produce no fallback match from the direct matcher. When candidates have the
 same score, the smallest kernel ID wins, so the result does not depend on
 tessellation discovery order.
 
+When current discoveries are supplied, a stored or history-remapped kernel ID
+is accepted only if it is present in those discoveries. This matters across
+separate regeneration runs, where kernel-local IDs can all change and the
+current run's derivation history cannot bridge the prior process-local value.
+An absent stored ID therefore continues through semantic/fingerprint fallback;
+without discoveries, the legacy stored-ID behavior is retained.
+
 For the legacy serialized fingerprint, `area_range` is measured in square
 meters. Face `bbox_hint` values are centroid bounds in meters, while edge
 `bbox_hint` stores `[midpoint_m, unit_tangent]`. P5-001 uses face centroids and

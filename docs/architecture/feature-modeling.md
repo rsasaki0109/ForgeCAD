@@ -159,6 +159,16 @@ Profile sketches use a global workplane (`XY`, `YZ`, or `XZ`).
 
 `plane_face_ref` resolves the mirror plane from a persisted `TopoRef` during regeneration (centroid + normal from `face_discoveries`). When set, `plane_origin_m` / `plane_normal_m` are ignored.
 
+## Reference stability across regeneration
+
+Semantic topology references retain their `ref_id` and semantic identity across
+supported boolean-hole, fillet, chamfer, and linear-pattern parameter edits.
+Face derivation history is used within a regeneration run. Across separate
+runs, a stored kernel ID is first checked against current discoveries; if it is
+absent, resolution uses the semantic/fingerprint fallback rather than returning
+a stale kernel-local value. The OCCT-backed contract test is
+`occt_semantic_toporef_survives_boolean_fillet_chamfer_and_linear_pattern_edits`.
+
 ```json
 {
   "type": "mirror_pattern",

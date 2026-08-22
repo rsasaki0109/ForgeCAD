@@ -109,7 +109,24 @@ pub fn resolve_kernel_face_id_for_topo_ref_with_discoveries_and_policy(
 
     if let Some(stored_id) = topo_ref.kernel_face_id() {
         let remap = build_src_to_post_map(face_history);
-        return Ok(remap.get(&stored_id).copied().unwrap_or(stored_id));
+        let resolved_id = remap.get(&stored_id).copied().unwrap_or(stored_id);
+        let Some(discoveries) = discoveries else {
+            return Ok(resolved_id);
+        };
+        if discoveries
+            .iter()
+            .any(|discovery| discovery.kernel_face_id == resolved_id)
+        {
+            return Ok(resolved_id);
+        }
+        if let Some(kernel_face_id) =
+            match_face_discovery_for_topo_ref_with_policy(topo_ref, discoveries, policy)
+        {
+            return Ok(kernel_face_id);
+        }
+        return Err(OpenCadError::validation(format!(
+            "topo ref '{ref_id}' stored kernel face '{resolved_id}' is not present and fingerprint fallback did not match a face"
+        )));
     }
 
     if let Some(discoveries) = discoveries {
@@ -175,7 +192,23 @@ pub fn resolve_kernel_edge_id_for_topo_ref_with_policy(
         .ok_or_else(|| OpenCadError::not_found(format!("topo ref '{ref_id}'")))?;
 
     if let Some(stored_id) = topo_ref.kernel_edge_id() {
-        return Ok(stored_id);
+        let Some(discoveries) = discoveries else {
+            return Ok(stored_id);
+        };
+        if discoveries
+            .iter()
+            .any(|discovery| discovery.kernel_edge_id == stored_id)
+        {
+            return Ok(stored_id);
+        }
+        if let Some(kernel_edge_id) =
+            match_edge_discovery_for_topo_ref_with_policy(topo_ref, discoveries, policy)
+        {
+            return Ok(kernel_edge_id);
+        }
+        return Err(OpenCadError::validation(format!(
+            "topo ref '{ref_id}' stored kernel edge '{stored_id}' is not present and fingerprint fallback did not match an edge"
+        )));
     }
 
     if let Some(discoveries) = discoveries {
@@ -936,6 +969,42 @@ mod tests {
     }
 
     #[test]
+    fn stale_kernel_face_id_uses_current_discovery_fingerprint() {
+        use opencad_core::TopoRefId;
+
+        let mut topo_ref = TopoRef::face(
+            TopoRefId::new("ref:face:stale_top").expect("id"),
+            "feature:old_feature",
+            "top",
+        );
+        topo_ref.semantic.normal_hint = Some([0.0, 0.0, 1.0]);
+        topo_ref.geometric_fingerprint = Some(GeometricFingerprint {
+            surface_type: "brep_face".into(),
+            kernel_face_id: Some(10),
+            kernel_edge_id: None,
+            area_range: None,
+            bbox_hint: Some([[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]]),
+            adjacent_feature_ids: Vec::new(),
+        });
+        let discoveries = [FaceRefDiscovery {
+            kernel_face_id: 77,
+            role: "top".into(),
+            normal_m: [0.0, 0.0, 1.0],
+            centroid_m: [0.1005, 0.2, 0.3],
+            feature_id: Some("feature:new_feature".into()),
+        }];
+
+        let resolved = resolve_kernel_face_id_for_topo_ref_with_discoveries(
+            &[topo_ref],
+            &[],
+            "ref:face:stale_top",
+            Some(&discoveries),
+        )
+        .expect("resolve stale face");
+        assert_eq!(resolved, 77);
+    }
+
+    #[test]
     fn fingerprint_match_prefers_normal_aligned_discovery() {
         let topo_ref = TopoRef::face(
             TopoRefId::new("ref:face:bracket_top").expect("id"),
@@ -1095,6 +1164,42 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn stale_kernel_edge_id_uses_current_discovery_fingerprint() {
+        use opencad_core::TopoRefId;
+
+        let mut topo_ref = TopoRef::edge(
+            TopoRefId::new("ref:edge:stale_rim").expect("id"),
+            "feature:old_feature",
+            "rim",
+        );
+        topo_ref.geometric_fingerprint = Some(GeometricFingerprint {
+            surface_type: "brep_edge".into(),
+            kernel_face_id: None,
+            kernel_edge_id: Some(10),
+            area_range: None,
+            bbox_hint: Some([[0.1, 0.2, 0.3], [1.0, 0.0, 0.0]]),
+            adjacent_feature_ids: Vec::new(),
+        });
+        let discoveries = [EdgeRefDiscovery {
+            kernel_edge_id: 77,
+            role: "rim".into(),
+            midpoint_m: [0.1005, 0.2, 0.3],
+            tangent_m: [1.0, 0.0, 0.0],
+            length_m: 0.01,
+            feature_id: Some("feature:new_feature".into()),
+        }];
+
+        let resolved = resolve_kernel_edge_id_for_topo_ref_with_policy(
+            &[topo_ref],
+            "ref:edge:stale_rim",
+            Some(&discoveries),
+            TopoRefTolerancePolicy::default(),
+        )
+        .expect("resolve stale edge");
+        assert_eq!(resolved, 77);
     }
 
     #[test]

@@ -107,6 +107,21 @@ invoke`, `opencad.plugin_list`, and `opencad.plugin_invoke`. Copy the bracket
 fixture before invoking a mutating example; the checked-in Agent invoke request
 uses dry-run mode and points at `work/bracket.ocad.d`.
 
+## Semantic-reference regeneration examples
+
+[`bracket.ocad.d`](bracket.ocad.d),
+[`bracket_edge_fillet.ocad.d`](bracket_edge_fillet.ocad.d), and
+[`bracket_hole_row.ocad.d`](bracket_hole_row.ocad.d) exercise the source,
+fillet, and pattern shapes used by the P5-002 reference-stability contract.
+The OCCT integration harness also constructs the corresponding boolean-hole
+and chamfer models, edits their unit-bearing parameters, and verifies that the
+same semantic `ref_id` resolves to a face in the regenerated body:
+
+```bash
+cargo test -p opencad-feature --test occt_regen \
+  occt_semantic_toporef_survives_boolean_fillet_chamfer_and_linear_pattern_edits
+```
+
 ## Backend history
 
 Desktop parameter edits use the same validated file-layer `DesignPatch` path
