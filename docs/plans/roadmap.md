@@ -217,7 +217,7 @@ assembly, drawing, mass-property, and rendering workflows.
 
 | ID | Scope | Deliverables | Status |
 |---|---|---|---|
-| MCAD-P5-001 | Semantic TopoRef specification | Reference identity, fingerprint fallback, tolerance policy, and migration guidance | Planned |
+| MCAD-P5-001 | Semantic TopoRef specification | Reference identity, fingerprint fallback, tolerance policy, and migration guidance | Complete |
 | MCAD-P5-002 | Feature reference stability | Boolean, fillet, chamfer, and pattern regeneration regressions with stable references | Planned |
 | MCAD-P5-003 | Drawing HLR quality | Split partially occluded edges and preserve deterministic visible/hidden segments | Planned |
 | MCAD-P5-004 | Assembly robustness | Cycle/path validation, nested-document errors, interference tolerance, and recovery behavior | Planned |
@@ -228,6 +228,13 @@ assembly, drawing, mass-property, and rendering workflows.
 drawing output handles partial occlusion deterministically; assembly failures are
 localized and non-destructive; golden fixtures cover the engineering evidence
 shown by CLI, desktop, and Agent API.
+
+MCAD-P5-001 is complete: `TopoRef::identity()` separates persisted semantic
+identity from kernel hints, explicit unit-labelled fallback policies replace
+anonymous matching thresholds, equal-score candidates use a kernel-ID
+tie-break, and legacy TopoRef JSON remains schema-compatible with documented
+history/sync migration guidance. Feature-specific regeneration regressions
+remain MCAD-P5-002.
 
 **Tests:** geometry tolerance tests; OCCT integration tests; TopoRef migration and
 round trips; assembly/drawing examples; deterministic SVG/mesh/review golden

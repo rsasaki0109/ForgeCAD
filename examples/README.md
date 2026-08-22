@@ -47,6 +47,14 @@ cargo run -p opencad-cli -- patch examples/bracket_hole_row.ocad.d examples/agen
 
 See `agent/` for JSON-RPC payloads. Pipe them to `opencad agent` on stdio.
 
+## Semantic TopoRef
+
+[`topo-ref-semantic.json`](topo-ref-semantic.json) shows the existing persisted
+TopoRef shape: `ref_id` and semantic producer/role/intent are identity, while
+kernel IDs and geometric hints are fallback data. P5-001 keeps this JSON
+schema-compatible and documents the runtime `TopoRefTolerancePolicy` and
+history/sync migration path in [`docs/api/topo-ref.md`](../docs/api/topo-ref.md).
+
 ## Atomic patch and regeneration
 
 `bracket.ocad.d` is the representative part fixture for the atomic patch

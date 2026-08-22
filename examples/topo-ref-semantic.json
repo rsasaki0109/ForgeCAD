@@ -1,0 +1,18 @@
+{
+  "ref_id": "ref:face:bracket_top",
+  "kind": "face",
+  "semantic": {
+    "created_by": "feature:extrude_base",
+    "role": "top_face",
+    "normal_hint": [0.0, 0.0, 1.0],
+    "intent": "mounting face"
+  },
+  "geometric_fingerprint": {
+    "surface_type": "brep_face",
+    "kernel_face_id": 42,
+    "area_range": [0.001, 0.003],
+    "bbox_hint": [[0.0, 0.0, 0.006], [0.1, 0.1, 0.006]],
+    "adjacent_feature_ids": ["feature:extrude_base"]
+  },
+  "fallback_query": "role=top_face"
+}

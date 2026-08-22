@@ -120,6 +120,11 @@ and drawing regeneration continue through their specialized pipelines.
 | `list_drawing_views` | Views on a sheet (`sheet_id`) |
 | `get_drawing_view` | Single drawing view (`sheet_id`, `view_id`) |
 
+Semantic-reference query results preserve the persisted `TopoRef.ref_id` as the
+identity key. Kernel face/edge IDs are regeneration hints; fallback matching
+uses the unit-labelled `TopoRefTolerancePolicy` documented in
+[`docs/api/topo-ref.md`](topo-ref.md).
+
 Assembly query kinds require an `assembly` field in in-memory `opencad.query`, or an assembly document path in `opencad.query_document`.
 
 Drawing query kinds require a `drawing` field in in-memory `opencad.query`, or a drawing document path in `opencad.query_document`. Drawing patches support `set_drawing_view_scale` and `set_drawing_view_origin`; origins use meters through `origin_on_sheet_m`.

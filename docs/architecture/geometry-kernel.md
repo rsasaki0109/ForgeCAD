@@ -33,6 +33,40 @@ pub trait GeometryKernel {
 - `KernelWire` — closed sketch profile
 - `TopoRef` — semantic face/edge reference (not raw OCCT indices)
 
+### Semantic TopoRef contract
+
+`TopoRef.ref_id` is the stable persisted identity key. Its identity record also
+contains `(kind, semantic.created_by, semantic.role, semantic.intent)` so a
+consumer can verify the intended semantic meaning; these fields are metadata
+for the same key, not alternate kernel IDs. Kernel face/edge IDs, normal hints,
+bounding-box hints, and other `geometric_fingerprint` values are deliberately
+excluded: they are regeneration hints, not identity. This lets a reference
+survive a kernel renumbering while still preserving the authoring intent that
+explains what should be rebound.
+
+Resolution uses this order:
+
+1. persisted kernel ID, remapped through derivation history;
+2. semantic producer/role match;
+3. fingerprint fallback using centroid or midpoint distance and direction
+   hints.
+
+Fingerprint fallback accepts an explicit `TopoRefTolerancePolicy`. Distances
+are in meters (`face_centroid_tolerance_m` and
+`edge_midpoint_tolerance_m`); normal and tangent thresholds are dimensionless
+absolute dot products in `[0, 1]`; all distance and vector epsilon values are
+strictly positive. The default policy is available from
+`opencad_geometry::TopoRefTolerancePolicy::default()` and keeps the shipped
+the existing edge `2 mm`, `0.99 dot`, and `1e-9` direction-epsilon behavior;
+face centroid fallback adopts the same `2 mm` default. Candidate ties are
+resolved by the smallest kernel ID, independent of discovery order.
+
+The policy is runtime configuration and is not serialized into `.ocad` data.
+Existing TopoRef JSON remains readable and byte-compatible. Migration guidance
+for older documents is to preserve `ref_id` and semantic fields, treat stale
+kernel IDs as hints, and run the history/fingerprint sync path during
+regeneration; no schema rewrite is required solely to adopt this contract.
+
 ## Mock backend
 
 `MockGeometryKernel` enables tests and headless CI without OCCT installed.
@@ -40,8 +74,12 @@ pub trait GeometryKernel {
 ## Tolerances
 
 All geometry comparisons use explicit tolerances. Never compare raw `f64` with `==`.
+TopoRef fallback tolerances are documented and unit-labelled in
+[`docs/api/topo-ref.md`](../api/topo-ref.md).
 
 ## Further reading
 
 - [ADR-002 OCCT backend](../adr/ADR-002-occt-backend.md)
+- [ADR-011 semantic TopoRef identity](../adr/ADR-011-semantic-toporef-identity.md)
+- [Semantic TopoRef API](../api/topo-ref.md)
 - Topological reference specification: [MCAD-P5-001 in the roadmap](../plans/roadmap.md)

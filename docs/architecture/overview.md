@@ -93,6 +93,8 @@ history.
 - [ADR-008: DesignState revision preconditions and patch rebase](../adr/ADR-008-design-state-revision-rebase.md)
 - [ADR-009: Command-surface parity and regeneration boundary](../adr/ADR-009-command-surface-parity-boundary.md)
 - [ADR-010: Versioned linked Rust plugin contracts](../adr/ADR-010-versioned-plugin-contracts.md)
+- [ADR-011: Semantic TopoRef identity and fingerprint fallback](../adr/ADR-011-semantic-toporef-identity.md)
 - [Plugin API architecture](plugin-api.md)
+- [Semantic TopoRef API](../api/topo-ref.md)
 - [Developer guide](../developer-guide/index.md)
 - [AGENTS.md](../../AGENTS.md)

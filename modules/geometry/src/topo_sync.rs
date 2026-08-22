@@ -1,8 +1,10 @@
 //! Semantic topology reference sync from tessellated B-Rep faces.
 
+use std::cmp::Ordering;
+
 use opencad_core::{OpenCadError, Result, TopoRefId};
 
-use crate::refs::{GeometricFingerprint, TopoRef};
+use crate::refs::{GeometricFingerprint, TopoRef, TopoRefTolerancePolicy};
 
 /// Discovered B-Rep face from tessellation and feature inference.
 #[derive(Debug, Clone, PartialEq)]
@@ -82,6 +84,24 @@ pub fn resolve_kernel_face_id_for_topo_ref_with_discoveries(
     ref_id: &str,
     discoveries: Option<&[FaceRefDiscovery]>,
 ) -> Result<u64> {
+    resolve_kernel_face_id_for_topo_ref_with_discoveries_and_policy(
+        semantic_refs,
+        face_history,
+        ref_id,
+        discoveries,
+        TopoRefTolerancePolicy::default(),
+    )
+}
+
+/// Resolve a face reference with an explicit geometric fallback policy.
+pub fn resolve_kernel_face_id_for_topo_ref_with_discoveries_and_policy(
+    semantic_refs: &[TopoRef],
+    face_history: &[FaceDerivation],
+    ref_id: &str,
+    discoveries: Option<&[FaceRefDiscovery]>,
+    policy: TopoRefTolerancePolicy,
+) -> Result<u64> {
+    policy.validate()?;
     let topo_ref = semantic_refs
         .iter()
         .find(|topo_ref| topo_ref.ref_id.as_str() == ref_id)
@@ -93,7 +113,9 @@ pub fn resolve_kernel_face_id_for_topo_ref_with_discoveries(
     }
 
     if let Some(discoveries) = discoveries {
-        if let Some(kernel_face_id) = match_face_discovery_for_topo_ref(topo_ref, discoveries) {
+        if let Some(kernel_face_id) =
+            match_face_discovery_for_topo_ref_with_policy(topo_ref, discoveries, policy)
+        {
             return Ok(kernel_face_id);
         }
     }
@@ -108,12 +130,45 @@ pub fn resolve_kernel_face_id_for_topo_ref_with_discoveries(
     )))
 }
 
+/// Short alias for callers that already have optional face discoveries.
+pub fn resolve_kernel_face_id_for_topo_ref_with_policy(
+    semantic_refs: &[TopoRef],
+    face_history: &[FaceDerivation],
+    ref_id: &str,
+    discoveries: Option<&[FaceRefDiscovery]>,
+    policy: TopoRefTolerancePolicy,
+) -> Result<u64> {
+    resolve_kernel_face_id_for_topo_ref_with_discoveries_and_policy(
+        semantic_refs,
+        face_history,
+        ref_id,
+        discoveries,
+        policy,
+    )
+}
+
 /// Resolve a persisted `ref:edge:...` id to the current kernel edge id for regeneration.
 pub fn resolve_kernel_edge_id_for_topo_ref(
     semantic_refs: &[TopoRef],
     ref_id: &str,
     discoveries: Option<&[EdgeRefDiscovery]>,
 ) -> Result<u64> {
+    resolve_kernel_edge_id_for_topo_ref_with_policy(
+        semantic_refs,
+        ref_id,
+        discoveries,
+        TopoRefTolerancePolicy::default(),
+    )
+}
+
+/// Resolve an edge reference with an explicit geometric fallback policy.
+pub fn resolve_kernel_edge_id_for_topo_ref_with_policy(
+    semantic_refs: &[TopoRef],
+    ref_id: &str,
+    discoveries: Option<&[EdgeRefDiscovery]>,
+    policy: TopoRefTolerancePolicy,
+) -> Result<u64> {
+    policy.validate()?;
     let topo_ref = semantic_refs
         .iter()
         .find(|topo_ref| topo_ref.ref_id.as_str() == ref_id)
@@ -124,7 +179,9 @@ pub fn resolve_kernel_edge_id_for_topo_ref(
     }
 
     if let Some(discoveries) = discoveries {
-        if let Some(kernel_edge_id) = match_edge_discovery_for_topo_ref(topo_ref, discoveries) {
+        if let Some(kernel_edge_id) =
+            match_edge_discovery_for_topo_ref_with_policy(topo_ref, discoveries, policy)
+        {
             return Ok(kernel_edge_id);
         }
     }
@@ -144,19 +201,40 @@ pub fn match_edge_discovery_for_topo_ref(
     topo_ref: &TopoRef,
     discoveries: &[EdgeRefDiscovery],
 ) -> Option<u64> {
+    match_edge_discovery_for_topo_ref_with_policy(
+        topo_ref,
+        discoveries,
+        TopoRefTolerancePolicy::default(),
+    )
+}
+
+/// Match a discovered edge using explicit distance and direction tolerances.
+pub fn match_edge_discovery_for_topo_ref_with_policy(
+    topo_ref: &TopoRef,
+    discoveries: &[EdgeRefDiscovery],
+    policy: TopoRefTolerancePolicy,
+) -> Option<u64> {
+    if policy.validate().is_err() {
+        return None;
+    }
     discoveries
         .iter()
-        .filter(|discovery| edge_discovery_matches_topo_ref(topo_ref, discovery))
+        .filter(|discovery| edge_discovery_matches_topo_ref(topo_ref, discovery, policy))
         .max_by(|left, right| {
-            edge_fingerprint_match_score(topo_ref, left)
-                .partial_cmp(&edge_fingerprint_match_score(topo_ref, right))
-                .unwrap_or(std::cmp::Ordering::Equal)
+            edge_fingerprint_match_score(topo_ref, left, policy)
+                .partial_cmp(&edge_fingerprint_match_score(topo_ref, right, policy))
+                .unwrap_or(Ordering::Equal)
+                .then_with(|| right.kernel_edge_id.cmp(&left.kernel_edge_id))
         })
-        .filter(|discovery| edge_fingerprint_match_score(topo_ref, discovery) > 0.0)
+        .filter(|discovery| edge_fingerprint_match_score(topo_ref, discovery, policy) > 0.0)
         .map(|discovery| discovery.kernel_edge_id)
 }
 
-fn edge_discovery_matches_topo_ref(topo_ref: &TopoRef, discovery: &EdgeRefDiscovery) -> bool {
+fn edge_discovery_matches_topo_ref(
+    topo_ref: &TopoRef,
+    discovery: &EdgeRefDiscovery,
+    policy: TopoRefTolerancePolicy,
+) -> bool {
     let created_by = topo_ref.semantic.created_by.as_str();
     let role_matches = topo_ref
         .semantic
@@ -172,15 +250,35 @@ fn edge_discovery_matches_topo_ref(topo_ref: &TopoRef, discovery: &EdgeRefDiscov
         return true;
     }
 
-    topo_ref.geometric_fingerprint.is_none()
-        || topo_ref
-            .geometric_fingerprint
-            .as_ref()
-            .and_then(|fingerprint| fingerprint.bbox_hint.as_ref())
-            .is_some()
+    topo_ref
+        .geometric_fingerprint
+        .as_ref()
+        .and_then(|fingerprint| fingerprint.bbox_hint.as_ref())
+        .map(|hint| {
+            point_distance_m(
+                [
+                    discovery.midpoint_m[0] as f64,
+                    discovery.midpoint_m[1] as f64,
+                    discovery.midpoint_m[2] as f64,
+                ],
+                hint[0],
+            ) <= policy.edge_midpoint_tolerance_m
+                && tangent_alignment(
+                    discovery.tangent_m,
+                    [hint[1][0] as f32, hint[1][1] as f32, hint[1][2] as f32],
+                    policy.vector_norm_epsilon,
+                ) >= policy.tangent_alignment_min_dot
+        })
+        // Preserve the legacy role/length fallback when no geometric hint is
+        // available; a fingerprint policy only constrains geometric fallback.
+        .unwrap_or(true)
 }
 
-fn edge_fingerprint_match_score(topo_ref: &TopoRef, discovery: &EdgeRefDiscovery) -> f64 {
+fn edge_fingerprint_match_score(
+    topo_ref: &TopoRef,
+    discovery: &EdgeRefDiscovery,
+    policy: TopoRefTolerancePolicy,
+) -> f64 {
     let mut score = 0.0;
     if topo_ref
         .semantic
@@ -207,13 +305,21 @@ fn edge_fingerprint_match_score(topo_ref: &TopoRef, discovery: &EdgeRefDiscovery
                 + midpoint_dist[1] * midpoint_dist[1]
                 + midpoint_dist[2] * midpoint_dist[2])
                 .sqrt();
-            if midpoint_len < 0.002 {
-                score += 3.0 - midpoint_len * 1000.0;
+            if midpoint_len <= policy.edge_midpoint_tolerance_m {
+                let proximity =
+                    normalized_proximity(midpoint_len, policy.edge_midpoint_tolerance_m);
+                score += 3.0 * proximity;
             }
-            let tangent_dot = discovery.tangent_m[0] as f64 * tangent_hint[0]
-                + discovery.tangent_m[1] as f64 * tangent_hint[1]
-                + discovery.tangent_m[2] as f64 * tangent_hint[2];
-            if tangent_dot.abs() > 0.99 {
+            let tangent_dot = tangent_alignment(
+                discovery.tangent_m,
+                [
+                    tangent_hint[0] as f32,
+                    tangent_hint[1] as f32,
+                    tangent_hint[2] as f32,
+                ],
+                policy.vector_norm_epsilon,
+            );
+            if tangent_dot >= policy.tangent_alignment_min_dot {
                 score += 2.0;
             }
         }
@@ -226,19 +332,40 @@ pub fn match_face_discovery_for_topo_ref(
     topo_ref: &TopoRef,
     discoveries: &[FaceRefDiscovery],
 ) -> Option<u64> {
+    match_face_discovery_for_topo_ref_with_policy(
+        topo_ref,
+        discoveries,
+        TopoRefTolerancePolicy::default(),
+    )
+}
+
+/// Match a discovered face using explicit position and normal tolerances.
+pub fn match_face_discovery_for_topo_ref_with_policy(
+    topo_ref: &TopoRef,
+    discoveries: &[FaceRefDiscovery],
+    policy: TopoRefTolerancePolicy,
+) -> Option<u64> {
+    if policy.validate().is_err() {
+        return None;
+    }
     discoveries
         .iter()
-        .filter(|discovery| discovery_matches_topo_ref(topo_ref, discovery))
+        .filter(|discovery| discovery_matches_topo_ref(topo_ref, discovery, policy))
         .max_by(|left, right| {
-            fingerprint_match_score(topo_ref, left)
-                .partial_cmp(&fingerprint_match_score(topo_ref, right))
-                .unwrap_or(std::cmp::Ordering::Equal)
+            fingerprint_match_score(topo_ref, left, policy)
+                .partial_cmp(&fingerprint_match_score(topo_ref, right, policy))
+                .unwrap_or(Ordering::Equal)
+                .then_with(|| right.kernel_face_id.cmp(&left.kernel_face_id))
         })
-        .filter(|discovery| fingerprint_match_score(topo_ref, discovery) > 0.0)
+        .filter(|discovery| fingerprint_match_score(topo_ref, discovery, policy) > 0.0)
         .map(|discovery| discovery.kernel_face_id)
 }
 
-fn discovery_matches_topo_ref(topo_ref: &TopoRef, discovery: &FaceRefDiscovery) -> bool {
+fn discovery_matches_topo_ref(
+    topo_ref: &TopoRef,
+    discovery: &FaceRefDiscovery,
+    policy: TopoRefTolerancePolicy,
+) -> bool {
     let created_by = topo_ref.semantic.created_by.as_str();
     let role_matches = topo_ref
         .semantic
@@ -254,7 +381,7 @@ fn discovery_matches_topo_ref(topo_ref: &TopoRef, discovery: &FaceRefDiscovery) 
         return true;
     }
 
-    topo_ref
+    let adjacent_feature_matches = topo_ref
         .geometric_fingerprint
         .as_ref()
         .map(|fingerprint| {
@@ -263,10 +390,37 @@ fn discovery_matches_topo_ref(topo_ref: &TopoRef, discovery: &FaceRefDiscovery) 
                 .iter()
                 .any(|feature_id| discovery.feature_id.as_deref() == Some(feature_id.as_str()))
         })
-        .unwrap_or(false)
+        .unwrap_or(false);
+    let geometric_match = topo_ref
+        .geometric_fingerprint
+        .as_ref()
+        .and_then(|fingerprint| fingerprint.bbox_hint.as_ref())
+        .map(|hint| {
+            let centroid_matches = point_distance_m(
+                [
+                    discovery.centroid_m[0] as f64,
+                    discovery.centroid_m[1] as f64,
+                    discovery.centroid_m[2] as f64,
+                ],
+                hint[0],
+            ) <= policy.face_centroid_tolerance_m;
+            let normal_matches = topo_ref.semantic.normal_hint.is_none()
+                || normal_alignment_score(
+                    topo_ref.semantic.normal_hint,
+                    discovery.normal_m,
+                    policy.vector_norm_epsilon,
+                ) >= policy.normal_alignment_min_dot;
+            centroid_matches && normal_matches
+        })
+        .unwrap_or(false);
+    adjacent_feature_matches || geometric_match
 }
 
-fn fingerprint_match_score(topo_ref: &TopoRef, discovery: &FaceRefDiscovery) -> f64 {
+fn fingerprint_match_score(
+    topo_ref: &TopoRef,
+    discovery: &FaceRefDiscovery,
+    policy: TopoRefTolerancePolicy,
+) -> f64 {
     let mut score = 0.0;
     if discovery.feature_id.as_deref() == Some(topo_ref.semantic.created_by.as_str()) {
         score += 2.0;
@@ -274,14 +428,39 @@ fn fingerprint_match_score(topo_ref: &TopoRef, discovery: &FaceRefDiscovery) -> 
     if topo_ref.semantic.role.as_deref() == Some(discovery.role.as_str()) {
         score += 2.0;
     }
-    score += normal_alignment_score(topo_ref.semantic.normal_hint, discovery.normal_m) * 3.0;
+    score += normal_alignment_score(
+        topo_ref.semantic.normal_hint,
+        discovery.normal_m,
+        policy.vector_norm_epsilon,
+    ) * 3.0;
+    if let Some(hint) = topo_ref
+        .geometric_fingerprint
+        .as_ref()
+        .and_then(|fingerprint| fingerprint.bbox_hint.as_ref())
+    {
+        let distance_m = point_distance_m(
+            [
+                discovery.centroid_m[0] as f64,
+                discovery.centroid_m[1] as f64,
+                discovery.centroid_m[2] as f64,
+            ],
+            hint[0],
+        );
+        if distance_m <= policy.face_centroid_tolerance_m {
+            score += 3.0 * normalized_proximity(distance_m, policy.face_centroid_tolerance_m);
+        }
+    }
     if topo_ref.kernel_face_id() == Some(discovery.kernel_face_id) {
         score += 5.0;
     }
     score
 }
 
-fn normal_alignment_score(normal_hint: Option<[f64; 3]>, normal_m: [f32; 3]) -> f64 {
+fn normal_alignment_score(
+    normal_hint: Option<[f64; 3]>,
+    normal_m: [f32; 3],
+    vector_norm_epsilon: f64,
+) -> f64 {
     let Some(hint) = normal_hint else {
         return 0.0;
     };
@@ -291,11 +470,33 @@ fn normal_alignment_score(normal_hint: Option<[f64; 3]>, normal_m: [f32; 3]) -> 
     let hint_len = (hx * hx + hy * hy + hz * hz).sqrt();
     let normal_len =
         (normal_m[0] * normal_m[0] + normal_m[1] * normal_m[1] + normal_m[2] * normal_m[2]).sqrt();
-    if hint_len < 1e-9 || normal_len < 1e-9 {
+    if hint_len < vector_norm_epsilon as f32 || normal_len < vector_norm_epsilon as f32 {
         return 0.0;
     }
     let dot = (hx * normal_m[0] + hy * normal_m[1] + hz * normal_m[2]) / (hint_len * normal_len);
     f64::from(dot.abs())
+}
+
+fn tangent_alignment(a: [f32; 3], b: [f32; 3], vector_norm_epsilon: f64) -> f64 {
+    let a_len = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt();
+    let b_len = (b[0] * b[0] + b[1] * b[1] + b[2] * b[2]).sqrt();
+    if a_len < vector_norm_epsilon as f32 || b_len < vector_norm_epsilon as f32 {
+        return 0.0;
+    }
+    let dot = (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (a_len * b_len);
+    f64::from(dot.abs())
+}
+
+fn point_distance_m(a: [f64; 3], b: [f64; 3]) -> f64 {
+    let delta = [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    (delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2]).sqrt()
+}
+
+fn normalized_proximity(distance_m: f64, tolerance_m: f64) -> f64 {
+    if tolerance_m <= 0.0 {
+        return if distance_m <= tolerance_m { 1.0 } else { 0.0 };
+    }
+    (1.0 - distance_m / tolerance_m).clamp(0.0, 1.0)
 }
 
 /// Map source face ids to their latest post ids using kernel derivation history.
@@ -367,6 +568,7 @@ pub fn sync_semantic_refs_with_history(
 /// Merge discovered kernel faces into persisted semantic references.
 pub fn sync_semantic_refs(existing: &[TopoRef], discoveries: &[FaceRefDiscovery]) -> Vec<TopoRef> {
     let mut refs: Vec<TopoRef> = existing.to_vec();
+    let policy = TopoRefTolerancePolicy::default();
 
     for discovery in discoveries {
         if let Some(index) = refs
@@ -407,9 +609,15 @@ pub fn sync_semantic_refs(existing: &[TopoRef], discoveries: &[FaceRefDiscovery]
                 continue;
             }
             if let Some(index) = candidate_indexes.into_iter().max_by(|left, right| {
-                fingerprint_match_score(&refs[*left], discovery)
-                    .partial_cmp(&fingerprint_match_score(&refs[*right], discovery))
-                    .unwrap_or(std::cmp::Ordering::Equal)
+                fingerprint_match_score(&refs[*left], discovery, policy)
+                    .partial_cmp(&fingerprint_match_score(&refs[*right], discovery, policy))
+                    .unwrap_or(Ordering::Equal)
+                    .then_with(|| {
+                        refs[*right]
+                            .ref_id
+                            .as_str()
+                            .cmp(refs[*left].ref_id.as_str())
+                    })
             }) {
                 refs[index].geometric_fingerprint = Some(fingerprint_from(discovery));
                 refs[index].semantic.normal_hint = Some([
@@ -421,10 +629,12 @@ pub fn sync_semantic_refs(existing: &[TopoRef], discoveries: &[FaceRefDiscovery]
             }
         }
 
-        let ref_id = kernel_topo_ref_id(discovery.kernel_face_id).unwrap_or_else(|_| {
-            TopoRefId::new(format!("ref:face:discovered_{}", discovery.kernel_face_id))
-                .expect("fallback topo ref id")
-        });
+        let ref_id = match kernel_topo_ref_id(discovery.kernel_face_id) {
+            Ok(ref_id) => ref_id,
+            // `kernel_topo_ref_id` formats a u64 with the validated `ref:face:`
+            // prefix. Keep sync non-panicking if that invariant ever changes.
+            Err(_) => continue,
+        };
         let created_by = discovery
             .feature_id
             .clone()
@@ -753,6 +963,160 @@ mod tests {
         assert_eq!(
             match_face_discovery_for_topo_ref(&topo_ref, &discoveries),
             Some(11)
+        );
+    }
+
+    #[test]
+    fn geometric_face_fallback_uses_explicit_centroid_tolerance() {
+        let mut topo_ref = TopoRef::face(
+            TopoRefId::new("ref:face:mount").expect("id"),
+            "feature:old_feature",
+            "top",
+        );
+        topo_ref.geometric_fingerprint = Some(GeometricFingerprint {
+            surface_type: "brep_face".into(),
+            kernel_face_id: None,
+            kernel_edge_id: None,
+            area_range: None,
+            bbox_hint: Some([[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]]),
+            adjacent_feature_ids: Vec::new(),
+        });
+        let discovery = FaceRefDiscovery {
+            kernel_face_id: 77,
+            role: "top".into(),
+            normal_m: [0.0, 0.0, 1.0],
+            centroid_m: [0.1005, 0.2, 0.3],
+            feature_id: Some("feature:new_feature".into()),
+        };
+        let policy = TopoRefTolerancePolicy {
+            face_centroid_tolerance_m: 0.001,
+            ..TopoRefTolerancePolicy::default()
+        };
+        assert_eq!(
+            match_face_discovery_for_topo_ref_with_policy(
+                &topo_ref,
+                std::slice::from_ref(&discovery),
+                policy,
+            ),
+            Some(77)
+        );
+        let outside = FaceRefDiscovery {
+            centroid_m: [0.102, 0.2, 0.3],
+            ..discovery
+        };
+        assert_eq!(
+            match_face_discovery_for_topo_ref_with_policy(
+                &topo_ref,
+                std::slice::from_ref(&outside),
+                policy,
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn fingerprint_ties_are_selected_by_kernel_id_not_input_order() {
+        let topo_ref = TopoRef::face(
+            TopoRefId::new("ref:face:top").expect("id"),
+            "feature:extrude",
+            "top",
+        );
+        let first = FaceRefDiscovery {
+            kernel_face_id: 20,
+            role: "top".into(),
+            normal_m: [0.0, 0.0, 1.0],
+            centroid_m: [0.0, 0.0, 0.0],
+            feature_id: Some("feature:extrude".into()),
+        };
+        let second = FaceRefDiscovery {
+            kernel_face_id: 10,
+            ..first.clone()
+        };
+        let policy = TopoRefTolerancePolicy::default();
+        assert_eq!(
+            match_face_discovery_for_topo_ref_with_policy(
+                &topo_ref,
+                &[first.clone(), second.clone()],
+                policy,
+            ),
+            Some(10)
+        );
+        assert_eq!(
+            match_face_discovery_for_topo_ref_with_policy(&topo_ref, &[second, first], policy),
+            Some(10)
+        );
+    }
+
+    #[test]
+    fn edge_fingerprint_fallback_obeys_midpoint_and_tangent_policy() {
+        let mut topo_ref = TopoRef::edge(
+            TopoRefId::new("ref:edge:mount").expect("id"),
+            "feature:old_feature",
+            "rim",
+        );
+        topo_ref.geometric_fingerprint = Some(GeometricFingerprint {
+            surface_type: "brep_edge".into(),
+            kernel_face_id: None,
+            kernel_edge_id: None,
+            area_range: None,
+            bbox_hint: Some([[0.1, 0.2, 0.3], [1.0, 0.0, 0.0]]),
+            adjacent_feature_ids: Vec::new(),
+        });
+        let discovery = EdgeRefDiscovery {
+            kernel_edge_id: 12,
+            role: "rim".into(),
+            midpoint_m: [0.1005, 0.2, 0.3],
+            tangent_m: [1.0, 0.0, 0.0],
+            length_m: 0.01,
+            feature_id: Some("feature:new_feature".into()),
+        };
+        let policy = TopoRefTolerancePolicy {
+            edge_midpoint_tolerance_m: 0.001,
+            tangent_alignment_min_dot: 0.99,
+            ..TopoRefTolerancePolicy::default()
+        };
+        assert_eq!(
+            match_edge_discovery_for_topo_ref_with_policy(
+                &topo_ref,
+                std::slice::from_ref(&discovery),
+                policy,
+            ),
+            Some(12)
+        );
+        let outside = EdgeRefDiscovery {
+            midpoint_m: [0.102, 0.2, 0.3],
+            ..discovery
+        };
+        assert_eq!(
+            match_edge_discovery_for_topo_ref_with_policy(
+                &topo_ref,
+                std::slice::from_ref(&outside),
+                policy,
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn invalid_policy_is_rejected_before_face_resolution() {
+        let refs = vec![TopoRef::face(
+            TopoRefId::new("ref:face:mount").expect("id"),
+            "feature:extrude",
+            "top",
+        )];
+        let policy = TopoRefTolerancePolicy {
+            edge_midpoint_tolerance_m: -1.0,
+            ..TopoRefTolerancePolicy::default()
+        };
+        assert!(
+            resolve_kernel_face_id_for_topo_ref_with_discoveries_and_policy(
+                &refs,
+                &[],
+                "ref:face:mount",
+                Some(&[]),
+                policy,
+            )
+            .is_err()
         );
     }
 }
