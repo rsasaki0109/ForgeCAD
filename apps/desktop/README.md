@@ -70,16 +70,23 @@ uses the locked `cadrum` static OCCT 8.0.0 prebuilt for each target. Linux addit
 requires GTK 3, WebKitGTK 4.1, Ayatana AppIndicator, librsvg, and `patchelf`;
 Windows requires the Visual Studio 2022 C++ workload (MSVC 14.44 or newer).
 
-The workflow bundles and uploads two unsigned, versioned installer/archive files
-per platform together with a verified `SHA256SUMS` file. Windows produces MSI
-and NSIS installers; Linux produces Debian and AppImage packages; macOS
-produces a DMG and a zip archive of the `.app` bundle. See the
+The normal workflow bundles and uploads two unsigned, versioned
+installer/archive files per platform together with a verified `SHA256SUMS` file.
+Windows produces MSI and NSIS installers; Linux produces Debian and AppImage
+packages; macOS produces a DMG and a zip archive of the `.app` bundle. See the
 [desktop distribution quick start](../../docs/developer-guide/desktop-releases.md)
 for exact names, verification, and local packaging commands. A job fails when
 a required system tool is missing, dependency resolution is not locked, the
 Tauri build returns a non-zero status, a required bundle is absent, checksums
 do not verify, the expected executable is absent or empty, or the build rewrites
-`Cargo.lock`. Code-signing and notarization remain `MCAD-P1-004`.
+`Cargo.lock`.
+
+Signed publication is intentionally separate in the
+[`Desktop signed release` workflow](../../.github/workflows/desktop-signed-release.yml).
+It requires the protected `desktop-release` environment and real Windows/Apple
+credentials. Missing credentials fail closed; no signing secret is read by the
+normal CI workflow, and fork pull requests never enter the signed workflow.
+The tagged workflow remains unverified until a real credentialed CI run succeeds.
 
 The same workflow gates the packaged Linux artifact on the headless backend
 smoke and command-parity tests. Run that backend check locally with

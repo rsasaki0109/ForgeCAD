@@ -1,0 +1,653 @@
+name: Desktop signed release
+
+# This workflow is deliberately separate from desktop.yml.  desktop.yml is a
+# safe, unsigned build that may run for pull requests.  This workflow starts
+# only after the CLI Release workflow has successfully published a tag,
+# or through a protected manual dispatch for an existing release.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build (for example v0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  TAURI_CLI_VERSION: 2.11.4
+
+jobs:
+  prepare:
+    name: validate signed release ref
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'workflow_run' &&
+           github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.event == 'push') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - name: Check out trusted workflow source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag, ancestry, and desktop version
+        id: release
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          git fetch --force --tags origin
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            mapfile -t matching_tags < <(
+              for candidate in $(git tag --list 'v*'); do
+                if [ "$(git rev-parse "$candidate^{commit}")" = "$WORKFLOW_SHA" ]; then
+                  printf '%s\n' "$candidate"
+                fi
+              done
+            )
+            if [ "${#matching_tags[@]}" -ne 1 ]; then
+              echo "Release workflow SHA must have exactly one v* tag; found ${#matching_tags[@]}." >&2
+              exit 1
+            fi
+            tag="${matching_tags[0]}"
+          else
+            tag="$REQUESTED_TAG"
+          fi
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must be a semantic version beginning with v: $tag" >&2
+            exit 1
+          fi
+
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          tag_sha="$(git rev-parse "refs/tags/$tag^{commit}")"
+          if ! git merge-base --is-ancestor "$tag_sha" refs/remotes/origin/main; then
+            echo "Tag $tag must point to a commit reachable from main." >&2
+            exit 1
+          fi
+          if [ "$EVENT_NAME" = "workflow_run" ] && [ "$WORKFLOW_SHA" != "$tag_sha" ]; then
+            echo "Release workflow SHA does not match tag $tag: workflow=$WORKFLOW_SHA tag=$tag_sha" >&2
+            exit 1
+          fi
+          git checkout --detach "$tag_sha"
+
+          cargo_version="$(cd apps/desktop/src-tauri && cargo metadata --locked --no-deps --format-version 1 \
+            | jq -r '[.packages[] | select(.name == "musubicad-desktop")][0].version')"
+          tauri_version="$(jq -r '.version' apps/desktop/src-tauri/tauri.conf.json)"
+          if [ -z "$cargo_version" ] || [ "$cargo_version" = "null" ] || [ -z "$tauri_version" ] || [ "$tauri_version" = "null" ]; then
+            echo "Both desktop manifests must declare a version." >&2
+            exit 1
+          fi
+          if [ "$cargo_version" != "$tauri_version" ] || [ "$tag" != "v$cargo_version" ]; then
+            echo "Tag/version mismatch: tag=$tag Cargo.toml=$cargo_version tauri.conf.json=$tauri_version" >&2
+            exit 1
+          fi
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "The CLI release workflow must create release $tag before desktop signing." >&2
+            exit 1
+          fi
+
+          {
+            echo "tag=$tag"
+            echo "version=$cargo_version"
+            echo "sha=$tag_sha"
+          } >> "$GITHUB_OUTPUT"
+
+  signed-build:
+    name: signed ${{ matrix.platform }} artifact
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            platform: windows-x86_64
+            target: x86_64-pc-windows-msvc
+            binary_path: apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/musubicad-desktop.exe
+            bundles: msi,nsis
+            bundle_directory: apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle
+          - runner: ubuntu-24.04
+            platform: linux-x86_64
+            target: x86_64-unknown-linux-gnu
+            binary_path: apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/musubicad-desktop
+            bundles: deb,appimage
+            bundle_directory: apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle
+          - runner: macos-15
+            platform: macos-aarch64
+            target: aarch64-apple-darwin
+            binary_path: apps/desktop/src-tauri/target/aarch64-apple-darwin/release/musubicad-desktop
+            bundles: app,dmg
+            bundle_directory: apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle
+          - runner: macos-15-intel
+            platform: macos-x86_64
+            target: x86_64-apple-darwin
+            binary_path: apps/desktop/src-tauri/target/x86_64-apple-darwin/release/musubicad-desktop
+            bundles: app,dmg
+            bundle_directory: apps/desktop/src-tauri/target/x86_64-apple-darwin/release/bundle
+    runs-on: ${{ matrix.runner }}
+    environment:
+      name: desktop-release
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Verify immutable build commit
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ needs.prepare.outputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Install Linux system dependencies
+        if: ${{ matrix.platform == 'linux-x86_64' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential curl file wget libgtk-3-dev libssl-dev \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+            patchelf pkg-config
+          pkg-config --exists gtk+-3.0 webkit2gtk-4.1
+          command -v patchelf
+
+      - name: Verify Apple SDK
+        if: ${{ startsWith(matrix.platform, 'macos-') }}
+        run: |
+          xcode-select -p
+          xcrun --sdk macosx --show-sdk-path
+
+      - name: Verify MSVC toolchain
+        if: ${{ matrix.platform == 'windows-x86_64' }}
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path -LiteralPath $vswhere)) {
+            throw 'Visual Studio installation discovery (vswhere) is missing'
+          }
+          $installationVersion = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationVersion
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($installationVersion)) {
+            throw 'The MSVC C++ workload is not installed'
+          }
+          if ([version]$installationVersion -lt [version]'17.14') {
+            throw "MSVC 14.44 or newer is required; found Visual Studio $installationVersion"
+          }
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo and OCCT
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            apps/desktop/src-tauri/target/
+          key: ${{ runner.os }}-${{ runner.arch }}-desktop-signed-${{ matrix.target }}-${{ env.TAURI_CLI_VERSION }}-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-desktop-signed-${{ matrix.target }}-${{ env.TAURI_CLI_VERSION }}-
+
+      - name: Install pinned Tauri CLI
+        run: cargo install tauri-cli --version "${{ env.TAURI_CLI_VERSION }}" --locked
+
+      - name: Verify locked desktop dependency graph
+        working-directory: apps/desktop/src-tauri
+        run: cargo metadata --locked --no-deps --format-version 1
+
+      - name: Fail closed when Windows signing credentials are incomplete
+        if: ${{ matrix.platform == 'windows-x86_64' }}
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_SIGNING_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_THUMBPRINT }}
+          WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE) -or
+              [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD) -or
+              [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_THUMBPRINT) -or
+              [string]::IsNullOrWhiteSpace($env:WINDOWS_TIMESTAMP_URL)) {
+            throw 'Windows signed release requires certificate, password, thumbprint, and timestamp URL'
+          }
+
+      - name: Import Windows Authenticode certificate
+        if: ${{ matrix.platform == 'windows-x86_64' }}
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_SIGNING_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_THUMBPRINT }}
+        run: |
+          $certificateDirectory = Join-Path $env:RUNNER_TEMP 'musubicad-certificate'
+          New-Item -ItemType Directory -Force -Path $certificateDirectory | Out-Null
+          $encoded = Join-Path $certificateDirectory 'certificate.txt'
+          $pfx = Join-Path $certificateDirectory 'certificate.pfx'
+          [System.IO.File]::WriteAllText($encoded, $env:WINDOWS_CERTIFICATE)
+          certutil -decode $encoded $pfx | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw 'Could not decode WINDOWS_CERTIFICATE' }
+          Remove-Item -LiteralPath $encoded -Force
+          $password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password | Out-Null
+          $expected = $env:WINDOWS_SIGNING_THUMBPRINT.Replace(' ', '').ToUpperInvariant()
+          $certificate = Get-ChildItem Cert:\CurrentUser\My |
+            Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $expected } |
+            Select-Object -First 1
+          if ($null -eq $certificate) { throw "Configured Authenticode certificate $expected was not imported" }
+
+      - name: Fail closed when Apple signing/notarization credentials are incomplete
+        if: ${{ startsWith(matrix.platform, 'macos-') }}
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required Apple release credential: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Import Apple Developer ID certificate
+        if: ${{ startsWith(matrix.platform, 'macos-') }}
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          CONFIGURED_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          certificate_path="$RUNNER_TEMP/musubicad-certificate.p12"
+          keychain_path="$RUNNER_TEMP/musubicad-build.keychain-db"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security default-keychain -s "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -t 3600 -u "$keychain_path"
+          security import "$certificate_path" -k "$keychain_path" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$keychain_path"
+          identity="$CONFIGURED_SIGNING_IDENTITY"
+          if [ -z "$identity" ]; then
+            identity="$(security find-identity -v -p codesigning "$keychain_path" \
+              | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -n 1)"
+          fi
+          if [ -z "$identity" ]; then
+            echo 'No Developer ID Application identity was imported' >&2
+            exit 1
+          fi
+          security find-identity -v -p codesigning "$keychain_path"
+          echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+          echo "MUSUBI_KEYCHAIN_PATH=$keychain_path" >> "$GITHUB_ENV"
+
+      - name: Build and bundle Tauri application (Linux and macOS)
+        if: ${{ matrix.platform != 'windows-x86_64' }}
+        working-directory: apps/desktop/src-tauri
+        run: cargo tauri build --ci --bundles "${{ matrix.bundles }}" --target "${{ matrix.target }}"
+
+      - name: Build and bundle Tauri application (Windows signed config)
+        if: ${{ matrix.platform == 'windows-x86_64' }}
+        working-directory: apps/desktop/src-tauri
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_THUMBPRINT }}
+          WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+        run: |
+          $configPath = Join-Path (Get-Location) 'tauri.conf.json'
+          $original = [System.IO.File]::ReadAllText($configPath)
+          $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+          try {
+            $config = $original | ConvertFrom-Json
+            $thumbprint = $env:WINDOWS_SIGNING_THUMBPRINT.Replace(' ', '').ToUpperInvariant()
+            $windowsBundle = [pscustomobject]@{
+              certificateThumbprint = $thumbprint
+              digestAlgorithm = 'sha256'
+              timestampUrl = $env:WINDOWS_TIMESTAMP_URL
+            }
+            if ($null -eq $config.bundle.windows) {
+              $config.bundle | Add-Member -MemberType NoteProperty -Name windows -Value $windowsBundle
+            } else {
+              $config.bundle.windows = $windowsBundle
+            }
+            [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 100), $utf8NoBom)
+            cargo tauri build --ci --bundles "${{ matrix.bundles }}" --target "${{ matrix.target }}"
+            if ($LASTEXITCODE -ne 0) { throw 'Tauri Windows signed build failed' }
+          } finally {
+            [System.IO.File]::WriteAllText($configPath, $original, $utf8NoBom)
+          }
+
+      - name: Sign and verify Windows bundles with Authenticode
+        if: ${{ matrix.platform == 'windows-x86_64' }}
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_THUMBPRINT }}
+          WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+          DESKTOP_BINARY: ${{ matrix.binary_path }}
+          DESKTOP_BUNDLE_DIRECTORY: ${{ matrix.bundle_directory }}
+        run: |
+          $signTool = Get-ChildItem -Path "$env:ProgramFiles(x86)\Windows Kits\10\bin" -Filter signtool.exe -Recurse -File |
+            Sort-Object FullName | Select-Object -Last 1
+          if ($null -eq $signTool) { throw 'Windows SDK signtool.exe was not found' }
+          $thumbprint = $env:WINDOWS_SIGNING_THUMBPRINT.Replace(' ', '').ToUpperInvariant()
+          $files = @(
+            Get-Item -LiteralPath $env:DESKTOP_BINARY
+            Get-ChildItem -LiteralPath $env:DESKTOP_BUNDLE_DIRECTORY -Recurse -File |
+              Where-Object { $_.Extension -in @('.exe', '.msi') }
+          ) | Sort-Object FullName -Unique
+          if ($files.Count -lt 3) { throw "Expected desktop executable and installers; found $($files.Count)" }
+          foreach ($file in $files) {
+            & $signTool.FullName sign /fd SHA256 /sha1 $thumbprint `
+              /tr $env:WINDOWS_TIMESTAMP_URL /td SHA256 /d 'MusubiCAD' $file.FullName
+            if ($LASTEXITCODE -ne 0) { throw "Authenticode signing failed for $($file.Name)" }
+            $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
+            if ($signature.Status -ne 'Valid') {
+              throw "Authenticode verification failed for $($file.Name): $($signature.Status)"
+            }
+            if ($signature.SignerCertificate.Thumbprint.Replace(' ', '').ToUpperInvariant() -ne $thumbprint) {
+              throw "Unexpected Authenticode signer for $($file.Name)"
+            }
+          }
+          $verification = @(
+            'Trust evidence: Authenticode signatures verified before packaging.'
+            "Certificate thumbprint: $thumbprint"
+            ($files | ForEach-Object { "Signed: $($_.Name)" })
+          )
+          $verification | Set-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'windows-signature-verified.txt')
+
+      - name: Sign, notarize, and verify macOS bundles
+        if: ${{ startsWith(matrix.platform, 'macos-') }}
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          DESKTOP_BUNDLE_DIRECTORY: ${{ matrix.bundle_directory }}
+        run: |
+          set -euo pipefail
+          app="$(find "$DESKTOP_BUNDLE_DIRECTORY" -type d -name '*.app' -print -quit)"
+          dmg="$(find "$DESKTOP_BUNDLE_DIRECTORY" -type f -name '*.dmg' -print -quit)"
+          if [ -z "$app" ] || [ -z "$dmg" ]; then
+            echo 'Expected both a macOS .app bundle and a .dmg bundle' >&2
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$app"
+          signature_details="$(codesign -dv --verbose=4 "$app" 2>&1)"
+          actual_authority="$(printf '%s\n' "$signature_details" | sed -n 's/^Authority=//p' | head -n 1)"
+          actual_team="$(printf '%s\n' "$signature_details" | sed -n 's/^TeamIdentifier=//p' | head -n 1)"
+          if [ "$actual_authority" != "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "Unexpected macOS signing authority: $actual_authority" >&2
+            exit 1
+          fi
+          if [ "$actual_team" != "$APPLE_TEAM_ID" ]; then
+            echo "Unexpected macOS signing team: $actual_team" >&2
+            exit 1
+          fi
+          notarization_zip="$RUNNER_TEMP/musubicad-notarization.zip"
+          ditto -c -k --keepParent "$app" "$notarization_zip"
+          xcrun notarytool submit "$notarization_zip" --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "$app"
+          xcrun stapler validate "$app"
+          xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          spctl --assess --type execute --verbose=4 "$app"
+          {
+            echo 'Trust evidence: codesign and notarization verified before packaging.'
+            echo "Signing identity: $actual_authority"
+            echo "Team identifier: $actual_team"
+            echo "Notarized and stapled: $(basename "$app")"
+            echo "Notarized and stapled: $(basename "$dmg")"
+          } > "$GITHUB_WORKSPACE/macos-signature-notarization-verified.txt"
+
+      - name: Verify native executable
+        shell: bash
+        env:
+          DESKTOP_BINARY: ${{ matrix.binary_path }}
+        run: |
+          test -f "$DESKTOP_BINARY"
+          test -s "$DESKTOP_BINARY"
+
+      - name: Verify build did not rewrite the lockfile
+        shell: bash
+        run: git diff --exit-code -- apps/desktop/src-tauri/Cargo.lock
+
+      - name: Package desktop artifacts and generate checksums
+        shell: pwsh
+        run: >-
+          ./tools/package-desktop-release.ps1
+          -Version "${{ needs.prepare.outputs.version }}"
+          -Platform "${{ matrix.platform }}"
+          -BundleDirectory "${{ matrix.bundle_directory }}"
+          -OutputDirectory dist
+
+      - name: Attach trust scope evidence
+        shell: pwsh
+        env:
+          DESKTOP_PLATFORM: ${{ matrix.platform }}
+        run: |
+          if ($env:DESKTOP_PLATFORM -eq 'linux-x86_64') {
+            @(
+              'Trust scope: SHA-256 checksums only.'
+              'Linux artifacts are not code-signed or notarized by this workflow.'
+              'Verify SHA256SUMS before execution and use a trusted release channel.'
+            ) | Set-Content -LiteralPath dist/TRUST-SCOPE.txt
+          } elseif ($env:DESKTOP_PLATFORM -eq 'windows-x86_64') {
+            Move-Item -LiteralPath windows-signature-verified.txt -Destination dist/SIGNATURE-VERIFIED.txt
+          } else {
+            Move-Item -LiteralPath macos-signature-notarization-verified.txt -Destination dist/SIGNATURE-VERIFIED.txt
+          }
+
+      - name: Verify desktop artifact contract
+        shell: pwsh
+        env:
+          DESKTOP_VERSION: ${{ needs.prepare.outputs.version }}
+          DESKTOP_PLATFORM: ${{ matrix.platform }}
+        run: |
+          $artifacts = @(Get-ChildItem -LiteralPath dist -File | Where-Object Name -notin @('SHA256SUMS', 'SIGNATURE-VERIFIED.txt', 'TRUST-SCOPE.txt'))
+          if ($artifacts.Count -ne 2) {
+            throw "Expected two packaged desktop artifacts, found $($artifacts.Count)"
+          }
+          $prefix = "musubicad-v$env:DESKTOP_VERSION-$env:DESKTOP_PLATFORM"
+          foreach ($artifact in $artifacts) {
+            if (-not $artifact.Name.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+              throw "Artifact is not versioned with the desktop contract: $($artifact.Name)"
+            }
+            if ($artifact.Length -eq 0) { throw "Artifact is empty: $($artifact.Name)" }
+          }
+          $checksumLines = @(Get-Content -LiteralPath dist/SHA256SUMS | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          if ($checksumLines.Count -ne $artifacts.Count) { throw 'SHA256SUMS must contain one entry per packaged artifact' }
+          foreach ($line in $checksumLines) {
+            $match = [regex]::Match($line, '^([0-9a-fA-F]{64})  (.+)$')
+            if (-not $match.Success) { throw "Invalid SHA256SUMS entry: $line" }
+            $name = $match.Groups[2].Value
+            $artifact = $artifacts | Where-Object Name -eq $name
+            if ($null -eq $artifact) { throw "SHA256SUMS references an unexpected file: $name" }
+            $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $artifact.FullName).Hash
+            if ($actual -ine $match.Groups[1].Value) { throw "SHA-256 verification failed for $name" }
+          }
+          if ($env:DESKTOP_PLATFORM -eq 'linux-x86_64') {
+            if (-not (Test-Path -LiteralPath dist/TRUST-SCOPE.txt)) { throw 'Linux trust scope is missing' }
+          } elseif (-not (Test-Path -LiteralPath dist/SIGNATURE-VERIFIED.txt)) {
+            throw 'Platform signature verification evidence is missing'
+          }
+
+      - name: Upload signed desktop artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: musubicad-desktop-signed-v${{ needs.prepare.outputs.version }}-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove imported Windows signing material
+        if: ${{ always() && matrix.platform == 'windows-x86_64' }}
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_THUMBPRINT }}
+        run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_THUMBPRINT)) {
+            $thumbprint = $env:WINDOWS_SIGNING_THUMBPRINT.Replace(' ', '').ToUpperInvariant()
+            Get-ChildItem Cert:\CurrentUser\My |
+              Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $thumbprint } |
+              Remove-Item -Force
+          }
+          $certificateDirectory = Join-Path $env:RUNNER_TEMP 'musubicad-certificate'
+          if (Test-Path -LiteralPath $certificateDirectory) {
+            Remove-Item -LiteralPath $certificateDirectory -Recurse -Force
+          }
+
+      - name: Remove imported Apple signing material
+        if: ${{ always() && startsWith(matrix.platform, 'macos-') }}
+        shell: bash
+        run: |
+          set +e
+          keychain_path="$RUNNER_TEMP/musubicad-build.keychain-db"
+          security delete-keychain "$keychain_path" >/dev/null 2>&1
+          rm -f "$RUNNER_TEMP/musubicad-certificate.p12" \
+            "$RUNNER_TEMP/musubicad-notarization.zip"
+
+  publish:
+    name: publish verified desktop release
+    needs: [prepare, signed-build]
+    if: ${{ needs.prepare.result == 'success' && needs.signed-build.result == 'success' }}
+    runs-on: ubuntu-24.04
+    environment:
+      name: desktop-release
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Re-verify immutable tag before publication
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ needs.prepare.outputs.sha }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          git fetch --force --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$EXPECTED_SHA"
+
+      - name: Download signed artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: musubicad-desktop-signed-v*-*
+          path: dist
+          merge-multiple: false
+
+      - name: Re-verify checksums and trust evidence before publication
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          artifact_dirs=(
+            "dist/musubicad-desktop-signed-v$RELEASE_VERSION-windows-x86_64"
+            "dist/musubicad-desktop-signed-v$RELEASE_VERSION-linux-x86_64"
+            "dist/musubicad-desktop-signed-v$RELEASE_VERSION-macos-aarch64"
+            "dist/musubicad-desktop-signed-v$RELEASE_VERSION-macos-x86_64"
+          )
+          for artifact_dir in "${artifact_dirs[@]}"; do
+            test -d "$artifact_dir"
+          done
+          mapfile -t downloaded_dirs < <(find dist -mindepth 1 -maxdepth 1 -type d ! -name publish | sort)
+          if [ "${#downloaded_dirs[@]}" -ne "${#artifact_dirs[@]}" ]; then
+            echo "Unexpected signed platform artifact directory." >&2
+            exit 1
+          fi
+          mkdir -p dist/publish
+          for artifact_dir in "${artifact_dirs[@]}"; do
+            [ -f "$artifact_dir/SHA256SUMS" ]
+            (cd "$artifact_dir" && sha256sum --check SHA256SUMS)
+            case "$(basename "$artifact_dir")" in
+              *-linux-x86_64) test -f "$artifact_dir/TRUST-SCOPE.txt" ;;
+              *) test -f "$artifact_dir/SIGNATURE-VERIFIED.txt" ;;
+            esac
+            while IFS= read -r artifact; do
+              cp "$artifact" dist/publish/
+            done < <(find "$artifact_dir" -maxdepth 1 -type f \( -name '*.msi' -o -name '*.exe' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' -o -name '*-app.zip' \) -print)
+          done
+          mapfile -t packages < <(find dist/publish -maxdepth 1 -type f -printf '%f\n' | sort)
+          expected_packages=(
+            "musubicad-v$RELEASE_VERSION-linux-x86_64.AppImage"
+            "musubicad-v$RELEASE_VERSION-linux-x86_64.deb"
+            "musubicad-v$RELEASE_VERSION-macos-aarch64-app.zip"
+            "musubicad-v$RELEASE_VERSION-macos-aarch64.dmg"
+            "musubicad-v$RELEASE_VERSION-macos-x86_64-app.zip"
+            "musubicad-v$RELEASE_VERSION-macos-x86_64.dmg"
+            "musubicad-v$RELEASE_VERSION-windows-x86_64-nsis.exe"
+            "musubicad-v$RELEASE_VERSION-windows-x86_64.msi"
+          )
+          mapfile -t expected_packages < <(printf '%s\n' "${expected_packages[@]}" | sort)
+          if [ "${packages[*]}" != "${expected_packages[*]}" ]; then
+            echo "Desktop package set does not match the release contract." >&2
+            printf 'actual: %s\n' "${packages[@]}" >&2
+            exit 1
+          fi
+          (cd dist/publish && sha256sum ./* > SHA256SUMS && sha256sum --check SHA256SUMS)
+          # The CLI release workflow owns the generic SHA256SUMS asset on the
+          # shared version release. Keep the desktop checksum in its own
+          # namespace so publishing desktop assets cannot replace CLI trust
+          # evidence.
+          cp dist/publish/SHA256SUMS dist/publish/MUSUBICAD-DESKTOP-SHA256SUMS
+          rm dist/publish/SHA256SUMS
+          cat > dist/publish/TRUST-SCOPE.txt <<'EOF'
+          Windows: Authenticode signatures verified with the configured certificate.
+          macOS: codesign verification, notarization, and stapling verified.
+          Linux: SHA-256 checksums verified; Linux packages are not code-signed by this workflow.
+          Publication is gated on all four platform verification jobs and the protected desktop-release environment.
+          EOF
+
+      - name: Publish only after all verification gates pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ needs.prepare.outputs.tag }}"
+          if ! gh release view "$tag" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "The CLI release workflow must create release $tag before desktop publication." >&2
+            exit 1
+          fi
+          gh release upload "$tag" dist/publish/* --repo "${{ github.repository }}"

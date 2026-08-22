@@ -52,10 +52,75 @@ accepted only when it is exactly `v<version>` and matches both
 - macOS: open the `.dmg` and drag MusubiCAD to Applications. The `-app.zip`
   file contains the same `.app` bundle and is useful for scripted extraction.
 
-The desktop artifacts are intentionally unsigned. Windows SmartScreen and
-macOS Gatekeeper can warn when launching them. Code signing, notarization,
-credential handling, and release publication are outside this contract and
-remain `MCAD-P1-004`.
+## Trust and signed publication
+
+The normal [`Desktop` workflow](../../.github/workflows/desktop.yml) is an
+unsigned CI workflow. It is intentionally safe for pull requests and `main`:
+it has only `contents: read`, never reads signing credentials, and uploads
+versioned artifacts plus `SHA256SUMS`. Windows SmartScreen and macOS
+Gatekeeper may warn when those CI artifacts are launched. A checksum verifies
+the downloaded bytes against the checksum file; it does not assert publisher
+identity.
+
+Signed publication is a separate, credential-gated
+[`Desktop signed release` workflow](../../.github/workflows/desktop-signed-release.yml).
+It starts only after the CLI `Release` workflow successfully publishes a
+`v<version>` tag, or from a protected manual dispatch naming an existing tag.
+The workflow verifies that
+the tag is on `main` and matches both desktop manifests before entering the
+protected `desktop-release` environment. It rebuilds the tag with signing
+credentials instead of trusting an artifact from an untrusted workflow run.
+
+Windows uses an Authenticode PFX and verifies every executable and installer
+with `Get-AuthenticodeSignature`. macOS uses a Developer ID Application P12,
+an ephemeral keychain, Apple notarization credentials, `codesign`,
+`xcrun notarytool`, `xcrun stapler`, and `spctl` verification. The publish job
+has the only `contents: write` permission and re-checks checksums and the
+platform trust evidence before calling `gh release upload`.
+The CLI workflow owns creation of the shared version release. The desktop
+workflow fails if that release is absent or if any same-named asset already
+exists; it never overwrites the CLI's generic `SHA256SUMS`. The aggregate
+desktop checksum is named
+`MUSUBICAD-DESKTOP-SHA256SUMS`.
+
+Linux packages are deliberately checksum-only in both trust scope and release
+metadata; MusubiCAD does not currently publish a Linux signing key or package
+signature. Verify `SHA256SUMS` through a trusted release channel before
+execution.
+
+Pull requests, including fork pull requests, never trigger the signed
+workflow, and the workflow exposes no reusable-workflow entry point. Missing
+Windows or Apple credentials fail closed rather than falling back to unsigned
+publication.
+
+### Protected environment configuration
+
+Create an Actions environment named `desktop-release` with required reviewers.
+Add these environment secrets:
+
+| Secret | Purpose |
+|---|---|
+| `WINDOWS_CERTIFICATE` | Base64 Authenticode `.pfx` |
+| `WINDOWS_CERTIFICATE_PASSWORD` | PFX export password |
+| `APPLE_CERTIFICATE` | Base64 Developer ID Application `.p12` |
+| `APPLE_CERTIFICATE_PASSWORD` | P12 export password |
+| `KEYCHAIN_PASSWORD` | Ephemeral macOS CI keychain password |
+| `APPLE_ID` | Apple notarization account |
+| `APPLE_PASSWORD` | Apple app-specific notarization password |
+| `APPLE_TEAM_ID` | Apple Developer Team ID |
+
+Add these non-secret environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `WINDOWS_SIGNING_THUMBPRINT` | Certificate selected by Authenticode |
+| `WINDOWS_TIMESTAMP_URL` | RFC 3161 timestamp service |
+| `APPLE_SIGNING_IDENTITY` | Optional exact `Developer ID Application: ...` identity |
+
+The platform preflight checks require all relevant values, so a missing
+credential stops the release before artifacts are published. The decision and
+limitations are recorded in
+[ADR-005](../adr/ADR-005-desktop-release-trust.md).
 
 ## Build locally
 

@@ -1,5 +1,10 @@
 name: Desktop
 
+# This workflow is intentionally unsigned. It is allowed to run for pull
+# requests and main, has read-only repository permissions, and only uploads
+# disposable CI artifacts. Credential-gated signing and release publication
+# live in desktop-signed-release.yml.
+
 on:
   workflow_dispatch:
   pull_request:

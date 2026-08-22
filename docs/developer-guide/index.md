@@ -55,6 +55,7 @@ cargo run -p opencad-cli -- animate examples/assembly_two_brackets.ocad.d showca
 See [ocad-format.md](../architecture/ocad-format.md) for the native file layout.
 See [releases.md](releases.md) for the multi-platform CLI release contract.
 See [desktop-releases.md](desktop-releases.md) for the Tauri installer/archive and checksum contract.
+See [ADR-005](../adr/ADR-005-desktop-release-trust.md) for the credential-gated desktop trust policy.
 
 ## Development workflow
 

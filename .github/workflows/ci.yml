@@ -11,6 +11,18 @@ env:
   WGPU_BACKEND: vulkan
 
 jobs:
+  desktop-release-policy:
+    name: desktop workflow contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install workflow parser
+        run: python -m pip install PyYAML==6.0.2
+
+      - name: Verify desktop workflow syntax and trust boundaries
+        run: python tools/test_desktop_release_policy.py
+
   rust:
     runs-on: ubuntu-latest
     steps:

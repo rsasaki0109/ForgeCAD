@@ -8,8 +8,10 @@ It builds and uploads unsigned, versioned installer/archive artifacts for Window
 x86-64, macOS Apple Silicon, and macOS Intel on pull requests, `main`, version tags, and manual
 dispatch. The exact artifact names, bundle formats, and checksum verification are documented in
 the [desktop distribution quick start](desktop-releases.md). Desktop artifacts are not published
-by the CLI `publish` job; signing, notarization, credential handling, and release publication
-remain the follow-up contract in `MCAD-P1-004`.
+by the CLI `publish` job. Credential-gated Windows Authenticode, macOS signing/notarization, and
+desktop release publication are isolated in the separate
+[`Desktop signed release` workflow](../../.github/workflows/desktop-signed-release.yml), with the
+current CI verification status tracked by `MCAD-P1-004`.
 
 ## Release contract
 
@@ -44,5 +46,6 @@ git push origin v0.1.0
 4. Verify the GitHub Release has four platform archives and `SHA256SUMS`.
 5. Download at least one archive, verify its checksum, and run the commands in `QUICKSTART.md`.
 
-The binaries are currently unsigned. Code signing, notarization, and desktop installers require a
-separate release task and credentials; the workflow must not pretend those guarantees exist.
+The CLI binaries remain unsigned. CLI signing is outside the desktop trust policy; the workflow
+must not imply that a CLI checksum is a publisher signature. Desktop trust scope and the required
+protected environment are documented in [desktop-releases.md](desktop-releases.md).

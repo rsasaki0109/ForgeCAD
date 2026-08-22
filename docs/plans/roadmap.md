@@ -79,7 +79,7 @@ workflow.
 | MCAD-P1-001 | Native build matrix | GitHub Actions builds for Windows x64, Linux x64, macOS arm64, and macOS x64 | In progress |
 | MCAD-P1-002 | Artifact contract | Versioned archives/installers, SHA-256 checksums, and quick-start instructions | In progress |
 | MCAD-P1-003 | Desktop smoke tests | Open sample, preview, parameter edit, regenerate, pick, and export checks | Complete |
-| MCAD-P1-004 | Trust and release policy | Explicit code-signing/notarization scope and credential-gated release steps | Planned |
+| MCAD-P1-004 | Trust and release policy | Explicit code-signing/notarization scope and credential-gated release steps | In progress |
 
 **Definition of done:** the shared `run_desktop_smoke` contract and integration
 test open `examples/bracket.ocad.d`, edit a parameter through the backend,
@@ -88,13 +88,23 @@ unchanged; the packaged Linux AppImage invokes the same contract headlessly.
 The CLI release contract remains green. Tagged native artifact confirmation is
 tracked separately by `MCAD-P1-001` and `MCAD-P1-002`.
 
-**Tests:** workflow validation; platform build matrix; install/open smoke tests;
-CLI/desktop command-parity tests; checksum verification. OCCT tests are marked
-integration tests where the kernel is required.
+**Tests:** `python tools/test_desktop_release_policy.py`; workflow validation;
+platform build matrix; install/open smoke tests; CLI/desktop command-parity
+tests; checksum verification. OCCT tests are marked integration tests where
+the kernel is required.
 
 **Known risks:** OCCT and MSVC ABI compatibility, Tauri system dependencies,
 wgpu adapter differences, platform signing credentials, and unsigned-artifact
 security warnings.
+
+MCAD-P1-004 keeps `desktop.yml` as an unsigned, `contents: read` CI contract
+and adds the separate `desktop-signed-release.yml` workflow. The signed path
+uses the protected `desktop-release` environment, validates a `v<version>` tag
+on `main`, fails closed when Windows or Apple credentials are missing, verifies
+Authenticode/codesign/notarization and checksums before publication, and marks
+Linux as checksum-only. End-to-end completion still requires a real tagged CI
+run with configured credentials; until that evidence exists this item remains
+**In progress**.
 
 ## Phase 2 — Sketch solver completion
 
