@@ -230,7 +230,7 @@ The canonical [development roadmap](docs/plans/roadmap.md) and
 capabilities from planned work. The next active priorities are:
 
 1. Downloadable desktop builds (Phase 1)
-2. Complete Parallel and Perpendicular sketch constraints (Phase 2)
+2. Complete solver diagnostics and sketch regression coverage (Phase 2)
 3. Unify backend transactions, DesignPatch, and undo/redo (Phase 3)
 
 Assembly and Drawing are implemented milestones; their remaining quality work is

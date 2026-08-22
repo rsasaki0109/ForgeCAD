@@ -1,5 +1,14 @@
 use crate::variables::{VarId, VarSet};
 
+/// Minimum line length accepted by normalized direction residuals, in meters.
+///
+/// Parallel and perpendicular residuals divide by the product of the two line
+/// lengths.  A line at or below this tolerance is therefore degenerate rather
+/// than a valid direction.  The sketch layer validates this condition before
+/// constructing a direction residual; the numeric residual also clamps the
+/// denominator so a directly-constructed equation cannot divide by zero.
+pub const DIRECTION_DEGENERACY_TOLERANCE_M: f64 = 1e-12;
+
 /// Single scalar residual equation.
 pub trait ResidualEquation: std::fmt::Debug + Send + Sync {
     fn involved_vars(&self) -> Vec<VarId>;
@@ -47,6 +56,36 @@ pub enum ConstraintResidual {
         x2: VarId,
         y2: VarId,
     },
+    /// Direction alignment of two line segments.
+    ///
+    /// The residual is the signed 2D cross product divided by the product of
+    /// the segment lengths.  It is dimensionless (`sin(angle)`), so its scale
+    /// does not depend on the units or absolute size of either line.
+    Parallel {
+        ax1: VarId,
+        ay1: VarId,
+        ax2: VarId,
+        ay2: VarId,
+        bx1: VarId,
+        by1: VarId,
+        bx2: VarId,
+        by2: VarId,
+    },
+    /// Orthogonality of two line segments.
+    ///
+    /// The residual is the 2D dot product divided by the product of the
+    /// segment lengths.  It is dimensionless (`cos(angle)`), so its scale does
+    /// not depend on the units or absolute size of either line.
+    Perpendicular {
+        ax1: VarId,
+        ay1: VarId,
+        ax2: VarId,
+        ay2: VarId,
+        bx1: VarId,
+        by1: VarId,
+        bx2: VarId,
+        by2: VarId,
+    },
     Distance {
         x1: VarId,
         y1: VarId,
@@ -90,6 +129,26 @@ impl ResidualEquation for ConstraintResidual {
             Self::Horizontal { x1, y1, x2, y2 } | Self::Vertical { x1, y1, x2, y2 } => {
                 vec![*x1, *y1, *x2, *y2]
             }
+            Self::Parallel {
+                ax1,
+                ay1,
+                ax2,
+                ay2,
+                bx1,
+                by1,
+                bx2,
+                by2,
+            }
+            | Self::Perpendicular {
+                ax1,
+                ay1,
+                ax2,
+                ay2,
+                bx1,
+                by1,
+                bx2,
+                by2,
+            } => vec![*ax1, *ay1, *ax2, *ay2, *bx1, *by1, *bx2, *by2],
             Self::Distance { x1, y1, x2, y2, .. } => vec![*x1, *y1, *x2, *y2],
             Self::Radius { radius, .. } => vec![*radius],
             Self::EqualLength { a, b } => {
@@ -108,6 +167,36 @@ impl ResidualEquation for ConstraintResidual {
             Self::CoincidentY { a, b } => vars.get(*a) - vars.get(*b),
             Self::Horizontal { y1, y2, .. } => vars.get(*y1) - vars.get(*y2),
             Self::Vertical { x1, x2, .. } => vars.get(*x1) - vars.get(*x2),
+            Self::Parallel {
+                ax1,
+                ay1,
+                ax2,
+                ay2,
+                bx1,
+                by1,
+                bx2,
+                by2,
+            } => normalized_direction_residual(
+                [*ax1, *ay1, *ax2, *ay2],
+                [*bx1, *by1, *bx2, *by2],
+                vars,
+                false,
+            ),
+            Self::Perpendicular {
+                ax1,
+                ay1,
+                ax2,
+                ay2,
+                bx1,
+                by1,
+                bx2,
+                by2,
+            } => normalized_direction_residual(
+                [*ax1, *ay1, *ax2, *ay2],
+                [*bx1, *by1, *bx2, *by2],
+                vars,
+                true,
+            ),
             Self::Distance {
                 x1,
                 y1,
@@ -125,6 +214,35 @@ impl ResidualEquation for ConstraintResidual {
             Self::FixedY { y, value } => vars.get(*y) - value,
         }
     }
+}
+
+/// Evaluate a normalized direction relation between two 2D line segments.
+///
+/// `perpendicular` selects the dot-product (`cos(angle)`) residual; otherwise
+/// the cross-product (`sin(angle)`) residual is returned.  The denominator is
+/// clamped only for direct numeric use with a degenerate line.  Sketch solving
+/// rejects such lines up front using [`DIRECTION_DEGENERACY_TOLERANCE_M`].
+fn normalized_direction_residual(
+    a: [VarId; 4],
+    b: [VarId; 4],
+    vars: &VarSet,
+    perpendicular: bool,
+) -> f64 {
+    let avx = vars.get(a[2]) - vars.get(a[0]);
+    let avy = vars.get(a[3]) - vars.get(a[1]);
+    let bvx = vars.get(b[2]) - vars.get(b[0]);
+    let bvy = vars.get(b[3]) - vars.get(b[1]);
+    let a_length = avx.hypot(avy);
+    let b_length = bvx.hypot(bvy);
+    let denominator = a_length.max(DIRECTION_DEGENERACY_TOLERANCE_M)
+        * b_length.max(DIRECTION_DEGENERACY_TOLERANCE_M);
+
+    let numerator = if perpendicular {
+        avx * bvx + avy * bvy
+    } else {
+        avx * bvy - avy * bvx
+    };
+    numerator / denominator
 }
 
 fn length_term_vars(term: LengthTerm) -> Vec<VarId> {
@@ -246,5 +364,83 @@ mod tests {
         };
         assert!(eq.residual(&vars).abs() < 1e-9);
         assert!(eq.residual(&vars).abs() > 1e-12);
+    }
+
+    #[test]
+    fn parallel_residual_is_zero_for_same_or_opposite_direction() {
+        let vars = VarSet::new(vec![
+            0.0, 0.0, 2.0, 0.0, // a: +x
+            4.0, 3.0, 1.0, 3.0, // b: -x
+        ]);
+        let eq = ConstraintResidual::Parallel {
+            ax1: VarId(0),
+            ay1: VarId(1),
+            ax2: VarId(2),
+            ay2: VarId(3),
+            bx1: VarId(4),
+            by1: VarId(5),
+            bx2: VarId(6),
+            by2: VarId(7),
+        };
+        assert!(eq.residual(&vars).abs() < 1e-12);
+    }
+
+    #[test]
+    fn perpendicular_residual_is_zero_for_orthogonal_lines() {
+        let vars = VarSet::new(vec![
+            0.0, 0.0, 2.0, 0.0, // a: +x
+            4.0, 3.0, 4.0, 8.0, // b: +y
+        ]);
+        let eq = ConstraintResidual::Perpendicular {
+            ax1: VarId(0),
+            ay1: VarId(1),
+            ax2: VarId(2),
+            ay2: VarId(3),
+            bx1: VarId(4),
+            by1: VarId(5),
+            bx2: VarId(6),
+            by2: VarId(7),
+        };
+        assert!(eq.residual(&vars).abs() < 1e-12);
+    }
+
+    #[test]
+    fn direction_residual_is_scale_aware() {
+        let unit = VarSet::new(vec![
+            0.0, 0.0, 1.0, 0.0, // a: +x
+            0.0, 0.0, 1.0, 1.0, // b: 45 degrees
+        ]);
+        let scaled = VarSet::new(vec![
+            0.0, 0.0, 1.0e-6, 0.0, // a scaled by 1e-6
+            0.0, 0.0, 1.0e6, 1.0e6, // b scaled by 1e6
+        ]);
+        let eq = ConstraintResidual::Parallel {
+            ax1: VarId(0),
+            ay1: VarId(1),
+            ax2: VarId(2),
+            ay2: VarId(3),
+            bx1: VarId(4),
+            by1: VarId(5),
+            bx2: VarId(6),
+            by2: VarId(7),
+        };
+        assert!((eq.residual(&unit) - eq.residual(&scaled)).abs() < 1e-12);
+        assert!((eq.residual(&unit) - (0.5_f64).sqrt()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn direction_residual_does_not_divide_by_zero_for_degenerate_input() {
+        let vars = VarSet::new(vec![0.0; 8]);
+        let eq = ConstraintResidual::Perpendicular {
+            ax1: VarId(0),
+            ay1: VarId(1),
+            ax2: VarId(2),
+            ay2: VarId(3),
+            bx1: VarId(4),
+            by1: VarId(5),
+            bx2: VarId(6),
+            by2: VarId(7),
+        };
+        assert!(eq.residual(&vars).is_finite());
     }
 }

@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 use opencad_core::{OpenCadError, Result};
 use opencad_solver::{
     point_x, point_y, radius_var, solve_with_diagnostics, ConstraintResidual, LengthTerm,
-    SolveStatus, SolverOptions, VarSet, VariableRegistry,
+    SolveStatus, SolverOptions, VarSet, VariableRegistry, DIRECTION_DEGENERACY_TOLERANCE_M,
 };
 
 use crate::constraint::{Constraint, DistanceTarget, EntityRef, EqualTarget, LineEnd};
@@ -56,6 +56,7 @@ pub fn solve_sketch(sketch: &mut Sketch, options: &SolverOptions) -> Result<Solv
 
     let vars = VarSet::new(values);
     let (output, status) = solve_with_diagnostics(&equations, vars, options);
+    validate_solved_direction_lines(sketch, &registry, &output.vars)?;
     apply_solution(sketch, &registry, &output.vars)?;
     sketch.solve_state = map_status(&status);
     Ok(status)
@@ -128,7 +129,14 @@ fn build_problem(sketch: &Sketch) -> Result<SketchProblem> {
 
     let mut equations = Vec::new();
     for constraint in &sketch.constraints {
-        build_constraint(constraint, &mut equations, &registry, &lines, sketch)?;
+        build_constraint(
+            constraint,
+            &mut equations,
+            &registry,
+            &lines,
+            &point_coords,
+            sketch,
+        )?;
     }
 
     Ok((equations, registry, point_coords))
@@ -181,6 +189,7 @@ fn build_constraint(
     equations: &mut Vec<ConstraintResidual>,
     registry: &VariableRegistry,
     lines: &IndexMap<String, &LineEntity>,
+    point_coords: &IndexMap<String, (f64, f64)>,
     sketch: &Sketch,
 ) -> Result<()> {
     match constraint {
@@ -281,7 +290,100 @@ fn build_constraint(
             let b = equal_target_length(b, registry, lines, sketch)?;
             equations.push(ConstraintResidual::EqualLength { a, b });
         }
-        Constraint::Parallel { .. } | Constraint::Perpendicular { .. } => {}
+        Constraint::Parallel { line_a, line_b, .. } => {
+            let a = line_endpoints(registry, lines, line_a.as_str())?;
+            let b = line_endpoints(registry, lines, line_b.as_str())?;
+            validate_direction_line(line_a.as_str(), lines, point_coords)?;
+            validate_direction_line(line_b.as_str(), lines, point_coords)?;
+            equations.push(ConstraintResidual::Parallel {
+                ax1: a.0,
+                ay1: a.1,
+                ax2: a.2,
+                ay2: a.3,
+                bx1: b.0,
+                by1: b.1,
+                bx2: b.2,
+                by2: b.3,
+            });
+        }
+        Constraint::Perpendicular { line_a, line_b, .. } => {
+            let a = line_endpoints(registry, lines, line_a.as_str())?;
+            let b = line_endpoints(registry, lines, line_b.as_str())?;
+            validate_direction_line(line_a.as_str(), lines, point_coords)?;
+            validate_direction_line(line_b.as_str(), lines, point_coords)?;
+            equations.push(ConstraintResidual::Perpendicular {
+                ax1: a.0,
+                ay1: a.1,
+                ax2: a.2,
+                ay2: a.3,
+                bx1: b.0,
+                by1: b.1,
+                bx2: b.2,
+                by2: b.3,
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Reject a line whose initial direction cannot be normalized reliably.
+///
+/// Direction residuals are dimensionless, but their normalization uses the
+/// product of both line lengths.  The line-length tolerance is expressed in
+/// internal SI meters and is intentionally shared with the numeric solver.
+fn validate_direction_line(
+    line_id: &str,
+    lines: &IndexMap<String, &LineEntity>,
+    point_coords: &IndexMap<String, (f64, f64)>,
+) -> Result<()> {
+    let line = lines
+        .get(line_id)
+        .ok_or_else(|| OpenCadError::not_found(format!("line '{line_id}'")))?;
+    let (start_x, start_y) = point_coords.get(line.start.as_str()).ok_or_else(|| {
+        OpenCadError::not_found(format!("line '{line_id}' start point '{}'", line.start))
+    })?;
+    let (end_x, end_y) = point_coords.get(line.end.as_str()).ok_or_else(|| {
+        OpenCadError::not_found(format!("line '{line_id}' end point '{}'", line.end))
+    })?;
+    let length = (end_x - start_x).hypot(end_y - start_y);
+    validate_direction_length(line_id, length)
+}
+
+fn validate_solved_direction_lines(
+    sketch: &Sketch,
+    registry: &VariableRegistry,
+    vars: &VarSet,
+) -> Result<()> {
+    for constraint in &sketch.constraints {
+        let (line_a, line_b) = match constraint {
+            Constraint::Parallel { line_a, line_b, .. }
+            | Constraint::Perpendicular { line_a, line_b, .. } => (line_a, line_b),
+            _ => continue,
+        };
+        for line_id in [line_a, line_b] {
+            let line = match sketch.find_entity(line_id.as_str()) {
+                Some(SketchEntity::Line(line)) => line,
+                _ => {
+                    return Err(OpenCadError::validation(format!(
+                        "direction constraint target '{}' must reference a line",
+                        line_id.as_str()
+                    )))
+                }
+            };
+            let (x1, y1) = point_xy(registry, line.start.as_str())?;
+            let (x2, y2) = point_xy(registry, line.end.as_str())?;
+            let length = (vars.get(x2) - vars.get(x1)).hypot(vars.get(y2) - vars.get(y1));
+            validate_direction_length(line_id.as_str(), length)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_direction_length(line_id: &str, length: f64) -> Result<()> {
+    if !length.is_finite() || length <= DIRECTION_DEGENERACY_TOLERANCE_M {
+        return Err(OpenCadError::validation(format!(
+            "direction constraint line '{line_id}' is zero-length or below the direction degeneracy tolerance ({DIRECTION_DEGENERACY_TOLERANCE_M:.1e} m); got {length:.6e} m"
+        )));
     }
     Ok(())
 }
@@ -450,7 +552,7 @@ fn apply_solution(sketch: &mut Sketch, registry: &VariableRegistry, vars: &VarSe
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constraint::{Constraint, DistanceTarget, EqualTarget};
+    use crate::constraint::{Constraint, DistanceTarget, EntityRef, EqualTarget};
     use crate::entity::{ArcEntity, CircleEntity, EntityBase, LineEntity, PointEntity};
     use crate::workplane::Workplane;
     use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
@@ -805,5 +907,197 @@ mod tests {
         assert!(error
             .to_string()
             .contains("equal radius target 'ent:missing'"));
+    }
+
+    #[test]
+    fn solves_parallel_direction_constraint() {
+        let mut sketch = two_line_sketch((0.5, 0.5));
+        add_direction_support_constraints(&mut sketch);
+        sketch
+            .add_constraint(Constraint::Parallel {
+                id: ConstraintId::new("con:parallel").expect("id"),
+                line_a: EntityId::new("ent:line_a").expect("id"),
+                line_b: EntityId::new("ent:line_b").expect("id"),
+            })
+            .expect("parallel");
+
+        let status = solve_sketch(&mut sketch, &SolverOptions::default()).expect("solve");
+        assert!(status.is_solved());
+        let [x, y] = point_coords(&sketch, "ent:p3");
+        assert!((x - 1.0).abs() < 1e-8);
+        assert!(y.abs() < 1e-8);
+    }
+
+    #[test]
+    fn solves_perpendicular_direction_constraint() {
+        let mut sketch = two_line_sketch((0.5, 0.5));
+        add_direction_support_constraints(&mut sketch);
+        sketch
+            .add_constraint(Constraint::Perpendicular {
+                id: ConstraintId::new("con:perpendicular").expect("id"),
+                line_a: EntityId::new("ent:line_a").expect("id"),
+                line_b: EntityId::new("ent:line_b").expect("id"),
+            })
+            .expect("perpendicular");
+
+        let status = solve_sketch(&mut sketch, &SolverOptions::default()).expect("solve");
+        assert!(status.is_solved());
+        let [x, y] = point_coords(&sketch, "ent:p3");
+        assert!(x.abs() < 1e-8);
+        assert!((y - 1.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn rejects_direction_constraint_for_line_below_degeneracy_tolerance() {
+        let mut sketch = two_line_sketch((0.5, 0.5));
+        if let Some(SketchEntity::Point(point)) = sketch
+            .entities
+            .iter_mut()
+            .find(|entity| entity.id().as_str() == "ent:p1")
+        {
+            point.x = Coord::literal(DIRECTION_DEGENERACY_TOLERANCE_M * 0.5);
+        }
+        sketch
+            .add_constraint(Constraint::Parallel {
+                id: ConstraintId::new("con:parallel_degenerate").expect("id"),
+                line_a: EntityId::new("ent:line_a").expect("id"),
+                line_b: EntityId::new("ent:line_b").expect("id"),
+            })
+            .expect("parallel");
+
+        let error = solve_sketch(&mut sketch, &SolverOptions::default()).expect_err("validation");
+        assert!(error.to_string().contains("zero-length"));
+        assert!(error.to_string().contains("1.0e-12 m"));
+    }
+
+    #[test]
+    fn accepts_direction_line_above_degeneracy_tolerance() {
+        let mut sketch = two_line_sketch((0.5, 0.5));
+        if let Some(SketchEntity::Point(point)) = sketch
+            .entities
+            .iter_mut()
+            .find(|entity| entity.id().as_str() == "ent:p1")
+        {
+            point.x = Coord::literal(DIRECTION_DEGENERACY_TOLERANCE_M * 2.0);
+        }
+        sketch
+            .add_constraint(Constraint::Parallel {
+                id: ConstraintId::new("con:parallel_small").expect("id"),
+                line_a: EntityId::new("ent:line_a").expect("id"),
+                line_b: EntityId::new("ent:line_b").expect("id"),
+            })
+            .expect("parallel");
+
+        assert!(solve_sketch(&mut sketch, &SolverOptions::default()).is_ok());
+    }
+
+    #[test]
+    fn rejects_a_direction_line_that_collapses_during_solving() {
+        let mut sketch = two_line_sketch((0.5, 0.5));
+        sketch
+            .add_constraint(Constraint::Parallel {
+                id: ConstraintId::new("con:parallel_collapse").expect("id"),
+                line_a: EntityId::new("ent:line_a").expect("id"),
+                line_b: EntityId::new("ent:line_b").expect("id"),
+            })
+            .expect("parallel");
+        let (_, registry, _) = build_problem(&sketch).expect("valid initial problem");
+        let mut vars = VarSet::new(registry.initial_values());
+        let p0x = registry.get("ent:p0.x").expect("p0 x");
+        let p0y = registry.get("ent:p0.y").expect("p0 y");
+        let p1x = registry.get("ent:p1.x").expect("p1 x");
+        let p1y = registry.get("ent:p1.y").expect("p1 y");
+        vars.set(p1x, vars.get(p0x));
+        vars.set(p1y, vars.get(p0y));
+
+        let error = validate_solved_direction_lines(&sketch, &registry, &vars)
+            .expect_err("collapsed line must be rejected");
+        assert!(error
+            .to_string()
+            .contains("direction constraint line 'ent:line_a'"));
+    }
+
+    fn two_line_sketch(line_b_end: (f64, f64)) -> Sketch {
+        let mut sketch = Sketch::new(
+            SketchId::new("sketch:directions").expect("id"),
+            "Direction constraints",
+            Workplane::xy(),
+        );
+        for (id, x, y) in [
+            ("ent:p0", 0.0, 0.0),
+            ("ent:p1", 1.0, 0.0),
+            ("ent:p2", 0.0, 0.0),
+            ("ent:p3", line_b_end.0, line_b_end.1),
+        ] {
+            sketch
+                .add_entity(SketchEntity::Point(PointEntity {
+                    base: EntityBase {
+                        id: EntityId::new(id).expect("id"),
+                        construction: false,
+                    },
+                    x: Coord::literal(x),
+                    y: Coord::literal(y),
+                }))
+                .expect("point");
+        }
+        for (id, start, end) in [
+            ("ent:line_a", "ent:p0", "ent:p1"),
+            ("ent:line_b", "ent:p2", "ent:p3"),
+        ] {
+            sketch
+                .add_entity(SketchEntity::Line(LineEntity {
+                    base: EntityBase {
+                        id: EntityId::new(id).expect("id"),
+                        construction: false,
+                    },
+                    start: EntityId::new(start).expect("id"),
+                    end: EntityId::new(end).expect("id"),
+                }))
+                .expect("line");
+        }
+        sketch
+    }
+
+    fn add_direction_support_constraints(sketch: &mut Sketch) {
+        sketch
+            .add_constraint(Constraint::Coincident {
+                id: ConstraintId::new("con:coincident").expect("id"),
+                a: EntityRef::Entity(EntityId::new("ent:p0").expect("id")),
+                b: EntityRef::Entity(EntityId::new("ent:p2").expect("id")),
+            })
+            .expect("coincident");
+        sketch
+            .add_constraint(Constraint::Horizontal {
+                id: ConstraintId::new("con:horizontal").expect("id"),
+                line: EntityId::new("ent:line_a").expect("id"),
+            })
+            .expect("horizontal");
+        for (id, line) in [
+            ("con:length_a", "ent:line_a"),
+            ("con:length_b", "ent:line_b"),
+        ] {
+            sketch
+                .add_constraint(Constraint::Distance {
+                    id: ConstraintId::new(id).expect("id"),
+                    target: DistanceTarget::LineLength {
+                        line: EntityId::new(line).expect("id"),
+                    },
+                    expr: Expression::new("1 m").expect("expression"),
+                })
+                .expect("distance");
+        }
+    }
+
+    fn point_coords(sketch: &Sketch, id: &str) -> [f64; 2] {
+        let SketchEntity::Point(point) = sketch.find_entity(id).expect("point") else {
+            panic!("expected point")
+        };
+        let Coord::Literal(x) = point.x else {
+            panic!("expected literal x")
+        };
+        let Coord::Literal(y) = point.y else {
+            panic!("expected literal y")
+        };
+        [x, y]
     }
 }

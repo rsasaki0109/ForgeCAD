@@ -116,7 +116,7 @@ serializable sketch model and make solve diagnostics trustworthy.
 | ID | Scope | Deliverables | Status |
 |---|---|---|---|
 | MCAD-P2-001 | Equal constraint | Line-length and radius residuals, validation, and unit-aware tests | Complete |
-| MCAD-P2-002 | Parallel and perpendicular | Direction residuals with degeneracy handling and tolerance tests | Planned |
+| MCAD-P2-002 | Parallel and perpendicular | Direction residuals with degeneracy handling and tolerance tests | Complete |
 | MCAD-P2-003 | Solver diagnostics | DOF, redundancy, over-constraint, and non-convergence messages tied to explicit tolerances | Planned |
 | MCAD-P2-004 | Sketch regression coverage | Deterministic fixtures and examples for supported constraint combinations | Planned |
 

@@ -27,6 +27,6 @@ pub use jacobian::{finite_difference_jacobian, finite_difference_jacobian_generi
 pub use numeric::{gauss_newton_solve, gauss_newton_solve_generic, SolveOutput, SolverOptions};
 pub use residual::{
     evaluate_residuals, evaluate_residuals_generic, ConstraintResidual, LengthTerm,
-    ResidualEquation,
+    ResidualEquation, DIRECTION_DEGENERACY_TOLERANCE_M,
 };
 pub use variables::{point_x, point_y, radius_var, VarId, VarSet, VariableRegistry};

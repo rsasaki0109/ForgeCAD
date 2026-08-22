@@ -16,6 +16,8 @@ MusubiCAD uses a numeric 2D geometric constraint solver in `opencad-solver`.
 | Coincident | `xa - xb`, `ya - yb` |
 | Horizontal | `y1 - y2` |
 | Vertical | `x1 - x2` |
+| Parallel | `cross(da, db) / (‖da‖‖db‖)` (`sin(angle)`, dimensionless) |
+| Perpendicular | `dot(da, db) / (‖da‖‖db‖)` (`cos(angle)`, dimensionless) |
 | Distance | `‖p2 - p1‖ - target` |
 | Radius / Diameter | `r - target` (diameter uses `target/2`) |
 | Equal | `length(a) - length(b)` for line lengths and circle/arc radii |
@@ -27,6 +29,11 @@ MusubiCAD uses a numeric 2D geometric constraint solver in `opencad-solver`.
 - Expression parser accepts `mm`, `cm`, `m`, `in`, or bare numbers (interpreted as meters).
 - Equal line-length and radius targets are all compared in internal meters; mixed
   line/radius targets are valid because both target kinds represent lengths.
+- Parallel and perpendicular directions normalize the 2D cross or dot product by
+  both line lengths.  Their residuals are dimensionless and therefore remain
+  comparable when line lengths differ by scale.  A line at or below
+  `1e-12 m` is degenerate for direction constraints and is rejected before
+  solving and again before solved coordinates are committed to the sketch.
 
 ## DOF diagnostics
 
@@ -49,10 +56,10 @@ dof = n_variables - rank(J)
 | FD step | `1e-8` |
 | Damping λ | `1e-4` (adaptive) |
 | Rank tolerance | `1e-6` |
+| Direction degeneracy | `1e-12 m` |
 
 ## Limitations (MVP)
 
-- No parallel / perpendicular sketch constraints yet.
 - Rectangle must be expanded to points + lines before solving.
 - No drag solving or redundancy decomposition (Phase 2).
 
