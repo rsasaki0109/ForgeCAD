@@ -1,7 +1,8 @@
 use crate::residual::{ConstraintResidual, ResidualEquation};
 use crate::variables::{VarId, VarSet};
 
-const FD_STEP: f64 = 1e-8;
+/// Central finite-difference step in internal SI variable units.
+pub const FINITE_DIFFERENCE_STEP: f64 = 1e-8;
 
 /// Dense Jacobian matrix: rows = equations, cols = variables.
 #[derive(Debug, Clone, PartialEq)]
@@ -52,11 +53,15 @@ pub fn finite_difference_jacobian_generic<E: ResidualEquation>(
             }
             let mut v_plus = vars.clone();
             let mut v_minus = vars.clone();
-            v_plus.set(var_id, vars.get(var_id) + FD_STEP);
-            v_minus.set(var_id, vars.get(var_id) - FD_STEP);
+            v_plus.set(var_id, vars.get(var_id) + FINITE_DIFFERENCE_STEP);
+            v_minus.set(var_id, vars.get(var_id) - FINITE_DIFFERENCE_STEP);
             let r_plus = eq.residual(&v_plus);
             let r_minus = eq.residual(&v_minus);
-            jac.set(row, var_idx, (r_plus - r_minus) / (2.0 * FD_STEP));
+            jac.set(
+                row,
+                var_idx,
+                (r_plus - r_minus) / (2.0 * FINITE_DIFFERENCE_STEP),
+            );
         }
     }
 

@@ -1,8 +1,14 @@
-use crate::jacobian::finite_difference_jacobian_generic;
+use crate::jacobian::{finite_difference_jacobian_generic, Jacobian};
 use crate::residual::{ConstraintResidual, ResidualEquation};
 use crate::variables::VarSet;
 
-const RANK_TOL: f64 = 1e-6;
+/// Relative tolerance used when estimating the numeric rank of a Jacobian.
+///
+/// Rows are normalized before elimination, so this is dimensionless and does
+/// not depend on whether a residual is expressed in meters or as a direction
+/// cosine.  The value is intentionally shared by DOF and redundancy
+/// diagnostics so repeated runs make the same classification.
+pub const RANK_TOLERANCE: f64 = 1e-6;
 
 /// Estimate remaining degrees of freedom.
 ///
@@ -18,11 +24,37 @@ pub fn estimate_dof_generic<E: ResidualEquation>(equations: &[E], vars: &VarSet)
         return 0;
     }
     let jac = finite_difference_jacobian_generic(equations, vars);
-    let rank = matrix_rank(&jac);
+    let rank = rank_of_jacobian(&jac);
     (n_vars as i32) - (rank as i32)
 }
 
-fn matrix_rank(jacobian: &crate::jacobian::Jacobian) -> usize {
+/// Estimate the rank of a residual Jacobian at the supplied variable values.
+pub fn estimate_rank<E: ResidualEquation>(equations: &[E], vars: &VarSet) -> usize {
+    let jacobian = finite_difference_jacobian_generic(equations, vars);
+    rank_of_jacobian(&jacobian)
+}
+
+/// Count equations which do not add an independent Jacobian row.
+///
+/// This is the rank-based redundancy count used by solver diagnostics.  It is
+/// deliberately separate from [`crate::diagnostics::count_redundant_equations`],
+/// whose one-argument API is retained as a legacy duplicate-equation helper.
+pub fn count_redundant_equations_generic<E: ResidualEquation>(
+    equations: &[E],
+    vars: &VarSet,
+) -> usize {
+    equations
+        .len()
+        .saturating_sub(estimate_rank(equations, vars))
+}
+
+/// Rank-based redundancy count for built-in residual equations.
+pub fn count_redundant_equations_at(equations: &[ConstraintResidual], vars: &VarSet) -> usize {
+    count_redundant_equations_generic(equations, vars)
+}
+
+/// Compute numeric rank using deterministic, row-normalized elimination.
+pub fn rank_of_jacobian(jacobian: &Jacobian) -> usize {
     let rows = jacobian.rows;
     let cols = jacobian.cols;
     if rows == 0 || cols == 0 {
@@ -30,6 +62,30 @@ fn matrix_rank(jacobian: &crate::jacobian::Jacobian) -> usize {
     }
 
     let mut a = jacobian.data.clone();
+
+    // Normalize each equation independently.  Constraint residuals can mix
+    // dimensional and dimensionless quantities, and a global absolute scale
+    // would otherwise make rank depend on the selected unit system.
+    for row in 0..rows {
+        let row_start = row * cols;
+        let row_end = row_start + cols;
+        let scale = a[row_start..row_end].iter().fold(0.0_f64, |scale, value| {
+            if value.is_finite() {
+                scale.max(value.abs())
+            } else {
+                f64::INFINITY
+            }
+        });
+        if !scale.is_finite() {
+            return 0;
+        }
+        if scale > 0.0 {
+            for value in &mut a[row_start..row_end] {
+                *value /= scale;
+            }
+        }
+    }
+
     let mut rank = 0_usize;
     let row_limit = rows.min(cols);
 
@@ -48,7 +104,7 @@ fn matrix_rank(jacobian: &crate::jacobian::Jacobian) -> usize {
             }
         }
 
-        if max_val < RANK_TOL {
+        if max_val <= RANK_TOLERANCE {
             continue;
         }
 
@@ -61,7 +117,7 @@ fn matrix_rank(jacobian: &crate::jacobian::Jacobian) -> usize {
         let pivot = a[rank * cols + col];
         for row in (rank + 1)..rows {
             let factor = a[row * cols + col] / pivot;
-            if factor.abs() < RANK_TOL {
+            if factor.abs() <= RANK_TOLERANCE {
                 continue;
             }
             for c in col..cols {

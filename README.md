@@ -230,15 +230,16 @@ The canonical [development roadmap](docs/plans/roadmap.md) and
 capabilities from planned work. The next active priorities are:
 
 1. Downloadable desktop builds (Phase 1)
-2. Complete solver diagnostics and sketch regression coverage (Phase 2)
+2. Sketch regression coverage (Phase 2; solver diagnostics are complete)
 3. Unify backend transactions, DesignPatch, and undo/redo (Phase 3)
 
 Assembly and Drawing are implemented milestones; their remaining quality work is
 tracked in Phase 5. The Plugin API is currently a reserved stub and is planned for
 Phase 4.
 
-Recently delivered: GitHub-native review summaries, reproducible README demos, and a zero-build
-60-second tour.
+Recently delivered: deterministic solver diagnostics (DOF, rank-based redundancy,
+contradiction, and non-convergence reporting), GitHub-native review summaries,
+reproducible README demos, and a zero-build 60-second tour.
 
 ## Contributing
 

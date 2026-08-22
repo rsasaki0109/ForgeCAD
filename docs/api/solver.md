@@ -37,3 +37,54 @@ reports a missing entity as an error before solving.
 The numeric engine represents these terms with
 `ConstraintResidual::EqualLength` and `LengthTerm`; the latter is an internal
 solver API and is not serialized into `.ocad` documents.
+
+## Solver diagnostics
+
+`solve_with_diagnostics` returns the existing `SolveOutput` together with a
+deterministic `SolveStatus`:
+
+- `Solved` means the final maximum residual is at or below
+  `SolverOptions::tolerance` and the Jacobian has zero remaining DOF and no
+  redundant rows.
+- `UnderConstrained { dof, .. }` means the Jacobian rank leaves `dof` free
+  variables.  This status is also returned for a converged system with no
+  equations.
+- `OverConstrained { redundant, .. }` means the residual converged, there are
+  no remaining DOF, and `equation_count - rank(J)` rows are redundant.
+  Redundancy is rank-based, rather than inferred from the equation/variable
+  count.  A converged system can have both free DOF and redundant rows; in
+  that case the status remains `UnderConstrained`, while
+  `count_redundant_equations_generic` reports the redundant-row count.
+- `Contradictory { redundant, message, .. }` means the residual is outside the
+  contradiction threshold and `rank([J | residual]) > rank(J)`, so an
+  over-constraining row conflicts with the independent rows.
+- `NonConvergent { dof, message, .. }` means the iteration budget ended (or a
+  non-finite residual was encountered) without convergence or a proven
+  contradiction.  The former `Failed` variant remains available for source
+  compatibility but is no longer emitted by the diagnostic solver.
+
+The shared rank tolerance is
+`opencad_solver::RANK_TOLERANCE` (`1e-6`, dimensionless).  The contradiction
+threshold is `SolverOptions::tolerance` multiplied by
+`opencad_solver::CONTRADICTION_ERROR_MULTIPLIER` (`10`).  Numeric convergence
+uses `SolverOptions::tolerance` with an inclusive `<=` comparison, and the
+returned `SolveOutput::max_error` is always recomputed for the returned
+variables.  The finite-difference step and normal-equation pivot tolerance are
+also named public constants: `FINITE_DIFFERENCE_STEP` (`1e-8`) and
+`NORMAL_EQUATION_PIVOT_TOLERANCE` (`1e-14`).
+
+A zero-rank Jacobian is reported as non-convergent rather than contradictory:
+a singular nonlinear linearization cannot by itself prove that no solution
+exists.
+
+For generic residual equations, use
+`estimate_rank`, `estimate_dof_generic`, or
+`count_redundant_equations_generic(equations, &vars)` to inspect the same rank
+calculation used by diagnostics.  The one-argument
+`count_redundant_equations` helper is retained as a legacy duplicate-equation
+check; it does not replace the rank-based count.
+
+Sketch and assembly consumers do not commit the numeric trial variables for
+`Contradictory`, `NonConvergent`, or legacy `Failed` results. Sketches retain
+their prior coordinates and store the diagnostic message in `SolveState`;
+assemblies return a validation error containing that message.

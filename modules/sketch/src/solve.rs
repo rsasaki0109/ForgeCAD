@@ -56,8 +56,15 @@ pub fn solve_sketch(sketch: &mut Sketch, options: &SolverOptions) -> Result<Solv
 
     let vars = VarSet::new(values);
     let (output, status) = solve_with_diagnostics(&equations, vars, options);
-    validate_solved_direction_lines(sketch, &registry, &output.vars)?;
-    apply_solution(sketch, &registry, &output.vars)?;
+    if matches!(
+        status,
+        SolveStatus::Solved { .. }
+            | SolveStatus::UnderConstrained { .. }
+            | SolveStatus::OverConstrained { .. }
+    ) {
+        validate_solved_direction_lines(sketch, &registry, &output.vars)?;
+        apply_solution(sketch, &registry, &output.vars)?;
+    }
     sketch.solve_state = map_status(&status);
     Ok(status)
 }
@@ -87,6 +94,12 @@ fn map_status(status: &SolveStatus) -> SolveState {
         SolveStatus::UnderConstrained { dof, .. } => SolveState::UnderConstrained { dof: *dof },
         SolveStatus::OverConstrained { redundant, .. } => SolveState::OverConstrained {
             redundant: *redundant,
+        },
+        SolveStatus::Contradictory { message, .. } => SolveState::Failed {
+            message: message.clone(),
+        },
+        SolveStatus::NonConvergent { message, .. } => SolveState::Failed {
+            message: message.clone(),
         },
         SolveStatus::Failed { message, .. } => SolveState::Failed {
             message: message.clone(),
@@ -668,6 +681,28 @@ mod tests {
             _ => panic!("expected literal"),
         };
         assert!((x - 0.08).abs() < 1e-4);
+    }
+
+    #[test]
+    fn failed_solve_does_not_commit_trial_coordinates() {
+        let mut sketch = rectangle_sketch();
+        let before = point_coords(&sketch, "ent:c1");
+        let options = SolverOptions {
+            max_iterations: 0,
+            ..SolverOptions::default()
+        };
+
+        let status = solve_sketch(&mut sketch, &options).expect("diagnostic result");
+        assert!(matches!(
+            status,
+            SolveStatus::Contradictory { .. }
+                | SolveStatus::NonConvergent { .. }
+                | SolveStatus::Failed { .. }
+        ));
+        let after = point_coords(&sketch, "ent:c1");
+        assert!((after[0] - before[0]).abs() < 1e-12);
+        assert!((after[1] - before[1]).abs() < 1e-12);
+        assert!(matches!(sketch.solve_state, SolveState::Failed { .. }));
     }
 
     #[test]

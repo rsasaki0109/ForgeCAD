@@ -71,10 +71,12 @@ pub fn solve_assembly_mates(model: &AssemblyModel) -> Result<(Vec<Instance>, Ass
         solve_with_diagnostics_generic(&equations, vars, &SolverOptions::default());
     let dof = opencad_solver::estimate_dof_generic(&equations, &output.vars);
 
-    if matches!(status, SolveStatus::Failed { .. }) {
+    if let SolveStatus::Failed { message, .. }
+    | SolveStatus::Contradictory { message, .. }
+    | SolveStatus::NonConvergent { message, .. } = &status
+    {
         return Err(OpenCadError::validation(format!(
-            "assembly mate solver failed: max_error={}",
-            output.max_error
+            "assembly mate solver failed: {message}"
         )));
     }
 
@@ -90,6 +92,16 @@ pub fn solve_assembly_mates(model: &AssemblyModel) -> Result<(Vec<Instance>, Ass
             ..
         }
         | SolveStatus::OverConstrained {
+            iterations,
+            max_error,
+            ..
+        }
+        | SolveStatus::Contradictory {
+            iterations,
+            max_error,
+            ..
+        }
+        | SolveStatus::NonConvergent {
             iterations,
             max_error,
             ..

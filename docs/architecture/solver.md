@@ -5,9 +5,11 @@ MusubiCAD uses a numeric 2D geometric constraint solver in `opencad-solver`.
 ## Algorithm
 
 1. Build residual equations from sketch constraints.
-2. Compute Jacobian by central finite differences (`step = 1e-8`).
+2. Compute Jacobian by central finite differences (`FINITE_DIFFERENCE_STEP = 1e-8`).
 3. Iterate Gauss-Newton with Levenberg-Marquardt-style damping on `J^T J`.
-4. Stop when `max(|residual|) < 1e-9` or `50` iterations.
+4. Stop when `max(|residual|) <= SolverOptions::tolerance` (`1e-9` by
+   default) or `DEFAULT_MAX_ITERATIONS` (`50`) iterations.  The final error is
+   evaluated again at the returned variables, including after the last trial.
 
 ## Supported constraints (MVP)
 
@@ -41,27 +43,45 @@ MusubiCAD uses a numeric 2D geometric constraint solver in `opencad-solver`.
 dof = n_variables - rank(J)
 ```
 
+`rank(J)` uses deterministic row-normalized elimination with the shared
+`RANK_TOLERANCE` (`1e-6`) threshold.  Redundant equations are counted as
+`equation_count - rank(J)`, not as `equation_count - variable_count` and not
+only by comparing duplicate equation values.  A non-converged system is
+checked with the augmented rank test `rank([J | residual]) > rank(J)`; when it
+passes and the error exceeds `tolerance * CONTRADICTION_ERROR_MULTIPLIER`
+(`10`), the diagnostics report a contradictory over-constraint.  Otherwise
+the result is explicitly non-convergent.  A zero-rank Jacobian is always kept
+in the non-convergent category because a singular nonlinear linearization does
+not prove global inconsistency.
+
 | Status | Meaning |
 |---|---|
 | `Solved` | Converged, `dof <= 0` |
-| `UnderConstrained` | Converged or not, `dof > 0` |
-| `OverConstrained` | More equations than variables, possible redundancy |
-| `Failed` | Did not converge |
+| `UnderConstrained` | Converged with `dof > 0` |
+| `OverConstrained` | Converged with zero DOF and one or more rank-redundant equations |
+| `Contradictory` | Over-constraining residual is outside tolerance and the augmented rank is larger |
+| `NonConvergent` | Did not converge and no contradiction was proven |
+| `Failed` | Legacy compatibility variant; new diagnostics do not emit it |
 
 ## Tolerances
 
 | Parameter | Default |
 |---|---|
-| Residual tolerance | `1e-9` |
-| FD step | `1e-8` |
-| Damping λ | `1e-4` (adaptive) |
-| Rank tolerance | `1e-6` |
+| Residual tolerance | `SolverOptions::tolerance` (`1e-9`) |
+| Max iterations | `SolverOptions::max_iterations` (`50`) |
+| FD step | `FINITE_DIFFERENCE_STEP` (`1e-8`) |
+| Damping λ | `SolverOptions::damping` (`1e-4`, adaptive) |
+| Damping growth | `SolverOptions::damping_growth` (`10`) |
+| Max damping | `SolverOptions::max_damping` (`1e6`) |
+| Normal-equation pivot | `NORMAL_EQUATION_PIVOT_TOLERANCE` (`1e-14`) |
+| Rank tolerance | `RANK_TOLERANCE` (`1e-6`) |
+| Contradiction multiplier | `CONTRADICTION_ERROR_MULTIPLIER` (`10`) |
 | Direction degeneracy | `1e-12 m` |
 
 ## Limitations (MVP)
 
 - Rectangle must be expanded to points + lines before solving.
-- No drag solving or redundancy decomposition (Phase 2).
+- No drag solving or redundancy decomposition (future solver work).
 
 ## Crate boundaries
 

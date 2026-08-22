@@ -2,6 +2,19 @@ use crate::jacobian::{finite_difference_jacobian_generic, Jacobian};
 use crate::residual::{evaluate_residuals_generic, ConstraintResidual, ResidualEquation};
 use crate::variables::VarSet;
 
+/// Default maximum number of Gauss-Newton iterations.
+pub const DEFAULT_MAX_ITERATIONS: usize = 50;
+/// Default residual convergence tolerance (in SI units for dimensional terms).
+pub const DEFAULT_RESIDUAL_TOLERANCE: f64 = 1e-9;
+/// Default damping seed for the normal-equation solve.
+pub const DEFAULT_DAMPING: f64 = 1e-4;
+/// Default factor used when reducing/increasing the damping value.
+pub const DEFAULT_DAMPING_GROWTH: f64 = 10.0;
+/// Default upper bound for the adaptive damping value.
+pub const DEFAULT_MAX_DAMPING: f64 = 1e6;
+/// Pivot tolerance used when factoring the damped normal equations.
+pub const NORMAL_EQUATION_PIVOT_TOLERANCE: f64 = 1e-14;
+
 /// Solver configuration.
 #[derive(Debug, Clone)]
 pub struct SolverOptions {
@@ -15,11 +28,11 @@ pub struct SolverOptions {
 impl Default for SolverOptions {
     fn default() -> Self {
         Self {
-            max_iterations: 50,
-            tolerance: 1e-9,
-            damping: 1e-4,
-            damping_growth: 10.0,
-            max_damping: 1e6,
+            max_iterations: DEFAULT_MAX_ITERATIONS,
+            tolerance: DEFAULT_RESIDUAL_TOLERANCE,
+            damping: DEFAULT_DAMPING,
+            damping_growth: DEFAULT_DAMPING_GROWTH,
+            max_damping: DEFAULT_MAX_DAMPING,
         }
     }
 }
@@ -50,13 +63,25 @@ pub fn gauss_newton_solve_generic<E: ResidualEquation>(
 ) -> SolveOutput {
     let mut lambda = options.damping;
     let mut iterations = 0_usize;
-    let mut max_error = f64::INFINITY;
+    let mut max_error = residual_max_error(&evaluate_residuals_generic(equations, &vars));
+
+    // Check the initial values even when max_iterations is zero.  This keeps
+    // the output self-consistent and makes a zero-iteration solve useful for
+    // callers that only want to validate an already-solved state.
+    if max_error <= options.tolerance {
+        return SolveOutput {
+            vars,
+            iterations,
+            max_error,
+            converged: true,
+        };
+    }
 
     while iterations < options.max_iterations {
         let residuals = evaluate_residuals_generic(equations, &vars);
-        max_error = residuals.iter().map(|r| r.abs()).fold(0.0, f64::max);
+        max_error = residual_max_error(&residuals);
 
-        if max_error < options.tolerance {
+        if max_error <= options.tolerance {
             return SolveOutput {
                 vars,
                 iterations,
@@ -76,27 +101,53 @@ pub fn gauss_newton_solve_generic<E: ResidualEquation>(
             trial.set(crate::variables::VarId(i as u32), vars.values()[i] - delta);
         }
 
-        let trial_error = evaluate_residuals_generic(equations, &trial)
-            .iter()
-            .map(|r| r.abs())
-            .fold(0.0, f64::max);
+        let trial_residuals = evaluate_residuals_generic(equations, &trial);
+        let trial_error = residual_max_error(&trial_residuals);
 
         if trial_error < max_error {
             vars = trial;
             lambda = (lambda / options.damping_growth).max(options.damping);
+            iterations += 1;
+            max_error = trial_error;
+            if max_error <= options.tolerance {
+                return SolveOutput {
+                    vars,
+                    iterations,
+                    max_error,
+                    converged: true,
+                };
+            }
         } else {
             lambda = (lambda * options.damping_growth).min(options.max_damping);
+            iterations += 1;
         }
-
-        iterations += 1;
     }
 
+    // The loop's `max_error` describes the point at the beginning of the last
+    // iteration.  Re-evaluate after the final accepted trial so the reported
+    // error and convergence flag always refer to the returned variables.
+    max_error = residual_max_error(&evaluate_residuals_generic(equations, &vars));
     SolveOutput {
         vars,
         iterations,
         max_error,
-        converged: max_error < options.tolerance,
+        converged: max_error <= options.tolerance,
     }
+}
+
+/// Return the largest finite residual magnitude.
+///
+/// A non-finite residual is a failed numeric evaluation, not a zero residual.
+/// Representing it as infinity keeps the public `SolveOutput` shape stable and
+/// prevents NaN from accidentally satisfying the convergence check.
+fn residual_max_error(residuals: &[f64]) -> f64 {
+    residuals.iter().fold(0.0, |max_error, residual| {
+        if residual.is_finite() {
+            max_error.max(residual.abs())
+        } else {
+            f64::INFINITY
+        }
+    })
 }
 
 /// Solve `(J^T J + lambda I) delta = J^T r` for the update `delta`.
@@ -142,7 +193,7 @@ fn solve_symmetric_positive_definite(a: &[f64], b: &[f64], n: usize) -> Option<V
                 sum -= l[i * n + k] * l[j * n + k];
             }
             if i == j {
-                if sum <= 1e-14 {
+                if sum <= NORMAL_EQUATION_PIVOT_TOLERANCE {
                     return None;
                 }
                 l[i * n + j] = sum.sqrt();
@@ -236,5 +287,23 @@ mod tests {
         assert!(out.converged, "max_error={}", out.max_error);
         assert!((out.vars.get(VarId(2)) - 80.0).abs() < 1e-4);
         assert!((out.vars.get(VarId(7)) - 60.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn final_trial_error_controls_convergence_flag() {
+        let eqs = vec![ConstraintResidual::FixedX {
+            x: VarId(0),
+            value: 1.0,
+        }];
+        let vars = VarSet::new(vec![0.0]);
+        let options = SolverOptions {
+            max_iterations: 1,
+            tolerance: 1e-3,
+            ..SolverOptions::default()
+        };
+        let out = gauss_newton_solve(&eqs, vars, &options);
+        assert!(out.converged);
+        assert!(out.max_error <= options.tolerance);
+        assert!((out.max_error - (1e-4 / 1.0001)).abs() < 1e-8);
     }
 }
