@@ -6,6 +6,11 @@ use opencad_geometry::{assign_named_face_ref, TopoRef};
 use opencad_graph::ParamGraph;
 use serde::{Deserialize, Serialize};
 
+use crate::state::{
+    design_state_revision, DesignState, DESIGN_STATE_REVISION_ALGORITHM,
+    DESIGN_STATE_REVISION_VERSION,
+};
+
 /// Supported feature expression fields for patch operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -125,12 +130,32 @@ pub enum PatchOperation {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum PatchPrecondition {
+    /// Require the complete patchable DesignState to have the given canonical
+    /// revision.  The algorithm and representation version are explicit so a
+    /// future canonicalization change cannot silently accept an old digest.
+    RevisionEquals {
+        algorithm: String,
+        version: String,
+        digest: String,
+    },
     /// Require a parameter to exist with the exact source expression.
     ParameterExprEquals { id: String, expr: String },
     /// Require a feature node to exist.
     FeatureExists { id: String },
     /// Require a semantic topology reference to exist.
     TopoRefExists { ref_id: String },
+}
+
+impl PatchPrecondition {
+    /// Construct a revision guard using the repository's canonical state
+    /// representation and digest algorithm.
+    pub fn revision_equals(state: &DesignState) -> Result<Self> {
+        Ok(Self::RevisionEquals {
+            algorithm: DESIGN_STATE_REVISION_ALGORITHM.to_string(),
+            version: DESIGN_STATE_REVISION_VERSION.to_string(),
+            digest: design_state_revision(state)?,
+        })
+    }
 }
 
 /// Reviewable effect that should be verified after regeneration.
@@ -190,6 +215,13 @@ impl DesignPatch {
         self.preconditions = preconditions;
         self.expected_effects = expected_effects;
         self
+    }
+
+    /// Add a revision precondition for a complete design state snapshot.
+    pub fn with_revision_precondition(mut self, state: &DesignState) -> Result<Self> {
+        self.preconditions
+            .push(PatchPrecondition::revision_equals(state)?);
+        Ok(self)
     }
 
     pub fn set_parameter(id: impl Into<String>, expr: impl Into<String>) -> Self {
@@ -271,26 +303,99 @@ impl DesignPatch {
         feature_nodes: &[FeatureNode],
         semantic_refs: &[TopoRef],
     ) -> Result<()> {
+        self.validate_preconditions_inner(parameters, feature_nodes, semantic_refs, None)
+    }
+
+    /// Verify every precondition against the complete patchable design state.
+    ///
+    /// Revision checks intentionally use the complete state rather than only
+    /// the operation's target.  This prevents a patch authored against one
+    /// assembly/drawing combination from being applied to another state that
+    /// happens to share the same parameter and feature values.
+    pub fn validate_preconditions_for_state(&self, state: &DesignState) -> Result<()> {
+        self.validate_preconditions_inner(
+            &state.parameters,
+            &state.feature_nodes,
+            &state.semantic_refs,
+            Some(state),
+        )
+    }
+
+    fn validate_preconditions_inner(
+        &self,
+        parameters: &ParamGraph,
+        feature_nodes: &[FeatureNode],
+        semantic_refs: &[TopoRef],
+        state: Option<&DesignState>,
+    ) -> Result<()> {
+        let mut failures = Vec::new();
         for precondition in &self.preconditions {
             match precondition {
+                PatchPrecondition::RevisionEquals {
+                    algorithm,
+                    version,
+                    digest,
+                } => {
+                    let Some(state) = state else {
+                        failures.push((
+                            "revision".to_string(),
+                            "patch precondition failed: complete design state is required for revision check"
+                                .to_string(),
+                        ));
+                        continue;
+                    };
+                    if algorithm != DESIGN_STATE_REVISION_ALGORITHM {
+                        failures.push((
+                            "revision:algorithm".to_string(),
+                            format!(
+                                "patch precondition failed: unsupported design-state revision algorithm '{algorithm}' (expected '{DESIGN_STATE_REVISION_ALGORITHM}')"
+                            ),
+                        ));
+                        continue;
+                    }
+                    if version != DESIGN_STATE_REVISION_VERSION {
+                        failures.push((
+                            "revision:version".to_string(),
+                            format!(
+                                "patch precondition failed: unsupported design-state revision version '{version}' (expected '{DESIGN_STATE_REVISION_VERSION}')"
+                            ),
+                        ));
+                        continue;
+                    }
+                    let actual = design_state_revision(state)?;
+                    if digest != &actual {
+                        failures.push((
+                            "revision:digest".to_string(),
+                            format!(
+                                "patch precondition failed: design-state revision mismatch (expected '{digest}', found '{actual}')"
+                            ),
+                        ));
+                    }
+                }
                 PatchPrecondition::ParameterExprEquals { id, expr } => {
-                    let actual = parameters.get(id).ok_or_else(|| {
-                        OpenCadError::validation(format!(
-                            "patch precondition failed: parameter '{id}' does not exist"
-                        ))
-                    })?;
-                    if actual.expr != *expr {
-                        return Err(OpenCadError::validation(format!(
-                            "patch precondition failed: parameter '{id}' expected expression '{expr}', found '{}'",
-                            actual.expr
-                        )));
+                    match parameters.get(id) {
+                        None => failures.push((
+                            format!("parameter:{id}"),
+                            format!(
+                                "patch precondition failed: parameter '{id}' does not exist"
+                            ),
+                        )),
+                        Some(actual) if actual.expr != *expr => failures.push((
+                            format!("parameter:{id}"),
+                            format!(
+                                "patch precondition failed: parameter '{id}' expected expression '{expr}', found '{}'",
+                                actual.expr
+                            ),
+                        )),
+                        Some(_) => {}
                     }
                 }
                 PatchPrecondition::FeatureExists { id } => {
                     if !feature_nodes.iter().any(|node| node.id == *id) {
-                        return Err(OpenCadError::validation(format!(
-                            "patch precondition failed: feature '{id}' does not exist"
-                        )));
+                        failures.push((
+                            format!("feature:{id}"),
+                            format!("patch precondition failed: feature '{id}' does not exist"),
+                        ));
                     }
                 }
                 PatchPrecondition::TopoRefExists { ref_id } => {
@@ -298,14 +403,29 @@ impl DesignPatch {
                         .iter()
                         .any(|topo_ref| topo_ref.ref_id.as_str() == ref_id)
                     {
-                        return Err(OpenCadError::validation(format!(
-                            "patch precondition failed: topology reference '{ref_id}' does not exist"
-                        )));
+                        failures.push((
+                            format!("topo_ref:{ref_id}"),
+                            format!(
+                                "patch precondition failed: topology reference '{ref_id}' does not exist"
+                            ),
+                        ));
                     }
                 }
             }
         }
-        Ok(())
+        failures.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
+        failures.dedup_by(|left, right| left.1 == right.1);
+        if failures.is_empty() {
+            Ok(())
+        } else {
+            Err(OpenCadError::validation(
+                failures
+                    .iter()
+                    .map(|(_, message)| message.as_str())
+                    .collect::<Vec<_>>()
+                    .join("; "),
+            ))
+        }
     }
 
     pub fn apply_to_parameters(&self, graph: &mut ParamGraph) -> Result<()> {
@@ -400,6 +520,14 @@ impl DesignPatch {
         assembly: Option<&mut opencad_assembly::AssemblyModel>,
         drawing: Option<&mut opencad_drawing::DrawingModel>,
     ) -> Result<()> {
+        let current_state = DesignState::with_models(
+            parameters.clone(),
+            feature_nodes.to_vec(),
+            semantic_refs.clone(),
+            assembly.as_deref().cloned(),
+            drawing.as_deref().cloned(),
+        );
+        self.validate_preconditions_for_state(&current_state)?;
         self.validate_document_context(assembly.as_deref(), drawing.as_deref())?;
         let mut next_parameters = parameters.clone();
         let mut next_feature_nodes = feature_nodes.to_vec();
@@ -465,7 +593,6 @@ impl DesignPatch {
         assembly: Option<&mut opencad_assembly::AssemblyModel>,
         drawing: Option<&mut opencad_drawing::DrawingModel>,
     ) -> Result<()> {
-        self.validate_preconditions(parameters, feature_nodes, semantic_refs)?;
         self.apply_to_parameters(parameters)?;
         self.apply_to_features(feature_nodes)?;
         self.apply_to_semantic_refs(semantic_refs)?;
@@ -538,6 +665,7 @@ fn apply_feature_expr(node: &mut FeatureNode, field: FeatureExprField, expr: &st
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{design_state_revision, dry_run_patch_state, DesignState};
     use opencad_assembly::AssemblyModel;
     use opencad_feature::{
         bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet, FeatureDefinition,
@@ -728,6 +856,94 @@ mod tests {
             .apply_to_document(&mut params, &mut nodes, &mut refs, None, None)
             .expect_err("stale patch");
         assert_eq!(params.get("param:width").expect("width").expr, "80 mm");
+    }
+
+    #[test]
+    fn revision_precondition_is_serializable_and_checks_complete_state() {
+        let base = DesignState::new(bracket_parameters(), Vec::new());
+        let precondition = PatchPrecondition::revision_equals(&base).expect("revision");
+        let patch = DesignPatch::set_parameter("param:width", "100 mm").with_review_metadata(
+            "Increase width",
+            "Fit the enclosure",
+            vec![precondition.clone()],
+            Vec::new(),
+        );
+        let encoded = serde_json::to_vec(&patch).expect("serialize patch");
+        let decoded: DesignPatch = serde_json::from_slice(&encoded).expect("deserialize patch");
+        assert_eq!(decoded, patch);
+        assert_eq!(
+            serde_json::to_value(precondition).expect("precondition json")["type"],
+            "revision_equals"
+        );
+
+        // The parameter graph is unchanged, but a complete-state change in an
+        // optional model must still make the revision stale.
+        let current = DesignState::with_models(
+            base.parameters.clone(),
+            base.feature_nodes.clone(),
+            base.semantic_refs.clone(),
+            Some(AssemblyModel::default()),
+            None,
+        );
+        let report = dry_run_patch_state(&current, &patch);
+        let mut parameters = current.parameters.clone();
+        let mut features = current.feature_nodes.clone();
+        let mut refs = current.semantic_refs.clone();
+        let mut assembly = current.assembly.clone();
+        let error = patch
+            .apply_to_document(
+                &mut parameters,
+                &mut features,
+                &mut refs,
+                assembly.as_mut(),
+                None,
+            )
+            .expect_err("stale complete-state revision");
+        assert!(!report.validation.is_ok());
+        assert_eq!(report.validation.messages[0].message, error.to_string());
+        assert_eq!(
+            design_state_revision(&base).expect("base revision"),
+            match &patch.preconditions[0] {
+                PatchPrecondition::RevisionEquals { digest, .. } => digest.clone(),
+                _ => panic!("expected revision precondition"),
+            }
+        );
+    }
+
+    #[test]
+    fn precondition_failures_are_sorted_and_deduplicated() {
+        let state = DesignState::new(bracket_parameters(), Vec::new());
+        let patch = DesignPatch::set_parameter("param:width", "100 mm").with_review_metadata(
+            "test",
+            "test",
+            vec![
+                PatchPrecondition::FeatureExists {
+                    id: "feature:z_missing".into(),
+                },
+                PatchPrecondition::ParameterExprEquals {
+                    id: "param:width".into(),
+                    expr: "70 mm".into(),
+                },
+                PatchPrecondition::FeatureExists {
+                    id: "feature:z_missing".into(),
+                },
+            ],
+            Vec::new(),
+        );
+        let reversed = DesignPatch {
+            preconditions: patch.preconditions.iter().cloned().rev().collect(),
+            ..patch.clone()
+        };
+        let first = dry_run_patch_state(&state, &patch);
+        let second = dry_run_patch_state(&state, &reversed);
+        assert_eq!(
+            first.validation.messages[0].message,
+            second.validation.messages[0].message
+        );
+        assert_eq!(
+            first.validation.messages[0].message,
+            "validation failed: patch precondition failed: feature 'feature:z_missing' does not exist; patch precondition failed: parameter 'param:width' expected expression '70 mm', found '80 mm'"
+        );
     }
 
     #[test]

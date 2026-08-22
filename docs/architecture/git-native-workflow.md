@@ -35,15 +35,19 @@ opencad rebase-patch old-base.ocad.d new-base.ocad.d change.json rebased.json
 Three-way merge compares parameters and features by stable semantic ID. Independent edits are
 merged; divergent edits to the same ID return structured base/ours/theirs conflicts. Structural
 feature and parameter additions/removals currently require manual resolution because their graph
-edges must be reviewed together. Rebase refuses to move a patch when a parameter it edits changed
-since the old base.
+edges must be reviewed together. Rebase uses canonical serialized source values for each patch
+target, so it never relies on geometry floating-point equality. Independent parameter, feature,
+assembly, and drawing targets are rebased; same-target conflicts are deduplicated and sorted
+deterministically, with `ours` containing the patch's desired value. A `RevisionEquals` precondition
+is updated to the new complete-state digest after a successful rebase.
 
 ## Agent approval boundary
 
 `IntentProvider` receives an immutable `DesignState` and selection IDs and may only return a
 serializable proposal. MusubiCAD validates the selection and dry-runs the patch. Mutation requires
 the exact deterministic approval ID, verifies that the proposal did not change, and dry-runs again
-against current state. Providers therefore cannot silently bypass DesignPatch validation.
+against current state. Providers therefore cannot silently bypass DesignPatch validation or a
+complete-state revision precondition.
 
 ## Engineering policy
 

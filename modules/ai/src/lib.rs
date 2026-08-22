@@ -43,7 +43,10 @@ pub use query::{
     get_semantic_ref, list_semantic_refs, query_needs_scene, run_query, DesignQuery, FaceGroupInfo,
     OverlayLineInfo, ParameterInfo, QueryParams, QueryResult, SceneQueryContext, SemanticRefInfo,
 };
-pub use state::{diff_design_state, DesignState};
+pub use state::{
+    canonical_design_state_bytes, design_state_revision, diff_design_state, DesignState,
+    DESIGN_STATE_REVISION_ALGORITHM, DESIGN_STATE_REVISION_VERSION,
+};
 pub use validation::{
     build_patch_candidate, dry_run_patch, dry_run_patch_state, ensure_patch_valid,
     PatchDryRunReport,

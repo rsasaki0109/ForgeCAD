@@ -47,6 +47,26 @@ path and the document patch path stage a candidate state and commit it only
 after every operation validates; a later operation failure cannot retain an
 earlier operation's mutation.
 
+For optimistic concurrency, a patch may include a complete-state revision
+precondition. The digest covers the canonical serialized patchable state
+(parameters, feature nodes, semantic references, and optional assembly and
+drawing models), not B-Rep or mesh caches:
+
+```json
+{
+  "type": "revision_equals",
+  "algorithm": "sha256",
+  "version": "musubicad.design-state.v1",
+  "digest": "<64 lowercase hexadecimal characters>"
+}
+```
+
+`algorithm` and `version` are validated explicitly. A stale digest is rejected
+before mutation with the same deterministic validation error from dry-run,
+in-memory apply, file apply, and Agent API paths. Rust callers can calculate
+the value with `opencad_ai::design_state_revision` or attach one with
+`PatchPrecondition::revision_equals`.
+
 The history methods accept and return the serialized `history` value produced
 by a prior backend edit. Clients must treat it as opaque and pass it back
 unchanged; `can_undo` and `can_redo` are the only capability values needed for

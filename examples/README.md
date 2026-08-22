@@ -60,6 +60,20 @@ drawing fixtures `assembly_two_brackets.ocad.d` and
 `bracket_front_view.ocad.d`. Assembly and drawing operations require their
 corresponding model context and appear in the semantic diff before apply.
 
+### Revision-guarded patches
+
+Attach a complete-state optimistic-concurrency guard before sending a patch
+through the Agent or file API:
+
+```rust
+let patch = DesignPatch::set_parameter("param:width", "100 mm")
+    .with_revision_precondition(&snapshot)?;
+```
+
+`snapshot` is the immutable `DesignState` used to author the patch. The guard
+is serialized as a `revision_equals` precondition and is refreshed by
+`rebase_patch` when the patch is moved to a newer state.
+
 ## Backend history
 
 Desktop parameter edits use the same validated file-layer `DesignPatch` path

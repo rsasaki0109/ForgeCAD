@@ -45,4 +45,5 @@ decision can be made without changing the document schema or client contract.
 - Failed patch validation and stale undo/redo checks leave both values unchanged.
 - `.ocad` round trips remain schema-compatible and deterministic.
 - UI clients cannot accidentally recreate semantic inverse stacks.
-- Preconditions and rebase behavior remain follow-up work under MCAD-P3-004.
+- Complete-state patch preconditions and semantic rebase behavior are defined
+  by [ADR-008](ADR-008-design-state-revision-rebase.md).

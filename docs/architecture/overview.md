@@ -45,6 +45,9 @@ leaves the serialized source document byte-for-byte unchanged.
 The Agent API, CLI document path, and file-layer patch path share the same
 validated candidate builder, including assembly and drawing context checks, so
 dry-run and apply expose the same semantic diff and deterministic errors.
+`DesignPatch` can additionally carry a versioned SHA-256 revision of the
+complete patchable DesignState. The revision is checked before candidate
+mutation, while B-Rep and mesh caches remain outside the identity.
 
 Backend history is a separate serializable transport value, not a document
 schema field. Each successful file-layer `DesignPatch` records a deterministic
@@ -80,5 +83,6 @@ history.
 
 - [ADR-001: Rust-first](../adr/ADR-001-rust-first.md)
 - [ADR-007: Serializable backend document history](../adr/ADR-007-backend-document-history.md)
+- [ADR-008: DesignState revision preconditions and patch rebase](../adr/ADR-008-design-state-revision-rebase.md)
 - [Developer guide](../developer-guide/index.md)
 - [AGENTS.md](../../AGENTS.md)
