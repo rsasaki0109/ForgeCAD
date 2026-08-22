@@ -55,6 +55,13 @@ there is no separate UI regenerate or export command. The test also checks that
 the UI keeps document path state separate from viewport preview synchronization
 and does not contain direct Design Graph mutation expressions.
 
+The parity test also checks the implementation boundary: the Tauri parameter
+handler delegates to the desktop history helper, the desktop helper constructs
+the same validated `DesignPatch` used by the CLI/Agent routes, and template
+creation is shared with `opencad new`. A runtime case applies the toolbar
+parameter command and a direct `DesignPatch` transaction to equivalent
+documents and compares their serialized results.
+
 Parameter edits cross the same validated `DesignPatch`/file boundary as other
 backend changes. The Tauri commands return a serializable
 `DocumentHistoryState`; the UI passes its `history` field back opaquely to

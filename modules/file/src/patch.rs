@@ -4,9 +4,7 @@ use opencad_ai::{
     build_patch_candidate, dry_run_patch_state, DesignPatch, DesignState, PatchDryRunReport,
     PatchOperation,
 };
-use opencad_core::{DocumentKind, OpenCadError, Result};
-use opencad_feature::{FeatureRegistry, RegenReport};
-use opencad_geometry::GeometryKernel;
+use opencad_core::Result;
 
 use crate::topo_assign::{apply_assign_face_ref, AssignFaceRefOp};
 use crate::{DocumentHistory, OcadDocument};
@@ -74,37 +72,6 @@ fn apply_patch_to_document_in_place(doc: &mut OcadDocument, patch: &DesignPatch)
     Ok(())
 }
 
-/// Apply a patch and validate a part regeneration atomically.
-///
-/// Patch operations and regeneration run against disposable candidate state.
-/// The source document is replaced only after both succeed; B-Rep and mesh
-/// outputs from regeneration are never persisted in the `.ocad` document.
-/// Assembly and drawing regeneration use their own specialized pipelines and
-/// are rejected by this part-only API.
-pub fn apply_patch_and_regenerate<K: GeometryKernel>(
-    doc: &mut OcadDocument,
-    patch: &DesignPatch,
-    kernel: &K,
-    registry: &FeatureRegistry,
-) -> Result<RegenReport> {
-    if doc.metadata.kind != DocumentKind::Part {
-        return Err(OpenCadError::validation(
-            "atomic patch regeneration accepts only part documents",
-        ));
-    }
-
-    let mut candidate = doc.clone();
-    apply_patch_to_document_in_place(&mut candidate, patch)?;
-
-    let parameters = candidate.parameters.clone();
-    let semantic_refs = candidate.semantic_refs.clone();
-    let mut model = candidate.clone().into_part_model();
-    let report = model.regenerate(kernel, registry, Some(&parameters), Some(&semantic_refs))?;
-
-    *doc = candidate;
-    Ok(report)
-}
-
 /// Validate and preview a patch against a document without persisting changes.
 pub fn dry_run_patch_document(before: &OcadDocument, patch: &DesignPatch) -> PatchDryRunReport {
     dry_run_patch_state(
@@ -125,10 +92,9 @@ mod tests {
     use opencad_ai::FeatureExprField;
     use opencad_core::{DocumentId, DocumentMetadata, TopoRefId};
     use opencad_feature::{
-        bracket_base_plate, bracket_with_hole, bracket_with_top_fillet, FeatureDefinition,
-        FeatureRegistry,
+        bracket_with_hole, bracket_with_top_fillet, FeatureDefinition, FeatureRegistry,
     };
-    use opencad_geometry::{assign_named_face_ref, GeometryKernel, MockGeometryKernel};
+    use opencad_geometry::{assign_named_face_ref, GeometryKernel};
     use opencad_graph::{bracket_parameters, SemanticChange};
     use opencad_kernel_occt::OcctGeometryKernel;
 
@@ -366,77 +332,5 @@ mod tests {
             mass.volume_m3,
             baseline_mass.volume_m3
         );
-    }
-
-    #[test]
-    fn atomic_patch_regeneration_commits_all_operations() {
-        let part = bracket_base_plate().expect("model");
-        let metadata = DocumentMetadata::new(
-            DocumentId::new("doc:atomic_success").expect("id"),
-            "Atomic success",
-        );
-        let mut doc = OcadDocument::from_part_model(metadata, &part);
-        doc.parameters = bracket_parameters();
-        let patch = DesignPatch::new(vec![
-            PatchOperation::SetParameter {
-                id: "param:thickness".into(),
-                expr: "8 mm".into(),
-            },
-            PatchOperation::SetFeatureExpr {
-                feature_id: "feature:extrude_base".into(),
-                field: FeatureExprField::LengthExpr.as_str().into(),
-                expr: "thickness * 2".into(),
-            },
-        ]);
-        let kernel = MockGeometryKernel::new();
-        let registry = FeatureRegistry::with_defaults();
-
-        let report = apply_patch_and_regenerate(&mut doc, &patch, &kernel, &registry)
-            .expect("atomic patch and regeneration");
-        assert!(report
-            .regenerated
-            .iter()
-            .any(|id| id == "feature:extrude_base"));
-        assert_eq!(doc.parameters.get("param:thickness").unwrap().expr, "8 mm");
-        let node = doc
-            .feature_nodes
-            .iter()
-            .find(|node| node.id == "feature:extrude_base")
-            .expect("extrude");
-        let FeatureDefinition::Extrude(extrude) = &node.definition else {
-            panic!("expected extrude")
-        };
-        assert_eq!(extrude.length_expr.as_deref(), Some("thickness * 2"));
-    }
-
-    #[test]
-    fn failed_atomic_regeneration_preserves_serialized_document() {
-        let part = bracket_base_plate().expect("model");
-        let metadata = DocumentMetadata::new(
-            DocumentId::new("doc:atomic_failure").expect("id"),
-            "Atomic failure",
-        );
-        let mut doc = OcadDocument::from_part_model(metadata, &part);
-        doc.parameters = bracket_parameters();
-        let before = crate::expanded_dir::serialize_document_files(&doc).expect("serialize");
-        let patch = DesignPatch::new(vec![
-            PatchOperation::SetParameter {
-                id: "param:thickness".into(),
-                expr: "8 mm".into(),
-            },
-            PatchOperation::SetFeatureExpr {
-                feature_id: "feature:extrude_base".into(),
-                field: FeatureExprField::LengthExpr.as_str().into(),
-                expr: "not_a_length".into(),
-            },
-        ]);
-        let kernel = MockGeometryKernel::new();
-        let registry = FeatureRegistry::with_defaults();
-
-        apply_patch_and_regenerate(&mut doc, &patch, &kernel, &registry)
-            .expect_err("invalid feature expression");
-        let after = crate::expanded_dir::serialize_document_files(&doc).expect("serialize");
-        assert_eq!(before, after);
-        assert_eq!(doc.parameters.get("param:thickness").unwrap().expr, "6 mm");
     }
 }

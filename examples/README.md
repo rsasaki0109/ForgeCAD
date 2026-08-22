@@ -51,7 +51,7 @@ See `agent/` for JSON-RPC payloads. Pipe them to `opencad agent` on stdio.
 
 `bracket.ocad.d` is the representative part fixture for the atomic patch
 boundary. Rust callers can apply a multi-operation `DesignPatch` and validate
-part regeneration with `opencad_file::apply_patch_and_regenerate`; the
+part regeneration with `opencad_desktop::apply_patch_and_regenerate`; the
 candidate clone is committed only after regeneration succeeds, so a failure
 leaves the serialized fixture unchanged.
 
@@ -73,6 +73,11 @@ let patch = DesignPatch::set_parameter("param:width", "100 mm")
 `snapshot` is the immutable `DesignState` used to author the patch. The guard
 is serialized as a `revision_equals` precondition and is refreshed by
 `rebase_patch` when the patch is moved to a newer state.
+
+The desktop parameter toolbar, `opencad patch`, and
+`opencad.patch_apply_document` all cross the same validated
+`DesignPatch`/file boundary; the command-parity test exercises the desktop
+path against a direct patch transaction.
 
 ## Backend history
 

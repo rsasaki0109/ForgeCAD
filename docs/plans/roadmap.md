@@ -148,7 +148,7 @@ and Agent API use the same validated transaction boundary.
 | MCAD-P3-002 | DesignPatch parity | Shared validation path for dry-run and apply, including assembly and drawing operations | Complete |
 | MCAD-P3-003 | Backend history | Serializable backend undo/redo snapshots or reversible commands, independent of viewport state | Complete |
 | MCAD-P3-004 | Preconditions | Stale-document detection, deterministic conflict errors, and patch rebase coverage | Complete |
-| MCAD-P3-005 | Surface parity | UI commands exposed through CLI and Agent API with one command/patch contract | Planned |
+| MCAD-P3-005 | Surface parity | UI commands exposed through CLI and Agent API with one command/patch contract | Complete |
 
 **Definition of done:** a failed patch or regeneration leaves the serialized
 Design Graph byte-for-byte unchanged; successful operations are undoable and
@@ -160,6 +160,9 @@ schema, desktop/Tauri/Agent clients transport them opaquely, and viewport
 camera/selection state is excluded. P3-004 adds a versioned complete-state
 revision precondition and deterministic parameter/feature/assembly/drawing
 rebase conflict handling.
+P3-005 is complete: every UI model mutation has a CLI or Agent route,
+parameter edits use the shared `DesignPatch`/history boundary, and command
+parity includes behavioral and source-contract regression tests.
 
 **Tests:** core transaction tests; AI patch round trips; failure-injection
 rollback tests; file checksum/determinism tests; UI/CLI/Agent parity tests;

@@ -84,7 +84,7 @@ model and drawing operations require a drawing model; missing context is a
 deterministic validation error in both paths.
 
 Rust callers that must validate a part regeneration in the same boundary can
-use `opencad_file::apply_patch_and_regenerate`. It runs the patch and
+use `opencad_desktop::apply_patch_and_regenerate`. The command-layer helper runs the patch and
 regeneration against a cloned candidate and swaps the candidate into the
 document only after successful regeneration. B-Rep and mesh outputs remain
 disposable and are never serialized. The API accepts part documents; assembly

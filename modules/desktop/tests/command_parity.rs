@@ -7,7 +7,10 @@
 const TAURI_SOURCE: &str = include_str!("../../../apps/desktop/src-tauri/src/lib.rs");
 const UI_SOURCE: &str = include_str!("../../../apps/desktop/ui/main.js");
 const CLI_SOURCE: &str = include_str!("../../../modules/cli/src/commands.rs");
+const CLI_PATCH_SOURCE: &str = include_str!("../../../modules/cli/src/patch.rs");
 const AGENT_SOURCE: &str = include_str!("../../../modules/cli/src/agent.rs");
+const DESKTOP_PARAMETERS_SOURCE: &str = include_str!("../../../modules/desktop/src/parameters.rs");
+const DESKTOP_TEMPLATE_SOURCE: &str = include_str!("../../../modules/desktop/src/template.rs");
 const DESKTOP_API_DOC: &str = include_str!("../../../docs/api/desktop.md");
 
 #[test]
@@ -97,9 +100,55 @@ fn every_ui_model_command_has_a_tauri_handler_and_cli_or_agent_route() {
         "UI must not maintain semantic inverse stacks; backend history is authoritative"
     );
     assert!(
+        TAURI_SOURCE.contains("set_document_parameter_with_history(&path, &id, &expr, history)"),
+        "Tauri parameter mutation must delegate to the shared desktop history helper"
+    );
+    assert!(
+        DESKTOP_PARAMETERS_SOURCE.contains("DesignPatch::set_parameter(id, expr)")
+            && DESKTOP_PARAMETERS_SOURCE.contains("apply_patch_with_history"),
+        "desktop parameter edits must use the validated DesignPatch/history boundary"
+    );
+    assert!(
+        CLI_PATCH_SOURCE.contains("apply_patch_to_document(&mut doc, &patch)")
+            && AGENT_SOURCE.contains("apply_patch_with_history"),
+        "CLI and Agent document patch routes must use the shared file transaction boundary"
+    );
+    assert!(
+        DESKTOP_TEMPLATE_SOURCE.contains("pub fn create_document")
+            && CLI_SOURCE.contains("new::create_document"),
+        "desktop template creation and CLI new must share the template implementation"
+    );
+    assert!(
         DESKTOP_API_DOC.contains("Refresh") && DESKTOP_API_DOC.contains("run_desktop_smoke"),
         "desktop API documentation must describe the actual refresh and smoke contracts"
     );
+}
+
+#[test]
+fn desktop_parameter_command_matches_direct_design_patch_transaction() {
+    use opencad_ai::DesignPatch;
+    use opencad_desktop::fixture::write_bracket_fixture_at;
+    use opencad_desktop::{set_document_parameter_with_history, DocumentHistoryState};
+    use opencad_file::{apply_patch_to_document, read_ocad};
+    use tempfile::tempdir;
+
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().join("bracket.ocad.d");
+    write_bracket_fixture_at(&path);
+    let path_str = path.to_str().expect("path");
+    let before = read_ocad(path_str).expect("before");
+    let mut expected = before.clone();
+    apply_patch_to_document(
+        &mut expected,
+        &DesignPatch::set_parameter("param:width", "100 mm"),
+    )
+    .expect("direct patch");
+
+    let history: DocumentHistoryState =
+        set_document_parameter_with_history(path_str, "param:width", "100 mm", None)
+            .expect("desktop command");
+    assert!(history.can_undo);
+    assert_eq!(read_ocad(path_str).expect("after"), expected);
 }
 
 #[test]

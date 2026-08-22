@@ -84,5 +84,6 @@ history.
 - [ADR-001: Rust-first](../adr/ADR-001-rust-first.md)
 - [ADR-007: Serializable backend document history](../adr/ADR-007-backend-document-history.md)
 - [ADR-008: DesignState revision preconditions and patch rebase](../adr/ADR-008-design-state-revision-rebase.md)
+- [ADR-009: Command-surface parity and regeneration boundary](../adr/ADR-009-command-surface-parity-boundary.md)
 - [Developer guide](../developer-guide/index.md)
 - [AGENTS.md](../../AGENTS.md)
