@@ -8,7 +8,8 @@ use opencad_ai::{
 };
 use opencad_core::Result;
 use opencad_file::{
-    apply_patch_to_document, dry_run_patch_document, read_ocad, validate_ocad, write_ocad,
+    apply_patch_to_document, apply_patch_with_history, dry_run_patch_document, read_ocad,
+    validate_ocad, write_ocad, DocumentHistory, DocumentHistoryState,
 };
 
 use crate::diff::{self, DiffOptions};
@@ -40,6 +41,17 @@ pub struct DocumentRegenParams {
 pub struct DocumentPatchParams {
     pub path: String,
     pub patch: opencad_ai::DesignPatch,
+    #[serde(default)]
+    pub history: Option<DocumentHistory>,
+}
+
+/// Transport value for file-backed undo/redo methods. The history snapshots
+/// are opaque to the Agent/UI client and must be returned unchanged between
+/// commands except for the backend operation being requested.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DocumentHistoryParams {
+    pub path: String,
+    pub history: DocumentHistory,
 }
 
 /// Export a document body to STL.
@@ -128,6 +140,8 @@ pub fn handle_agent_request(request: &JsonRpcRequest) -> JsonRpcResponse {
         "opencad.validate" => handle_validate(request),
         "opencad.patch_dry_run_document" => handle_patch_dry_run_document(request),
         "opencad.patch_apply_document" => handle_patch_apply_document(request),
+        "opencad.history_undo_document" => handle_history_undo_document(request),
+        "opencad.history_redo_document" => handle_history_redo_document(request),
         "opencad.regen_document" => handle_regen_document(request),
         "opencad.regen" => handle_regen(request),
         "opencad.export" => handle_export(request),
@@ -291,7 +305,10 @@ fn handle_patch_apply_document(request: &JsonRpcRequest) -> JsonRpcResponse {
             );
         }
     };
-    if let Err(err) = apply_patch_to_document(&mut doc, &params.patch) {
+    let mut history = params.history.unwrap_or_default();
+    if let Err(err) =
+        apply_patch_with_history(&mut doc, &params.patch, &mut history, "Apply DesignPatch")
+    {
         return JsonRpcResponse::error(
             request.id.clone(),
             JsonRpcError::application_error(err.to_string()),
@@ -303,10 +320,82 @@ fn handle_patch_apply_document(request: &JsonRpcRequest) -> JsonRpcResponse {
             JsonRpcError::application_error(err.to_string()),
         );
     }
-    JsonRpcResponse::success(
-        request.id.clone(),
-        serde_json::json!({ "patched": params.path }),
-    )
+    let state = DocumentHistoryState::new(history);
+    match serde_json::to_value(state) {
+        Ok(mut value) => {
+            if let Some(object) = value.as_object_mut() {
+                object.insert("patched".into(), serde_json::json!(params.path));
+            }
+            JsonRpcResponse::success(request.id.clone(), value)
+        }
+        Err(err) => JsonRpcResponse::error(
+            request.id.clone(),
+            JsonRpcError::application_error(err.to_string()),
+        ),
+    }
+}
+
+fn handle_history_undo_document(request: &JsonRpcRequest) -> JsonRpcResponse {
+    handle_history_document(request, HistoryDirection::Undo)
+}
+
+fn handle_history_redo_document(request: &JsonRpcRequest) -> JsonRpcResponse {
+    handle_history_document(request, HistoryDirection::Redo)
+}
+
+#[derive(Clone, Copy)]
+enum HistoryDirection {
+    Undo,
+    Redo,
+}
+
+fn handle_history_document(
+    request: &JsonRpcRequest,
+    direction: HistoryDirection,
+) -> JsonRpcResponse {
+    let params = match serde_json::from_value::<DocumentHistoryParams>(request.params.clone()) {
+        Ok(params) => params,
+        Err(err) => {
+            return JsonRpcResponse::error(
+                request.id.clone(),
+                JsonRpcError::invalid_params(err.to_string()),
+            );
+        }
+    };
+    let mut doc = match read_ocad(&params.path) {
+        Ok(doc) => doc,
+        Err(err) => {
+            return JsonRpcResponse::error(
+                request.id.clone(),
+                JsonRpcError::application_error(err.to_string()),
+            );
+        }
+    };
+    let mut history = params.history;
+    let result = match direction {
+        HistoryDirection::Undo => history.undo(&mut doc),
+        HistoryDirection::Redo => history.redo(&mut doc),
+    };
+    if let Err(err) = result {
+        return JsonRpcResponse::error(
+            request.id.clone(),
+            JsonRpcError::application_error(err.to_string()),
+        );
+    }
+    if let Err(err) = write_ocad(&params.path, &doc) {
+        return JsonRpcResponse::error(
+            request.id.clone(),
+            JsonRpcError::application_error(err.to_string()),
+        );
+    }
+    let state = DocumentHistoryState::new(history);
+    match serde_json::to_value(state) {
+        Ok(value) => JsonRpcResponse::success(request.id.clone(), value),
+        Err(err) => JsonRpcResponse::error(
+            request.id.clone(),
+            JsonRpcError::application_error(err.to_string()),
+        ),
+    }
 }
 
 fn handle_regen_document(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -705,6 +794,66 @@ mod tests {
         let restored = read_ocad(&doc_path).expect("read");
         let values = opencad_graph::evaluate_param_graph(&restored.parameters).expect("eval");
         assert!((values["width"] - 0.1).abs() < 1e-9);
+    }
+
+    #[test]
+    fn history_undo_and_redo_document_via_json_rpc() {
+        let dir = tempdir().expect("tempdir");
+        let doc_path = dir.path().join("bracket.ocad.d");
+        let part = bracket_with_hole().expect("model");
+        let metadata = DocumentMetadata::new(
+            DocumentId::new("doc:bracket_001").expect("id"),
+            "Bracket with Hole",
+        );
+        let mut before = OcadDocument::from_part_model(metadata, &part);
+        before.parameters = bracket_parameters();
+        write_expanded_dir(&doc_path, &before).expect("write before");
+
+        let apply_request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: serde_json::json!(2),
+            method: "opencad.patch_apply_document".into(),
+            params: serde_json::json!({
+                "path": doc_path.to_str().expect("path"),
+                "patch": DesignPatch::set_parameter("param:width", "100 mm"),
+            }),
+        };
+        let apply_response = handle_agent_request(&apply_request);
+        assert!(apply_response.error.is_none());
+        let applied_result = apply_response.result.expect("apply result");
+        let history: DocumentHistory =
+            serde_json::from_value(applied_result["history"].clone()).expect("apply history");
+        let after = read_ocad(&doc_path).expect("read after");
+        assert_ne!(before, after);
+
+        let undo_request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: serde_json::json!(3),
+            method: "opencad.history_undo_document".into(),
+            params: serde_json::json!({
+                "path": doc_path.to_str().expect("path"),
+                "history": history,
+            }),
+        };
+        let undo_response = handle_agent_request(&undo_request);
+        assert!(undo_response.error.is_none());
+        assert_eq!(read_ocad(&doc_path).expect("undo document"), before);
+        let undone_history: DocumentHistory =
+            serde_json::from_value(undo_response.result.expect("undo result")["history"].clone())
+                .expect("undo history");
+
+        let redo_request = JsonRpcRequest {
+            jsonrpc: "2.0".into(),
+            id: serde_json::json!(4),
+            method: "opencad.history_redo_document".into(),
+            params: serde_json::json!({
+                "path": doc_path.to_str().expect("path"),
+                "history": undone_history,
+            }),
+        };
+        let redo_response = handle_agent_request(&redo_request);
+        assert!(redo_response.error.is_none());
+        assert_eq!(read_ocad(&doc_path).expect("redo document"), after);
     }
 
     #[test]

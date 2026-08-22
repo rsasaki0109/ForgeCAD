@@ -11,6 +11,7 @@ default = ["occt"]
 occt = ["opencad-kernel-occt/occt", "opencad-file/occt"]
 
 [dependencies]
+opencad-ai = { workspace = true }
 opencad-core = { workspace = true }
 opencad-assembly = { workspace = true }
 opencad-drawing = { workspace = true }

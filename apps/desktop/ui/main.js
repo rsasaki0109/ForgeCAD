@@ -21,9 +21,9 @@ const createBtn = document.getElementById("create-btn");
 
 let currentPath = null;
 let parameterRows = [];
-let applyingParamHistory = false;
-const paramUndoStack = [];
-const paramRedoStack = [];
+// The backend owns complete document snapshots. The UI treats this value as
+// opaque and only consumes the capability flags returned beside it.
+let documentHistoryState = null;
 
 const PREVIEW_WIDTH = 960;
 const PREVIEW_HEIGHT = 540;
@@ -358,22 +358,28 @@ function formatParameterValue(row) {
 }
 
 function updateUndoRedoButtons() {
-  undoBtn.disabled = paramUndoStack.length === 0;
-  redoBtn.disabled = paramRedoStack.length === 0;
+  undoBtn.disabled = !documentHistoryState?.can_undo;
+  redoBtn.disabled = !documentHistoryState?.can_redo;
 }
 
-function resetParamHistory() {
-  paramUndoStack.length = 0;
-  paramRedoStack.length = 0;
+function resetDocumentHistory() {
+  documentHistoryState = null;
+  updateUndoRedoButtons();
+}
+
+function acceptDocumentHistory(state) {
+  documentHistoryState = state;
   updateUndoRedoButtons();
 }
 
 async function applyParameterChange(id, expr) {
-  await invoke("set_document_parameter_cmd", {
+  const state = await invoke("set_document_parameter_cmd", {
     path: currentPath,
     id,
     expr,
+    history: documentHistoryState?.history ?? null,
   });
+  acceptDocumentHistory(state);
   await loadDocument(currentPath, { keepParamHistory: true });
 }
 
@@ -387,16 +393,6 @@ async function applyParameter(row, input) {
   setStatus(`Updating ${row.name}…`);
   try {
     await applyParameterChange(row.id, nextExpr);
-    if (!applyingParamHistory) {
-      paramUndoStack.push({
-        id: row.id,
-        name: row.name,
-        before: row.expr,
-        after: nextExpr,
-      });
-      paramRedoStack.length = 0;
-      updateUndoRedoButtons();
-    }
     setStatus(`Updated ${row.name}`);
   } catch (error) {
     input.value = row.expr;
@@ -405,44 +401,40 @@ async function applyParameter(row, input) {
 }
 
 async function undoParameterChange() {
-  if (!currentPath || paramUndoStack.length === 0) {
+  if (!currentPath || !documentHistoryState?.can_undo) {
     return;
   }
 
-  const entry = paramUndoStack.pop();
-  applyingParamHistory = true;
-  setStatus(`Undoing ${entry.name}…`);
+  setStatus("Undoing…");
   try {
-    await applyParameterChange(entry.id, entry.before);
-    paramRedoStack.push(entry);
-    setStatus(`Undid ${entry.name}`);
+    const state = await invoke("undo_document_cmd", {
+      path: currentPath,
+      history: documentHistoryState.history,
+    });
+    acceptDocumentHistory(state);
+    await loadDocument(currentPath, { keepParamHistory: true });
+    setStatus("Undid document edit");
   } catch (error) {
-    paramUndoStack.push(entry);
     setStatus(`Error: ${error}`);
-  } finally {
-    applyingParamHistory = false;
-    updateUndoRedoButtons();
   }
 }
 
 async function redoParameterChange() {
-  if (!currentPath || paramRedoStack.length === 0) {
+  if (!currentPath || !documentHistoryState?.can_redo) {
     return;
   }
 
-  const entry = paramRedoStack.pop();
-  applyingParamHistory = true;
-  setStatus(`Redoing ${entry.name}…`);
+  setStatus("Redoing…");
   try {
-    await applyParameterChange(entry.id, entry.after);
-    paramUndoStack.push(entry);
-    setStatus(`Redid ${entry.name}`);
+    const state = await invoke("redo_document_cmd", {
+      path: currentPath,
+      history: documentHistoryState.history,
+    });
+    acceptDocumentHistory(state);
+    await loadDocument(currentPath, { keepParamHistory: true });
+    setStatus("Redid document edit");
   } catch (error) {
-    paramRedoStack.push(entry);
     setStatus(`Error: ${error}`);
-  } finally {
-    applyingParamHistory = false;
-    updateUndoRedoButtons();
   }
 }
 
@@ -526,7 +518,7 @@ async function loadDocument(path, options = {}) {
 
   currentPath = path;
   if (!options.keepParamHistory) {
-    resetParamHistory();
+    resetDocumentHistory();
   }
   setStatus(`Loading ${path}…`);
 
@@ -648,7 +640,7 @@ async function boot() {
       setStatus("Open a .ocad.d directory to preview.");
       renderParameters([]);
       clearSelection();
-      resetParamHistory();
+      resetDocumentHistory();
     }
   } catch (error) {
     setStatus(`Error: ${error}`);

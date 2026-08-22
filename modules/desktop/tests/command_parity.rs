@@ -39,6 +39,16 @@ fn every_ui_model_command_has_a_tauri_handler_and_cli_or_agent_route() {
             "set_document_parameter_cmd",
             "opencad.patch_apply_document",
         ),
+        (
+            "undo_document_cmd",
+            "undo_document_cmd",
+            "opencad.history_undo_document",
+        ),
+        (
+            "redo_document_cmd",
+            "redo_document_cmd",
+            "opencad.history_redo_document",
+        ),
         ("open_viewport_cmd", "open_viewport_cmd", "view"),
         (
             "pick_document_cmd",
@@ -79,6 +89,12 @@ fn every_ui_model_command_has_a_tauri_handler_and_cli_or_agent_route() {
             && !UI_SOURCE.contains("export_document_cmd")
             && !TAURI_SOURCE.contains("export_document_cmd"),
         "refresh must not expose removed regenerate/export Tauri commands"
+    );
+    assert!(
+        !UI_SOURCE.contains("paramUndoStack")
+            && !UI_SOURCE.contains("paramRedoStack")
+            && !UI_SOURCE.contains("applyingParamHistory"),
+        "UI must not maintain semantic inverse stacks; backend history is authoritative"
     );
     assert!(
         DESKTOP_API_DOC.contains("Refresh") && DESKTOP_API_DOC.contains("run_desktop_smoke"),

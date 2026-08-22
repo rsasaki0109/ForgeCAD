@@ -146,14 +146,17 @@ and Agent API use the same validated transaction boundary.
 |---|---|---|---|
 | MCAD-P3-001 | Atomic model transaction | Multi-operation apply, rollback on regeneration failure, and unchanged document on error | Complete |
 | MCAD-P3-002 | DesignPatch parity | Shared validation path for dry-run and apply, including assembly and drawing operations | Complete |
-| MCAD-P3-003 | Backend history | Serializable backend undo/redo snapshots or reversible commands, independent of viewport state | Planned |
+| MCAD-P3-003 | Backend history | Serializable backend undo/redo snapshots or reversible commands, independent of viewport state | Complete |
 | MCAD-P3-004 | Preconditions | Stale-document detection, deterministic conflict errors, and patch rebase coverage | Planned |
 | MCAD-P3-005 | Surface parity | UI commands exposed through CLI and Agent API with one command/patch contract | Planned |
 
 **Definition of done:** a failed patch or regeneration leaves the serialized
 Design Graph byte-for-byte unchanged; successful operations are undoable and
 redoable through the backend; dry-run and apply return the same validation result;
-stale preconditions are rejected before mutation.
+stale preconditions are rejected before mutation. MCAD-P3-003 is complete: the
+file layer records deterministic full-document snapshots outside the `.ocad`
+schema, desktop/Tauri/Agent clients transport them opaquely, and viewport
+camera/selection state is excluded.
 
 **Tests:** core transaction tests; AI patch round trips; failure-injection
 rollback tests; file checksum/determinism tests; UI/CLI/Agent parity tests;

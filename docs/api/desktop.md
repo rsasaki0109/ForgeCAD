@@ -15,7 +15,10 @@ render/viewport layer and are not written to the document.
 | `preview_document(path)` | Regenerate, tessellate, and render a deterministic offscreen PNG preview |
 | `regenerate_document(path)` | Read-only OCCT regeneration report and triangle count for a part document |
 | `list_document_parameters(path)` | Return parameters in deterministic evaluation order with explicit unit values |
-| `set_document_parameter(path, id, expr)` | Persist one parameter expression (the Phase 3 transaction boundary will unify this with `DesignPatch`) |
+| `set_document_parameter(path, id, expr)` | Compatibility wrapper: apply one validated `DesignPatch` and persist without retaining history |
+| `set_document_parameter_with_history(path, id, expr, history?)` | Apply one validated parameter patch and return an opaque `DocumentHistoryState` |
+| `undo_document_with_history(path, history)` | Validate and persist the previous full-document snapshot; return updated history state |
+| `redo_document_with_history(path, history)` | Validate and persist the next full-document snapshot; return updated history state |
 | `pick_document(path, options)` | Headless offscreen selection query with semantic/topological context |
 | `export_stl_document(path, output)` | Regenerate a part and write a disposable binary STL |
 | `run_desktop_smoke(source, work_dir)` | Copy a part fixture into a new work directory and return serializable open/preview/edit/regenerate/pick/export evidence |
@@ -36,6 +39,8 @@ functions, not Tauri/UI commands.
 | Refresh | `inspect_document_cmd` + `preview_document_cmd` | `inspect`, `screenshot` | — (CLI provides parity) |
 | List parameters | `list_document_parameters_cmd` | `params [--json]` | `opencad.query_document` / document inspection |
 | Edit parameter | `set_document_parameter_cmd` | `patch` with `set_parameter` | `opencad.patch_apply_document` |
+| Undo document edit | `undo_document_cmd` | — | `opencad.history_undo_document` |
+| Redo document edit | `redo_document_cmd` | — | `opencad.history_redo_document` |
 | Pick | `pick_document_cmd` | `pick` | `opencad.pick_document` |
 | Create sample | `create_template_document` | `new` | — (CLI provides parity) |
 | Open viewport | `open_viewport_cmd` | `view` | — (CLI provides parity) |
@@ -49,6 +54,15 @@ command. Refresh deliberately calls the same inspect/preview load path as Open;
 there is no separate UI regenerate or export command. The test also checks that
 the UI keeps document path state separate from viewport preview synchronization
 and does not contain direct Design Graph mutation expressions.
+
+Parameter edits cross the same validated `DesignPatch`/file boundary as other
+backend changes. The Tauri commands return a serializable
+`DocumentHistoryState`; the UI passes its `history` field back opaquely to
+parameter, undo, and redo commands and uses only `can_undo`/`can_redo` for
+button state. `DocumentHistory` stores deterministic complete document
+snapshots and descriptions outside the `.ocad` schema. It excludes viewport,
+camera, selection, B-Rep, and mesh state. A failed patch or stale undo/redo
+check leaves both the document and the caller's history value unchanged.
 
 ## Headless smoke test
 

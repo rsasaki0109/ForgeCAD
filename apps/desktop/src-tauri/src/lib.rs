@@ -2,9 +2,11 @@ use std::path::{Path, PathBuf};
 
 use opencad_desktop::{
     create_document, inspect_document, list_document_parameters, load_view_data, pick_document,
-    preview_document, run_desktop_smoke, run_document_viewport_with_sync,
-    set_document_parameter, DocumentInspect, DocumentPreview, DocumentTemplate, ParameterRow,
-    PickOptions, PickSummary, PreviewSynced, PREVIEW_HEIGHT, PREVIEW_WIDTH,
+    preview_document, redo_document_with_history, run_desktop_smoke,
+    run_document_viewport_with_sync, set_document_parameter_with_history,
+    undo_document_with_history, DocumentHistory, DocumentHistoryState, DocumentInspect,
+    DocumentPreview, DocumentTemplate, ParameterRow, PickOptions, PickSummary, PreviewSynced,
+    PREVIEW_HEIGHT, PREVIEW_WIDTH,
 };
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -74,8 +76,29 @@ fn list_document_parameters_cmd(path: String) -> Result<Vec<ParameterRow>, Strin
 }
 
 #[tauri::command]
-fn set_document_parameter_cmd(path: String, id: String, expr: String) -> Result<(), String> {
-    set_document_parameter(&path, &id, &expr).map_err(map_error)
+fn set_document_parameter_cmd(
+    path: String,
+    id: String,
+    expr: String,
+    history: Option<DocumentHistory>,
+) -> Result<DocumentHistoryState, String> {
+    set_document_parameter_with_history(&path, &id, &expr, history).map_err(map_error)
+}
+
+#[tauri::command]
+fn undo_document_cmd(
+    path: String,
+    history: DocumentHistory,
+) -> Result<DocumentHistoryState, String> {
+    undo_document_with_history(&path, history).map_err(map_error)
+}
+
+#[tauri::command]
+fn redo_document_cmd(
+    path: String,
+    history: DocumentHistory,
+) -> Result<DocumentHistoryState, String> {
+    redo_document_with_history(&path, history).map_err(map_error)
 }
 
 #[tauri::command]
@@ -195,6 +218,8 @@ fn run_gui() {
             create_template_document,
             list_document_parameters_cmd,
             set_document_parameter_cmd,
+            undo_document_cmd,
+            redo_document_cmd,
             open_viewport_cmd,
             pick_document_cmd,
         ])

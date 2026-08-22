@@ -31,7 +31,9 @@ echo '{"jsonrpc":"2.0","id":1,"method":"opencad.inspect","params":{"path":"brack
 | `opencad.inspect` | `{ path }` | document summary |
 | `opencad.validate` | `{ path }` | `{ valid, path }` |
 | `opencad.patch_dry_run_document` | `{ path, patch }` | `{ validation, diff }` |
-| `opencad.patch_apply_document` | `{ path, patch }` | `{ patched }` |
+| `opencad.patch_apply_document` | `{ path, patch, history? }` | `{ patched, history, can_undo, can_redo }` |
+| `opencad.history_undo_document` | `{ path, history }` | `{ history, can_undo, can_redo }` |
+| `opencad.history_redo_document` | `{ path, history }` | `{ history, can_undo, can_redo }` |
 | `opencad.regen_document` | `{ path }` | `RegenResult` |
 | `opencad.export` | `{ path, output }` | `ExportSummary` |
 | `opencad.diff_document` | `{ before, after? \| patch?, geometry? }` | `DesignDiff` |
@@ -44,6 +46,14 @@ references, assembly state, and drawing state. The in-memory `patch_apply`
 path and the document patch path stage a candidate state and commit it only
 after every operation validates; a later operation failure cannot retain an
 earlier operation's mutation.
+
+The history methods accept and return the serialized `history` value produced
+by a prior backend edit. Clients must treat it as opaque and pass it back
+unchanged; `can_undo` and `can_redo` are the only capability values needed for
+toolbar state. History snapshots are held outside the `.ocad` schema and
+contain only complete `OcadDocument` source states, never viewport, camera,
+selection, B-Rep, or mesh state. A stale document is rejected before either
+the document or history value is changed.
 
 Dry-run and apply share the validated candidate builder. Rust callers that
 need the same contract can use

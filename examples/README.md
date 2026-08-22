@@ -59,3 +59,13 @@ The same validated candidate path drives dry-run and apply for the assembly and
 drawing fixtures `assembly_two_brackets.ocad.d` and
 `bracket_front_view.ocad.d`. Assembly and drawing operations require their
 corresponding model context and appear in the semantic diff before apply.
+
+## Backend history
+
+Desktop parameter edits use the same validated file-layer `DesignPatch` path
+and return a serializable opaque `DocumentHistoryState`. Pass its `history`
+field unchanged to the backend undo/redo operation; the complete Design Graph
+document is restored, while viewport camera and selection remain outside the
+history value. The focused round-trip and failure coverage lives in
+`modules/file/src/history.rs`, `modules/desktop/src/parameters.rs`, and the
+desktop/Agent command parity tests.

@@ -1,7 +1,10 @@
 //! Parameter listing and editing for the desktop shell.
 
+use opencad_ai::DesignPatch;
 use opencad_core::Result;
-use opencad_file::{read_ocad, write_ocad};
+use opencad_file::{
+    apply_patch_with_history, read_ocad, write_ocad, DocumentHistory, DocumentHistoryState,
+};
 use opencad_graph::evaluate_param_graph;
 use serde::{Deserialize, Serialize};
 
@@ -65,17 +68,68 @@ pub fn list_document_parameters(path: &str) -> Result<Vec<ParameterRow>> {
     Ok(rows)
 }
 
+/// Set a parameter through the shared DesignPatch/file transaction boundary.
+///
+/// This compatibility wrapper intentionally does not retain history. Desktop
+/// command clients should use [`set_document_parameter_with_history`] and
+/// pass the returned opaque history value to later commands.
 pub fn set_document_parameter(path: &str, id: &str, expr: &str) -> Result<()> {
+    set_document_parameter_with_history(path, id, expr, None).map(|_| ())
+}
+
+/// Apply a parameter DesignPatch and return backend-owned undo/redo state.
+///
+/// `history` is passed by value because it is a transport value owned by the
+/// caller. A failed validation or file write therefore cannot mutate the
+/// caller's history. The history is never persisted in the `.ocad` document.
+pub fn set_document_parameter_with_history(
+    path: &str,
+    id: &str,
+    expr: &str,
+    history: Option<DocumentHistory>,
+) -> Result<DocumentHistoryState> {
     let mut doc = read_ocad(path)?;
-    doc.parameters.set_expr(id, expr)?;
-    doc.parameters.mark_dirty(id);
-    write_ocad(path, &doc)
+    let mut next_history = history.unwrap_or_default();
+    let patch = DesignPatch::set_parameter(id, expr);
+    apply_patch_with_history(
+        &mut doc,
+        &patch,
+        &mut next_history,
+        format!("Set parameter '{id}' to '{expr}'"),
+    )?;
+    write_ocad(path, &doc)?;
+    Ok(DocumentHistoryState::new(next_history))
+}
+
+/// Undo the latest backend history record for a document on disk.
+pub fn undo_document_with_history(
+    path: &str,
+    history: DocumentHistory,
+) -> Result<DocumentHistoryState> {
+    let mut doc = read_ocad(path)?;
+    let mut next_history = history;
+    next_history.undo(&mut doc)?;
+    write_ocad(path, &doc)?;
+    Ok(DocumentHistoryState::new(next_history))
+}
+
+/// Redo the latest backend history record for a document on disk.
+pub fn redo_document_with_history(
+    path: &str,
+    history: DocumentHistory,
+) -> Result<DocumentHistoryState> {
+    let mut doc = read_ocad(path)?;
+    let mut next_history = history;
+    next_history.redo(&mut doc)?;
+    write_ocad(path, &doc)?;
+    Ok(DocumentHistoryState::new(next_history))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::fixture::write_bracket_fixture_at;
+    use opencad_file::read_ocad;
     use tempfile::tempdir;
 
     #[test]
@@ -114,6 +168,58 @@ mod tests {
             .expect("width");
         assert_eq!(width.expr, "100 mm");
         assert!((width.value_mm.expect("value") - 100.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn parameter_edit_history_undoes_and_redoes_the_full_document() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("bracket.ocad.d");
+        write_bracket_fixture_at(&path);
+        let path = path.to_str().expect("path");
+        let before = read_ocad(path).expect("before");
+
+        let edited =
+            set_document_parameter_with_history(path, "param:width", "100 mm", None).expect("edit");
+        assert!(edited.can_undo);
+        assert!(!edited.can_redo);
+        let after = read_ocad(path).expect("after");
+        assert_ne!(before, after);
+
+        let undone = undo_document_with_history(path, edited.history).expect("undo");
+        assert!(!undone.can_undo);
+        assert!(undone.can_redo);
+        assert_eq!(read_ocad(path).expect("undone document"), before);
+
+        let redone = redo_document_with_history(path, undone.history).expect("redo");
+        assert!(redone.can_undo);
+        assert!(!redone.can_redo);
+        assert_eq!(read_ocad(path).expect("redone document"), after);
+    }
+
+    #[test]
+    fn failed_parameter_edit_leaves_document_and_opaque_history_unchanged() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("bracket.ocad.d");
+        write_bracket_fixture_at(&path);
+        let path = path.to_str().expect("path");
+
+        let edited =
+            set_document_parameter_with_history(path, "param:width", "100 mm", None).expect("edit");
+        let before = read_ocad(path).expect("before failed edit");
+        let history_json = serde_json::to_string(&edited.history).expect("history json");
+        let error = set_document_parameter_with_history(
+            path,
+            "param:width",
+            "not_a_length",
+            Some(edited.history.clone()),
+        )
+        .expect_err("invalid expression");
+        assert!(error.to_string().contains("invalid expression"));
+        assert_eq!(read_ocad(path).expect("document after failed edit"), before);
+        assert_eq!(
+            serde_json::to_string(&edited.history).expect("history json after"),
+            history_json
+        );
     }
 
     #[test]

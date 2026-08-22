@@ -9,12 +9,32 @@ use opencad_feature::{FeatureRegistry, RegenReport};
 use opencad_geometry::GeometryKernel;
 
 use crate::topo_assign::{apply_assign_face_ref, AssignFaceRefOp};
-use crate::OcadDocument;
+use crate::{DocumentHistory, OcadDocument};
 
 /// Apply all patch operations to a document in memory.
 pub fn apply_patch_to_document(doc: &mut OcadDocument, patch: &DesignPatch) -> Result<()> {
     let mut candidate = doc.clone();
     apply_patch_to_document_in_place(&mut candidate, patch)?;
+    *doc = candidate;
+    Ok(())
+}
+
+/// Apply a validated patch and record the complete before/after document
+/// snapshots in backend history.
+///
+/// The patch is evaluated against a disposable candidate.  If validation or
+/// any operation fails, neither `doc` nor `history` is changed.  A successful
+/// record clears the redo branch, as required for a new edit after undo.
+pub fn apply_patch_with_history(
+    doc: &mut OcadDocument,
+    patch: &DesignPatch,
+    history: &mut DocumentHistory,
+    description: impl Into<String>,
+) -> Result<()> {
+    let before = doc.clone();
+    let mut candidate = before.clone();
+    apply_patch_to_document_in_place(&mut candidate, patch)?;
+    history.record(before, candidate.clone(), description);
     *doc = candidate;
     Ok(())
 }
@@ -151,6 +171,32 @@ mod tests {
             panic!("expected extrude");
         };
         assert_eq!(extrude.length_expr.as_deref(), Some("thickness * 2"));
+    }
+
+    #[test]
+    fn apply_patch_with_history_is_atomic_and_records_full_document() {
+        let mut doc = bracket_document();
+        let before = doc.clone();
+        let mut history = DocumentHistory::default();
+        let patch = DesignPatch::set_parameter("param:width", "100 mm");
+
+        apply_patch_with_history(&mut doc, &patch, &mut history, "Set width")
+            .expect("history patch");
+        assert_ne!(doc, before);
+        assert_eq!(history.undo_len(), 1);
+        let after = doc.clone();
+        history.undo(&mut doc).expect("undo recorded patch");
+        assert_eq!(doc, before);
+        history.redo(&mut doc).expect("redo recorded patch");
+        assert_eq!(doc, after);
+
+        let original_doc = doc.clone();
+        let original_history = history.clone();
+        let invalid = DesignPatch::set_parameter("param:width", "not_a_length");
+        apply_patch_with_history(&mut doc, &invalid, &mut history, "Invalid width")
+            .expect_err("invalid patch");
+        assert_eq!(doc, original_doc);
+        assert_eq!(history, original_history);
     }
 
     #[test]

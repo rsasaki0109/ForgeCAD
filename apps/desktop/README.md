@@ -32,7 +32,8 @@ The app loads `examples/bracket.ocad.d` automatically when launched from the wor
 - Open `.ocad.d` directory
 - PNG preview (sketch overlay included)
 - Edit parameters inline (persist + live preview refresh)
-- Undo/redo parameter edits (toolbar buttons or Ctrl+Z / Ctrl+Shift+Z)
+- Undo/redo parameter edits (toolbar buttons or Ctrl+Z / Ctrl+Shift+Z) through
+  backend-owned opaque full-document history
 - Click preview to pick faces/sketch lines (topo ref + feature inference)
 - Picking geometry highlights related parameters in the panel
 - Selected geometry is highlighted on the preview image (face-group boundary edges; cylindrical faces use ring outlines)

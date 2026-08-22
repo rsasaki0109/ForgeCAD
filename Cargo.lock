@@ -1432,6 +1432,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "image",
+ "opencad-ai",
  "opencad-assembly",
  "opencad-core",
  "opencad-drawing",

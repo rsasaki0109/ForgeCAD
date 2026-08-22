@@ -16,7 +16,10 @@ pub mod viewport;
 
 pub use export::{export_stl_document, ExportSummary};
 pub use inspect::{inspect_document, DocumentInspect};
-pub use parameters::{list_document_parameters, set_document_parameter, ParameterRow};
+pub use parameters::{
+    list_document_parameters, redo_document_with_history, set_document_parameter,
+    set_document_parameter_with_history, undo_document_with_history, ParameterRow,
+};
 pub use pick::{
     build_pick_summary, highlight_segments_for_camera, pick_document, preview_highlight_segments,
     PickOptions, PickSummary, PickTarget, ScreenSegment,
@@ -34,6 +37,7 @@ pub use smoke::{run_desktop_smoke, DesktopSmokeSummary};
 pub use template::{create_document, DocumentTemplate};
 pub use viewport::{run_document_viewport, run_document_viewport_with_sync, PreviewSynced};
 
+pub use opencad_file::{DocumentHistory, DocumentHistoryState};
 pub use scene_query::{infer_face_refs, topo_ref_for_group};
 
 #[cfg(test)]

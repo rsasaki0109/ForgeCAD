@@ -46,6 +46,15 @@ The Agent API, CLI document path, and file-layer patch path share the same
 validated candidate builder, including assembly and drawing context checks, so
 dry-run and apply expose the same semantic diff and deterministic errors.
 
+Backend history is a separate serializable transport value, not a document
+schema field. Each successful file-layer `DesignPatch` records a deterministic
+full `OcadDocument` before/after snapshot and a description. Undo and redo
+validate that the current source document matches the expected snapshot before
+swapping it, and a new record clears the redo branch. The desktop/Tauri/Agent
+surfaces pass this value opaquely; only `can_undo` and `can_redo` are exposed as
+capabilities. Viewport camera, selection, B-Rep, and mesh caches never enter
+history.
+
 ## Principles
 
 | Principle | Meaning |
@@ -70,5 +79,6 @@ dry-run and apply expose the same semantic diff and deterministic errors.
 ## Further reading
 
 - [ADR-001: Rust-first](../adr/ADR-001-rust-first.md)
+- [ADR-007: Serializable backend document history](../adr/ADR-007-backend-document-history.md)
 - [Developer guide](../developer-guide/index.md)
 - [AGENTS.md](../../AGENTS.md)
