@@ -15,7 +15,9 @@ on:
       - docs/developer-guide/occt-install.md
       - docs/developer-guide/releases.md
       - docs/developer-guide/desktop-releases.md
+      - docs/api/desktop.md
       - tools/package-desktop-release.ps1
+      - tools/desktop-smoke.ps1
   push:
     branches: [main]
     tags:
@@ -246,3 +248,73 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 14
+
+  backend-smoke:
+    name: headless backend and packaged Linux smoke
+    needs: build
+    runs-on: ubuntu-24.04
+    env:
+      WGPU_BACKEND: vulkan
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Linux headless dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential \
+            libayatana-appindicator3-dev \
+            libgtk-3-dev \
+            libvulkan1 \
+            libwebkit2gtk-4.1-dev \
+            librsvg2-dev \
+            mesa-vulkan-drivers
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo and OCCT
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ runner.arch }}-desktop-smoke-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-desktop-smoke-
+
+      - name: Run headless backend smoke and command parity audit
+        run: |
+          cargo test --locked -p opencad-desktop --test desktop_smoke --features occt -- --nocapture
+          cargo test --locked -p opencad-desktop --test command_parity
+
+      - name: Download packaged Linux installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: musubicad-desktop-v*-linux-x86_64
+          path: dist
+          merge-multiple: true
+
+      - name: Verify packaged Linux installer checksums
+        shell: bash
+        run: |
+          test -f dist/SHA256SUMS
+          (cd dist && sha256sum --check SHA256SUMS)
+          test "$(find dist -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 1
+          test "$(find dist -maxdepth 1 -type f -name '*.AppImage' | wc -l)" -eq 1
+
+      - name: Run packaged Linux AppImage smoke
+        shell: bash
+        run: |
+          appimage="$(find dist -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+          test -n "$appimage"
+          chmod +x "$appimage"
+          work_dir="$RUNNER_TEMP/musubicad-desktop-smoke.ocad.d"
+          test ! -e "$work_dir"
+          APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" \
+            --smoke-test "$GITHUB_WORKSPACE/examples/bracket.ocad.d" "$work_dir"

@@ -30,7 +30,7 @@ The app loads `examples/bracket.ocad.d` automatically when launched from the wor
 ## Features (MVP)
 
 - Open `.ocad.d` directory
-- Regenerate + PNG preview (sketch overlay included)
+- PNG preview (sketch overlay included)
 - Edit parameters inline (persist + live preview refresh)
 - Undo/redo parameter edits (toolbar buttons or Ctrl+Z / Ctrl+Shift+Z)
 - Click preview to pick faces/sketch lines (topo ref + feature inference)
@@ -80,3 +80,17 @@ a required system tool is missing, dependency resolution is not locked, the
 Tauri build returns a non-zero status, a required bundle is absent, checksums
 do not verify, the expected executable is absent or empty, or the build rewrites
 `Cargo.lock`. Code-signing and notarization remain `MCAD-P1-004`.
+
+The same workflow gates the packaged Linux artifact on the headless backend
+smoke and command-parity tests. Run that backend check locally with
+`./tools/desktop-smoke.ps1`; it copies the committed bracket example before
+editing it, so the repository Design Graph remains unchanged. A packaged
+binary can run the identical contract without opening a window:
+
+```text
+musubicad-desktop --version
+musubicad-desktop --smoke-test <source.ocad.d> <new-work-dir.ocad.d>
+```
+
+The smoke command accepts only part documents and refuses an existing work
+directory; it prints a serializable JSON summary on success.

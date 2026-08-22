@@ -528,7 +528,7 @@ async function loadDocument(path, options = {}) {
   if (!options.keepParamHistory) {
     resetParamHistory();
   }
-  setStatus(`Regenerating ${path}…`);
+  setStatus(`Loading ${path}…`);
 
   const requests = [
     invoke("inspect_document_cmd", { path }),

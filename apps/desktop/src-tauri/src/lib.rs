@@ -1,13 +1,13 @@
 use std::path::{Path, PathBuf};
 
 use opencad_desktop::{
-    create_document, inspect_document, list_document_parameters, load_view_data,
-    pick_document, preview_document, run_document_viewport_with_sync, set_document_parameter,
-    DocumentInspect, DocumentPreview, DocumentTemplate, ParameterRow, PickOptions, PickSummary,
-    PreviewSynced, PREVIEW_HEIGHT, PREVIEW_WIDTH,
+    create_document, inspect_document, list_document_parameters, load_view_data, pick_document,
+    preview_document, run_desktop_smoke, run_document_viewport_with_sync,
+    set_document_parameter, DocumentInspect, DocumentPreview, DocumentTemplate, ParameterRow,
+    PickOptions, PickSummary, PreviewSynced, PREVIEW_HEIGHT, PREVIEW_WIDTH,
 };
-use tauri::{AppHandle, Emitter};
 use serde::Serialize;
+use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Clone, Serialize)]
 struct TemplateInfo {
@@ -129,8 +129,62 @@ fn pick_document_cmd(path: String, x: f64, y: f64) -> Result<PickSummary, String
     pick_document(&path, &options).map_err(map_error)
 }
 
+/// Handle the non-GUI command-line modes used by release checks.
+///
+/// `None` means that the arguments are not a headless mode and the caller
+/// should continue into the Tauri event loop.  Returning an exit code keeps
+/// this parser testable without starting a native window in CI.
+pub fn run_headless(args: &[String]) -> Option<i32> {
+    match args {
+        [flag] if flag == "--version" || flag == "-V" => {
+            println!("musubicad-desktop {}", env!("CARGO_PKG_VERSION"));
+            Some(0)
+        }
+        [flag, source, work_dir] if flag == "--smoke-test" => {
+            let summary = run_desktop_smoke(Path::new(source), Path::new(work_dir));
+            match summary {
+                Ok(summary) => match serde_json::to_string_pretty(&summary) {
+                    Ok(json) => {
+                        println!("{json}");
+                        Some(0)
+                    }
+                    Err(error) => {
+                        eprintln!("desktop smoke summary serialization failed: {error}");
+                        Some(1)
+                    }
+                },
+                Err(error) => {
+                    eprintln!("desktop smoke test failed: {error}");
+                    Some(1)
+                }
+            }
+        }
+        [flag, ..] if flag == "--smoke-test" => {
+            eprintln!("usage: musubicad-desktop --smoke-test <source> <work-dir>");
+            Some(2)
+        }
+        _ => None,
+    }
+}
+
+/// Start either a headless release check or the normal Tauri shell.
+pub fn run_with_args(args: impl IntoIterator<Item = String>) {
+    let args = args.into_iter().collect::<Vec<_>>();
+    if let Some(code) = run_headless(&args) {
+        if code != 0 {
+            std::process::exit(code);
+        }
+        return;
+    }
+    run_gui();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    run_with_args(std::env::args().skip(1));
+}
+
+fn run_gui() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![

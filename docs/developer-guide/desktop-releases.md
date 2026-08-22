@@ -97,5 +97,6 @@ verify. It uses `ditto` for the macOS `.app` archive so bundle metadata is
 preserved.
 
 The four-runner build and install/open smoke tests have not yet been confirmed
-on a tagged CI run. They remain part of the Phase 1 acceptance evidence and
-`MCAD-P1-003`.
+on a tagged CI run. They remain part of the Phase 1 acceptance evidence for
+`MCAD-P1-001` and `MCAD-P1-002`; the shared desktop smoke contract itself is
+implemented by `MCAD-P1-003`.

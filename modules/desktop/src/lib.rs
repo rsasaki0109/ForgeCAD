@@ -1,16 +1,20 @@
 //! Shared helpers for MusubiCAD desktop and CLI shells.
 
+pub mod export;
 pub mod fixture;
 pub mod inspect;
 pub mod parameters;
 pub mod pick;
 pub mod preview;
 pub mod regen;
+pub mod regenerate;
 pub mod related_parameters;
 pub mod scene_query;
+pub mod smoke;
 pub mod template;
 pub mod viewport;
 
+pub use export::{export_stl_document, ExportSummary};
 pub use inspect::{inspect_document, DocumentInspect};
 pub use parameters::{list_document_parameters, set_document_parameter, ParameterRow};
 pub use pick::{
@@ -22,9 +26,11 @@ pub use preview::{
     CameraState, DocumentPreview, ViewData, PREVIEW_HEIGHT, PREVIEW_WIDTH,
 };
 pub use regen::{tessellate_active_body, tessellate_active_body_detailed, TessellatedBody};
+pub use regenerate::{regenerate_document, DocumentRegeneration};
 pub use related_parameters::{
     related_parameter_candidates, related_parameter_ids, related_parameter_ids_for_features,
 };
+pub use smoke::{run_desktop_smoke, DesktopSmokeSummary};
 pub use template::{create_document, DocumentTemplate};
 pub use viewport::{run_document_viewport, run_document_viewport_with_sync, PreviewSynced};
 

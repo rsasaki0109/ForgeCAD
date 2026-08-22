@@ -31,6 +31,7 @@ pub fn run() -> Result<()> {
         Some("new") => cmd_new(args.next().as_deref(), &args.collect::<Vec<_>>()),
         Some("validate") => cmd_validate(args.next().as_deref()),
         Some("inspect") => cmd_inspect(args.next().as_deref()),
+        Some("params") => cmd_params(args.next().as_deref(), &args.collect::<Vec<_>>()),
         Some("regen") => cmd_regen(args.next().as_deref(), &args.collect::<Vec<_>>()),
         Some("export") => cmd_export(args.next().as_deref(), args.next().as_deref()),
         Some("mesh") => cmd_mesh(args.next().as_deref(), args.collect()),
@@ -107,6 +108,33 @@ fn cmd_inspect(path: Option<&str>) -> Result<()> {
         println!("views: {views}");
     } else {
         println!("kind: part");
+    }
+    Ok(())
+}
+
+fn cmd_params(path: Option<&str>, extra_args: &[String]) -> Result<()> {
+    let path = path.ok_or_else(|| {
+        opencad_core::OpenCadError::validation("usage: opencad params <path> [--json]")
+    })?;
+    for arg in extra_args {
+        if arg != "--json" {
+            return Err(opencad_core::OpenCadError::validation(format!(
+                "unknown params option '{arg}'"
+            )));
+        }
+    }
+    let rows = opencad_desktop::list_document_parameters(path)?;
+    if extra_args.iter().any(|arg| arg == "--json") {
+        println!("{}", serde_json::to_string_pretty(&rows)?);
+    } else {
+        for row in rows {
+            let value = row
+                .value_mm
+                .map(|mm| format!("{mm:.6} mm"))
+                .or_else(|| row.value_deg.map(|deg| format!("{deg:.6} deg")))
+                .unwrap_or_else(|| "—".into());
+            println!("{}: {} = {}", row.id, row.expr, value);
+        }
     }
     Ok(())
 }
@@ -379,6 +407,7 @@ COMMANDS:
     new         Create a sample bracket document
     validate    Validate a .ocad or .ocad.d document
     inspect     Show document summary
+    params      List document parameters
     regen       Regenerate features through the geometry kernel
     export      Export the active body to STL or a drawing to SVG
     mesh        Tessellate and summarize viewport scene data
@@ -413,6 +442,7 @@ EXAMPLES:
     opencad new bracket_front_view.ocad.d drawing
     opencad validate bracket.ocad
     opencad inspect bracket.ocad.d
+    opencad params bracket.ocad.d --json
     opencad regen bracket.ocad
     opencad regen bracket.ocad --sync-topo-refs
     opencad export bracket.ocad bracket.stl
