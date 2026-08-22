@@ -38,6 +38,10 @@ Regeneration Engine
 ## Source of truth
 
 The **Design Graph** is authoritative. B-Rep and meshes are disposable caches regenerated from the graph.
+Document mutations use staged candidate state: patch operations and part
+regeneration run on a clone, and the Design Graph is swapped into the document
+only after the complete operation succeeds. A failed operation therefore
+leaves the serialized source document byte-for-byte unchanged.
 
 ## Principles
 

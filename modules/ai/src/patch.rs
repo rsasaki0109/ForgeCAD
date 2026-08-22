@@ -400,6 +400,40 @@ impl DesignPatch {
         assembly: Option<&mut opencad_assembly::AssemblyModel>,
         drawing: Option<&mut opencad_drawing::DrawingModel>,
     ) -> Result<()> {
+        let mut next_parameters = parameters.clone();
+        let mut next_feature_nodes = feature_nodes.to_vec();
+        let mut next_semantic_refs = semantic_refs.clone();
+        let mut next_assembly = assembly.as_deref().cloned();
+        let mut next_drawing = drawing.as_deref().cloned();
+
+        self.apply_to_document_in_place(
+            &mut next_parameters,
+            &mut next_feature_nodes,
+            &mut next_semantic_refs,
+            next_assembly.as_mut(),
+            next_drawing.as_mut(),
+        )?;
+
+        *parameters = next_parameters;
+        feature_nodes.clone_from_slice(&next_feature_nodes);
+        *semantic_refs = next_semantic_refs;
+        if let (Some(target), Some(next)) = (assembly, next_assembly) {
+            *target = next;
+        }
+        if let (Some(target), Some(next)) = (drawing, next_drawing) {
+            *target = next;
+        }
+        Ok(())
+    }
+
+    fn apply_to_document_in_place(
+        &self,
+        parameters: &mut ParamGraph,
+        feature_nodes: &mut [FeatureNode],
+        semantic_refs: &mut Vec<TopoRef>,
+        assembly: Option<&mut opencad_assembly::AssemblyModel>,
+        drawing: Option<&mut opencad_drawing::DrawingModel>,
+    ) -> Result<()> {
         self.validate_preconditions(parameters, feature_nodes, semantic_refs)?;
         self.apply_to_parameters(parameters)?;
         self.apply_to_features(feature_nodes)?;
@@ -473,6 +507,7 @@ fn apply_feature_expr(node: &mut FeatureNode, field: FeatureExprField, expr: &st
 #[cfg(test)]
 mod tests {
     use super::*;
+    use opencad_assembly::AssemblyModel;
     use opencad_feature::{
         bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet, FeatureDefinition,
         FeatureNode, LinearPatternFeature, MirrorPatternFeature,
@@ -662,6 +697,104 @@ mod tests {
             .apply_to_document(&mut params, &mut nodes, &mut refs, None, None)
             .expect_err("stale patch");
         assert_eq!(params.get("param:width").expect("width").expr, "80 mm");
+    }
+
+    #[test]
+    fn top_level_document_patch_commits_all_operations() {
+        let part = bracket_with_hole().expect("model");
+        let mut params = bracket_parameters();
+        let mut nodes: Vec<FeatureNode> = part.nodes.into_values().collect();
+        let mut refs = Vec::new();
+        let patch = DesignPatch::new(vec![
+            PatchOperation::SetParameter {
+                id: "param:width".into(),
+                expr: "100 mm".into(),
+            },
+            PatchOperation::SetFeatureExpr {
+                feature_id: "feature:extrude_base".into(),
+                field: FeatureExprField::LengthExpr.as_str().into(),
+                expr: "thickness * 2".into(),
+            },
+        ]);
+
+        patch
+            .apply_to_document(&mut params, &mut nodes, &mut refs, None, None)
+            .expect("patch");
+        assert_eq!(params.get("param:width").expect("width").expr, "100 mm");
+        let extrude = nodes
+            .iter()
+            .find(|node| node.id == "feature:extrude_base")
+            .expect("extrude");
+        let FeatureDefinition::Extrude(extrude) = &extrude.definition else {
+            panic!("expected extrude")
+        };
+        assert_eq!(extrude.length_expr.as_deref(), Some("thickness * 2"));
+    }
+
+    #[test]
+    fn top_level_document_patch_failure_does_not_commit_prior_cross_group_operations() {
+        let part = bracket_with_hole().expect("model");
+        let mut params = bracket_parameters();
+        let mut nodes: Vec<FeatureNode> = part.nodes.into_values().collect();
+        let mut refs = Vec::new();
+        let before = (params.clone(), nodes.clone(), refs.clone());
+        let patch = DesignPatch::new(vec![
+            PatchOperation::SetParameter {
+                id: "param:width".into(),
+                expr: "100 mm".into(),
+            },
+            PatchOperation::SetFeatureExpr {
+                feature_id: "feature:extrude_base".into(),
+                field: FeatureExprField::LengthExpr.as_str().into(),
+                expr: "thickness * 2".into(),
+            },
+            PatchOperation::SetFeatureExpr {
+                feature_id: "feature:hole_mount".into(),
+                field: FeatureExprField::LengthExpr.as_str().into(),
+                expr: "thickness".into(),
+            },
+        ]);
+
+        patch
+            .apply_to_document(&mut params, &mut nodes, &mut refs, None, None)
+            .expect_err("unsupported field");
+        assert_eq!((params, nodes, refs), before);
+    }
+
+    #[test]
+    fn top_level_document_patch_failure_does_not_commit_optional_assembly_group() {
+        let mut params = bracket_parameters();
+        let mut nodes = Vec::new();
+        let mut refs = Vec::new();
+        let mut assembly = AssemblyModel::default();
+        let before = (
+            params.clone(),
+            nodes.clone(),
+            refs.clone(),
+            assembly.clone(),
+        );
+        let patch = DesignPatch::new(vec![
+            PatchOperation::SetParameter {
+                id: "param:width".into(),
+                expr: "100 mm".into(),
+            },
+            PatchOperation::SetInstancePlacement {
+                instance_id: "instance:missing".into(),
+                translation_m: [0.1, 0.0, 0.0],
+                rotation: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            },
+        ]);
+
+        patch
+            .apply_to_document(
+                &mut params,
+                &mut nodes,
+                &mut refs,
+                Some(&mut assembly),
+                None,
+            )
+            .expect_err("unknown assembly instance");
+        assert_eq!((params, nodes, refs, assembly), before);
     }
 
     #[test]

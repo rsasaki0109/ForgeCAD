@@ -17,6 +17,9 @@ pub trait TransactionAction: fmt::Debug + Send + Sync {
 pub struct Transaction {
     description: String,
     actions: Vec<Box<dyn TransactionAction>>,
+    /// Number of actions that have applied successfully and still need to be
+    /// rolled back.  Failed actions are deliberately not included.
+    applied_actions: usize,
     committed: bool,
 }
 
@@ -25,6 +28,7 @@ impl Transaction {
         Self {
             description: description.into(),
             actions: Vec::new(),
+            applied_actions: 0,
             committed: false,
         }
     }
@@ -38,13 +42,21 @@ impl Transaction {
     }
 
     pub fn apply_all(&mut self) -> Result<()> {
-        for (index, action) in self.actions.iter().enumerate() {
-            action.apply().map_err(|err| {
-                OpenCadError::transaction(format!(
+        for index in self.applied_actions..self.actions.len() {
+            let action = &self.actions[index];
+            if let Err(err) = action.apply() {
+                let apply_error = OpenCadError::transaction(format!(
                     "failed at action {index} ({}): {err}",
                     action.description()
-                ))
-            })?;
+                ));
+                return match self.rollback_applied_actions() {
+                    Ok(()) => Err(apply_error),
+                    Err(rollback_error) => Err(OpenCadError::transaction(format!(
+                        "{apply_error}; {rollback_error}"
+                    ))),
+                };
+            }
+            self.applied_actions = index + 1;
         }
         Ok(())
     }
@@ -61,10 +73,27 @@ impl Transaction {
                 "cannot rollback a committed transaction",
             ));
         }
-        for action in self.actions.iter().rev() {
-            action.rollback()?;
+        self.rollback_applied_actions()
+    }
+
+    fn rollback_applied_actions(&mut self) -> Result<()> {
+        let mut first_error = None;
+        for index in (0..self.applied_actions).rev() {
+            let action = &self.actions[index];
+            if let Err(err) = action.rollback() {
+                if first_error.is_none() {
+                    first_error = Some(OpenCadError::transaction(format!(
+                        "failed to rollback action {index} ({}): {err}",
+                        action.description()
+                    )));
+                }
+            }
         }
-        Ok(())
+        self.applied_actions = 0;
+        match first_error {
+            Some(err) => Err(err),
+            None => Ok(()),
+        }
     }
 
     pub fn is_committed(&self) -> bool {
@@ -180,5 +209,44 @@ mod tests {
         tx.push_action(Box::new(CounterAction::new(counter.clone(), 5, "add 5")));
         tx.commit().expect("commit");
         assert_eq!(counter.load(Ordering::Relaxed), 5);
+    }
+
+    #[derive(Debug)]
+    struct FailingAction {
+        rollback_calls: Arc<AtomicU32>,
+    }
+
+    impl TransactionAction for FailingAction {
+        fn description(&self) -> &str {
+            "fail"
+        }
+
+        fn apply(&self) -> Result<()> {
+            Err(OpenCadError::validation("injected failure"))
+        }
+
+        fn rollback(&self) -> Result<()> {
+            self.rollback_calls.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn failed_commit_rolls_back_only_successfully_applied_actions() {
+        let counter = Arc::new(AtomicU32::new(0));
+        let failed_rollback_calls = Arc::new(AtomicU32::new(0));
+        let mut tx = Transaction::begin("rollback on failure");
+        tx.push_action(Box::new(CounterAction::new(
+            counter.clone(),
+            1,
+            "add before failure",
+        )));
+        tx.push_action(Box::new(FailingAction {
+            rollback_calls: failed_rollback_calls.clone(),
+        }));
+
+        tx.commit().expect_err("injected failure");
+        assert_eq!(counter.load(Ordering::Relaxed), 0);
+        assert_eq!(failed_rollback_calls.load(Ordering::Relaxed), 0);
     }
 }

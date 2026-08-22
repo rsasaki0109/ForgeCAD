@@ -39,6 +39,19 @@ echo '{"jsonrpc":"2.0","id":1,"method":"opencad.inspect","params":{"path":"brack
 | `opencad.pick_document` | `{ path, x, y, width?, height? }` | `PickSummary` |
 | `opencad.explain_document` | `{ path }` | `DesignExplanation` |
 
+Patch application is atomic across parameters, feature nodes, semantic
+references, assembly state, and drawing state. The in-memory `patch_apply`
+path and the document patch path stage a candidate state and commit it only
+after every operation validates; a later operation failure cannot retain an
+earlier operation's mutation.
+
+Rust callers that must validate a part regeneration in the same boundary can
+use `opencad_file::apply_patch_and_regenerate`. It runs the patch and
+regeneration against a cloned candidate and swaps the candidate into the
+document only after successful regeneration. B-Rep and mesh outputs remain
+disposable and are never serialized. The API accepts part documents; assembly
+and drawing regeneration continue through their specialized pipelines.
+
 ### Query kinds (`query.kind`)
 
 | kind | Description |

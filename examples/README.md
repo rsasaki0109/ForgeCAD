@@ -46,3 +46,11 @@ cargo run -p opencad-cli -- patch examples/bracket_hole_row.ocad.d examples/agen
 ## Agent API
 
 See `agent/` for JSON-RPC payloads. Pipe them to `opencad agent` on stdio.
+
+## Atomic patch and regeneration
+
+`bracket.ocad.d` is the representative part fixture for the atomic patch
+boundary. Rust callers can apply a multi-operation `DesignPatch` and validate
+part regeneration with `opencad_file::apply_patch_and_regenerate`; the
+candidate clone is committed only after regeneration succeeds, so a failure
+leaves the serialized fixture unchanged.
