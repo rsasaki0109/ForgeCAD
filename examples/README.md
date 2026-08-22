@@ -92,8 +92,9 @@ cargo test -p opencad-plugin-api
 ```
 
 Feature and importer implementations return validated `DesignPatch` DTOs;
-exporters receive immutable serializable state and return bytes. Registry and
-CLI/Agent product integration are intentionally deferred to P4-002/P4-003.
+exporters receive immutable serializable state and return bytes. The example
+declares `feature_patch`, so it passes the deterministic P4-002 registry policy.
+CLI/Agent product integration is intentionally deferred to P4-003.
 
 ## Backend history
 

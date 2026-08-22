@@ -22,9 +22,16 @@ bytes, leaving output persistence to the host.
 
 The initial contract is linked Rust only. It has explicit major/minor API
 compatibility and a versioned manifest schema, but it is not an ABI guarantee
-and does not define dynamic loading or sandboxing. Those concerns, along with
-deterministic registry order and CLI/Agent product integration, are deferred to
-P4-002/P4-003.
+and does not define dynamic loading or sandboxing. P4-002 adds a
+`BTreeMap`-backed registry and a
+serializable host capability policy. Discovery validates manifests and returns
+stable ID ordering without calling feature/import/export execution methods.
+This is a policy boundary for exposed DTO operations, not a sandbox: linked
+in-process implementations are trusted, and registration/listing call their
+`manifest()` accessor. Capabilities are limited to proposing feature/import
+patches or producing export bytes; filesystem, network, UI, kernel, and
+document-owner access cannot be declared. CLI/Agent product integration remains
+P4-003 work.
 
 See [the public API contract](../api/plugin-api.md) and
 [ADR-010](../adr/ADR-010-versioned-plugin-contracts.md).

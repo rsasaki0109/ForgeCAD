@@ -41,6 +41,15 @@ This is a linked Rust contract, not an ABI-stable dynamic-loading promise. No
 registry, loader, capability negotiation, document integration, or product
 surface is introduced by this decision.
 
+P4-002 extends the v1 manifest with a serde-defaulted, sorted capability set
+and stores trusted linked implementations in a `BTreeMap` keyed by manifest
+ID. Each kind declares exactly one data-only capability (`feature_patch`,
+`import_patch`, or `export_bytes`), which an explicit host policy may reject
+before registration. Missing, extra, kind-mismatched, duplicate, and
+policy-disallowed declarations fail deterministically. Discovery does not call
+feature/import/export execution methods. This is not process isolation; linked
+code and its `manifest()` accessor are trusted.
+
 ## Consequences
 
 - Plugin proposals still pass through host DesignPatch validation and

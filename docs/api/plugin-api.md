@@ -1,10 +1,11 @@
-# Plugin API (P4-001)
+# Plugin API (P4-001/P4-002)
 
 `opencad-plugin-api` defines the first versioned extension boundary for
 MusubiCAD. It is a linked, stable-Rust contract: plugin implementations are
 compiled against the crate and exchange request/result DTOs in process. P4-001
-does not claim an ABI-stable dynamic-loading format and does not implement a
-registry, discovery, sandbox, CLI route, or Agent route.
+does not claim an ABI-stable dynamic-loading format. P4-002 adds a
+deterministic in-process registry and capability policy; CLI/Agent invocation
+remains a P4-003 concern.
 
 ## Boundary
 
@@ -37,7 +38,8 @@ Each plugin declares a serializable `PluginManifest`:
   "name": "Bracket Feature Example",
   "version": "0.1.0",
   "api_version": { "major": 1, "minor": 0 },
-  "kind": "feature"
+  "kind": "feature",
+  "capabilities": ["feature_patch"]
 }
 ```
 
@@ -49,6 +51,26 @@ invocation. The manifest schema is also checked exactly.
 
 The exact checked-in example is
 [`examples/plugin-example/manifest.json`](../../examples/plugin-example/manifest.json).
+
+`capabilities` is a sorted set of the data operations explicitly declared by
+the plugin. A feature must declare `feature_patch`, an importer must declare
+`import_patch`, and an exporter must declare `export_bytes`. A host
+`PluginCapabilityPolicy` may allow a narrower set; undeclared, kind-incompatible,
+or policy-disallowed capabilities are rejected deterministically. Older v1
+manifest JSON without this field remains readable through serde defaults, but
+cannot register until the required capability is declared.
+
+`PluginRegistry` stores the three linked trait kinds in a `BTreeMap` keyed by
+manifest ID. Registration validates manifest schema, API compatibility, kind,
+required capabilities, policy, and duplicate IDs. Listing returns manifests and
+IDs in lexical order regardless of registration order. Listing necessarily
+calls each plugin's `manifest()` metadata accessor; it does not call
+`FeaturePlugin::apply`, `ImporterPlugin::import`, or `ExporterPlugin::export`.
+
+Linked in-process plugin code is trusted and is not sandboxed by P4-002. The
+registry and capability enum expose no filesystem, network, UI, document
+ownership, or OCCT/kernel capability. Process isolation and security policy
+for untrusted code remain future work.
 
 ## Linked Rust shape
 
@@ -80,5 +102,5 @@ cargo test -p opencad-plugin-api
 cargo clippy -p opencad-plugin-api --all-targets -- -D warnings
 ```
 
-Registry ordering, capability declarations, loading/security, and CLI/Agent
-invocation are follow-up contracts in P4-002 and P4-003.
+Loading/security isolation and CLI/Agent invocation remain follow-up work in
+P4-003 and P4-004.

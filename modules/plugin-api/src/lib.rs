@@ -10,12 +10,15 @@ pub mod exporter;
 pub mod feature_plugin;
 pub mod importer;
 pub mod manifest;
+pub mod registry;
 pub mod ui_extension;
 
 pub use exporter::{ExportRequest, ExportResult, ExporterPlugin};
 pub use feature_plugin::{FeatureInput, FeaturePlugin, FeatureRequest, FeatureResult};
 pub use importer::{ImportRequest, ImportResult, ImporterPlugin};
 pub use manifest::{
-    DiagnosticSeverity, PluginApiVersion, PluginDiagnostic, PluginError, PluginKind,
-    PluginManifest, PluginResult, CURRENT_PLUGIN_API, PLUGIN_MANIFEST_SCHEMA,
+    DiagnosticSeverity, PluginApiVersion, PluginCapability, PluginCapabilityPolicy,
+    PluginDiagnostic, PluginError, PluginKind, PluginManifest, PluginResult, CURRENT_PLUGIN_API,
+    PLUGIN_MANIFEST_SCHEMA,
 };
+pub use registry::PluginRegistry;

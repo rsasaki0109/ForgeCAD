@@ -1,5 +1,6 @@
 //! Shared versioning, manifest, diagnostic, and error contracts.
 
+use std::collections::BTreeSet;
 use std::fmt;
 
 use opencad_core::{OpenCadError, Result};
@@ -42,6 +43,70 @@ pub enum PluginKind {
     Exporter,
 }
 
+/// Host capabilities that a plugin may declare.
+///
+/// The enum is intentionally limited to data-oriented operations. Filesystem,
+/// network, UI, document ownership, and kernel access are not capabilities of
+/// this API and therefore cannot be requested by a manifest.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PluginCapability {
+    FeaturePatch,
+    ImportPatch,
+    ExportBytes,
+}
+
+impl PluginCapability {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::FeaturePatch => "feature_patch",
+            Self::ImportPatch => "import_patch",
+            Self::ExportBytes => "export_bytes",
+        }
+    }
+
+    pub const fn required_for(kind: PluginKind) -> Self {
+        match kind {
+            PluginKind::Feature => Self::FeaturePatch,
+            PluginKind::Importer => Self::ImportPatch,
+            PluginKind::Exporter => Self::ExportBytes,
+        }
+    }
+}
+
+/// Explicit host policy for the capabilities a registry may accept.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PluginCapabilityPolicy {
+    #[serde(default = "default_allowed_capabilities")]
+    pub allowed: BTreeSet<PluginCapability>,
+}
+
+impl PluginCapabilityPolicy {
+    pub fn new(capabilities: impl IntoIterator<Item = PluginCapability>) -> Self {
+        Self {
+            allowed: capabilities.into_iter().collect(),
+        }
+    }
+
+    pub fn allows(&self, capability: PluginCapability) -> bool {
+        self.allowed.contains(&capability)
+    }
+}
+
+impl Default for PluginCapabilityPolicy {
+    fn default() -> Self {
+        Self::new([
+            PluginCapability::FeaturePatch,
+            PluginCapability::ImportPatch,
+            PluginCapability::ExportBytes,
+        ])
+    }
+}
+
+fn default_allowed_capabilities() -> BTreeSet<PluginCapability> {
+    PluginCapabilityPolicy::default().allowed
+}
+
 /// Serializable metadata exchanged before a plugin contract is invoked.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PluginManifest {
@@ -51,6 +116,11 @@ pub struct PluginManifest {
     pub version: String,
     pub api_version: PluginApiVersion,
     pub kind: PluginKind,
+    /// Capabilities must be explicit for registry registration. The default
+    /// keeps older v1 manifest JSON readable; such a manifest is rejected by
+    /// the registry until it declares its kind capability.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub capabilities: BTreeSet<PluginCapability>,
 }
 
 impl PluginManifest {
@@ -68,12 +138,28 @@ impl PluginManifest {
             version: version.into(),
             api_version: CURRENT_PLUGIN_API,
             kind,
+            capabilities: BTreeSet::new(),
         }
     }
 
     /// Set the API version declared by a plugin.
     pub fn with_api_version(mut self, api_version: PluginApiVersion) -> Self {
         self.api_version = api_version;
+        self
+    }
+
+    /// Declare the capabilities this plugin exposes to a host registry.
+    pub fn with_capabilities(
+        mut self,
+        capabilities: impl IntoIterator<Item = PluginCapability>,
+    ) -> Self {
+        self.capabilities = capabilities.into_iter().collect();
+        self
+    }
+
+    /// Add one capability declaration while retaining existing declarations.
+    pub fn with_capability(mut self, capability: PluginCapability) -> Self {
+        self.capabilities.insert(capability);
         self
     }
 
@@ -222,6 +308,28 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<PluginManifest>(&json).expect("manifest round trip"),
             manifest
+        );
+    }
+
+    #[test]
+    fn older_manifest_json_defaults_capabilities_without_changing_v1_bytes() {
+        let json = r#"{"schema":"musubicad.plugin-manifest.v1","id":"example.feature","name":"Feature","version":"0.1.0","api_version":{"major":1,"minor":0},"kind":"feature"}"#;
+        let manifest: PluginManifest = serde_json::from_str(json).expect("v1 manifest");
+        assert!(manifest.capabilities.is_empty());
+        assert_eq!(serde_json::to_string(&manifest).expect("v1 bytes"), json);
+    }
+
+    #[test]
+    fn capability_policy_serialization_is_deterministic() {
+        let policy = PluginCapabilityPolicy::new([
+            PluginCapability::ExportBytes,
+            PluginCapability::FeaturePatch,
+        ]);
+        let json = serde_json::to_string(&policy).expect("policy JSON");
+        assert_eq!(json, r#"{"allowed":["feature_patch","export_bytes"]}"#);
+        assert_eq!(
+            serde_json::from_str::<PluginCapabilityPolicy>(&json).expect("policy round trip"),
+            policy
         );
     }
 
