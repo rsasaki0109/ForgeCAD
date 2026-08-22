@@ -26,6 +26,7 @@ pub use dof::{estimate_dof, estimate_dof_generic};
 pub use jacobian::{finite_difference_jacobian, finite_difference_jacobian_generic, Jacobian};
 pub use numeric::{gauss_newton_solve, gauss_newton_solve_generic, SolveOutput, SolverOptions};
 pub use residual::{
-    evaluate_residuals, evaluate_residuals_generic, ConstraintResidual, ResidualEquation,
+    evaluate_residuals, evaluate_residuals_generic, ConstraintResidual, LengthTerm,
+    ResidualEquation,
 };
 pub use variables::{point_x, point_y, radius_var, VarId, VarSet, VariableRegistry};

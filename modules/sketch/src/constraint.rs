@@ -93,7 +93,9 @@ pub enum RectangleEdge {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum EqualTarget {
+    /// Length of a line entity.
     LineLength(EntityId),
+    /// Radius of a circle or arc entity.
     Radius(EntityId),
 }
 

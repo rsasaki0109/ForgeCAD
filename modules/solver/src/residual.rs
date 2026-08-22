@@ -6,6 +6,24 @@ pub trait ResidualEquation: std::fmt::Debug + Send + Sync {
     fn residual(&self, vars: &VarSet) -> f64;
 }
 
+/// A scalar length used by an equal-length residual.
+///
+/// Segment coordinates and scalar values are both expressed in internal SI
+/// units (meters).  The sketch layer is responsible for resolving semantic
+/// entity references to one of these terms.
+#[derive(Debug, Clone, Copy)]
+pub enum LengthTerm {
+    Segment {
+        x1: VarId,
+        y1: VarId,
+        x2: VarId,
+        y2: VarId,
+    },
+    Scalar {
+        value: VarId,
+    },
+}
+
 /// Built-in 2D constraint residuals.
 #[derive(Debug, Clone)]
 pub enum ConstraintResidual {
@@ -40,6 +58,11 @@ pub enum ConstraintResidual {
         radius: VarId,
         target: f64,
     },
+    /// Equality between any two length-valued terms (line length or radius).
+    EqualLength {
+        a: LengthTerm,
+        b: LengthTerm,
+    },
     FixedX {
         x: VarId,
         value: f64,
@@ -69,6 +92,11 @@ impl ResidualEquation for ConstraintResidual {
             }
             Self::Distance { x1, y1, x2, y2, .. } => vec![*x1, *y1, *x2, *y2],
             Self::Radius { radius, .. } => vec![*radius],
+            Self::EqualLength { a, b } => {
+                let mut vars = length_term_vars(*a);
+                vars.extend(length_term_vars(*b));
+                vars
+            }
             Self::FixedX { x, .. } => vec![*x],
             Self::FixedY { y, .. } => vec![*y],
         }
@@ -92,9 +120,28 @@ impl ResidualEquation for ConstraintResidual {
                 (dx * dx + dy * dy).sqrt() - target
             }
             Self::Radius { radius, target } => vars.get(*radius) - target,
+            Self::EqualLength { a, b } => length_term_value(*a, vars) - length_term_value(*b, vars),
             Self::FixedX { x, value } => vars.get(*x) - value,
             Self::FixedY { y, value } => vars.get(*y) - value,
         }
+    }
+}
+
+fn length_term_vars(term: LengthTerm) -> Vec<VarId> {
+    match term {
+        LengthTerm::Segment { x1, y1, x2, y2 } => vec![x1, y1, x2, y2],
+        LengthTerm::Scalar { value } => vec![value],
+    }
+}
+
+fn length_term_value(term: LengthTerm, vars: &VarSet) -> f64 {
+    match term {
+        LengthTerm::Segment { x1, y1, x2, y2 } => {
+            let dx = vars.get(x2) - vars.get(x1);
+            let dy = vars.get(y2) - vars.get(y1);
+            (dx * dx + dy * dy).sqrt()
+        }
+        LengthTerm::Scalar { value } => vars.get(value),
     }
 }
 
@@ -168,5 +215,36 @@ mod tests {
             target: 10.0,
         };
         assert!((eq.residual(&vars)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn equal_length_residual_matches_line_length_and_radius() {
+        let vars = VarSet::new(vec![0.0, 0.0, 0.08, 0.0, 0.08]);
+        let eq = ConstraintResidual::EqualLength {
+            a: LengthTerm::Segment {
+                x1: VarId(0),
+                y1: VarId(1),
+                x2: VarId(2),
+                y2: VarId(3),
+            },
+            b: LengthTerm::Scalar { value: VarId(4) },
+        };
+        assert!(eq.residual(&vars).abs() < 1e-12);
+    }
+
+    #[test]
+    fn equal_length_residual_preserves_si_tolerance() {
+        let vars = VarSet::new(vec![0.0, 0.0, 0.08, 0.0, 0.0800000005]);
+        let eq = ConstraintResidual::EqualLength {
+            a: LengthTerm::Segment {
+                x1: VarId(0),
+                y1: VarId(1),
+                x2: VarId(2),
+                y2: VarId(3),
+            },
+            b: LengthTerm::Scalar { value: VarId(4) },
+        };
+        assert!(eq.residual(&vars).abs() < 1e-9);
+        assert!(eq.residual(&vars).abs() > 1e-12);
     }
 }

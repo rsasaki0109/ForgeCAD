@@ -2,11 +2,11 @@ use indexmap::IndexMap;
 
 use opencad_core::{OpenCadError, Result};
 use opencad_solver::{
-    point_x, point_y, radius_var, solve_with_diagnostics, ConstraintResidual, SolveStatus,
-    SolverOptions, VarSet, VariableRegistry,
+    point_x, point_y, radius_var, solve_with_diagnostics, ConstraintResidual, LengthTerm,
+    SolveStatus, SolverOptions, VarSet, VariableRegistry,
 };
 
-use crate::constraint::{Constraint, DistanceTarget, EntityRef, LineEnd};
+use crate::constraint::{Constraint, DistanceTarget, EntityRef, EqualTarget, LineEnd};
 use crate::entity::{Coord, LineEntity, PointEntity, SketchEntity};
 use crate::solve_state::SolveState;
 use crate::Sketch;
@@ -52,7 +52,7 @@ pub fn solve_sketch(sketch: &mut Sketch, options: &SolverOptions) -> Result<Solv
             values[y_id.index()] = *y;
         }
     }
-    seed_circle_radius(&registry, &mut values, sketch);
+    seed_radius_values(&registry, &mut values, sketch);
 
     let vars = VarSet::new(values);
     let (output, status) = solve_with_diagnostics(&equations, vars, options);
@@ -61,16 +61,21 @@ pub fn solve_sketch(sketch: &mut Sketch, options: &SolverOptions) -> Result<Solv
     Ok(status)
 }
 
-fn seed_circle_radius(registry: &VariableRegistry, values: &mut [f64], sketch: &Sketch) {
+fn seed_radius_values(registry: &VariableRegistry, values: &mut [f64], sketch: &Sketch) {
     for entity in &sketch.entities {
-        let SketchEntity::Circle(circle) = entity else {
+        let (id, radius) = match entity {
+            SketchEntity::Circle(circle) => (&circle.base.id, &circle.radius),
+            SketchEntity::Arc(arc) => (&arc.base.id, &arc.radius),
+            _ => continue,
+        };
+        let Some(r_id) = registry.get(&format!("{}.radius", id.as_str())) else {
             continue;
         };
-        let Some(r_id) = registry.get(&format!("{}.radius", circle.base.id.as_str())) else {
-            continue;
-        };
-        if let Coord::Literal(r) = &circle.radius {
-            values[r_id.index()] = *r;
+        // Radius expressions may be simple unit-bearing literals (for example,
+        // `80 mm`).  Symbolic expressions are evaluated by a higher-level
+        // parameter context and retain the existing zero seed here.
+        if let Ok(r) = coord_literal(radius) {
+            values[r_id.index()] = r;
         }
     }
 }
@@ -271,10 +276,63 @@ fn build_constraint(
                 target: parse_length_expr(expr.as_str())? / 2.0,
             });
         }
-        Constraint::Equal { .. } => {}
+        Constraint::Equal { a, b, .. } => {
+            let a = equal_target_length(a, registry, lines, sketch)?;
+            let b = equal_target_length(b, registry, lines, sketch)?;
+            equations.push(ConstraintResidual::EqualLength { a, b });
+        }
         Constraint::Parallel { .. } | Constraint::Perpendicular { .. } => {}
     }
     Ok(())
+}
+
+/// Resolve an equal target to a length-valued solver term.
+///
+/// Both line lengths and circle/arc radii are lengths in internal SI units,
+/// so mixed equal constraints are intentionally supported.  The target kind
+/// is still checked against the referenced sketch entity to avoid silently
+/// treating (for example) a circle as a line or a point as a radius.
+fn equal_target_length(
+    target: &EqualTarget,
+    registry: &VariableRegistry,
+    lines: &IndexMap<String, &LineEntity>,
+    sketch: &Sketch,
+) -> Result<LengthTerm> {
+    match target {
+        EqualTarget::LineLength(line_id) => {
+            let entity = sketch.find_entity(line_id.as_str()).ok_or_else(|| {
+                OpenCadError::not_found(format!("equal line-length target '{}'", line_id.as_str()))
+            })?;
+            if !matches!(entity, SketchEntity::Line(_)) {
+                return Err(OpenCadError::validation(format!(
+                    "equal line-length target '{}' must reference a line",
+                    line_id.as_str()
+                )));
+            }
+            let (x1, y1, x2, y2) = line_endpoints(registry, lines, line_id.as_str())?;
+            Ok(LengthTerm::Segment { x1, y1, x2, y2 })
+        }
+        EqualTarget::Radius(entity_id) => {
+            let entity = sketch.find_entity(entity_id.as_str()).ok_or_else(|| {
+                OpenCadError::not_found(format!("equal radius target '{}'", entity_id.as_str()))
+            })?;
+            if !matches!(entity, SketchEntity::Circle(_) | SketchEntity::Arc(_)) {
+                return Err(OpenCadError::validation(format!(
+                    "equal radius target '{}' must reference a circle or arc",
+                    entity_id.as_str()
+                )));
+            }
+            let radius = registry
+                .get(&format!("{}.radius", entity_id.as_str()))
+                .ok_or_else(|| {
+                    OpenCadError::not_found(format!(
+                        "radius variable for equal target '{}'",
+                        entity_id.as_str()
+                    ))
+                })?;
+            Ok(LengthTerm::Scalar { value: radius })
+        }
+    }
 }
 
 fn entity_ref_xy(
@@ -392,8 +450,8 @@ fn apply_solution(sketch: &mut Sketch, registry: &VariableRegistry, vars: &VarSe
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constraint::{Constraint, DistanceTarget};
-    use crate::entity::{EntityBase, LineEntity, PointEntity};
+    use crate::constraint::{Constraint, DistanceTarget, EqualTarget};
+    use crate::entity::{ArcEntity, CircleEntity, EntityBase, LineEntity, PointEntity};
     use crate::workplane::Workplane;
     use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
 
@@ -513,5 +571,239 @@ mod tests {
     #[test]
     fn parses_mm_expression() {
         assert!((parse_length_expr("80 mm").expect("parse") - 0.08).abs() < 1e-9);
+    }
+
+    #[test]
+    fn equal_line_lengths_use_si_units() {
+        let mut sketch = Sketch::new(
+            SketchId::new("sketch:equal_lines").expect("id"),
+            "Equal lines",
+            Workplane::xy(),
+        );
+        for (id, x, y) in [
+            ("ent:p0", 0.0, 0.0),
+            ("ent:p1", 0.08, 0.0),
+            ("ent:p2", 0.0, 0.02),
+            ("ent:p3", 0.04, 0.02),
+        ] {
+            sketch
+                .add_entity(SketchEntity::Point(PointEntity {
+                    base: EntityBase {
+                        id: EntityId::new(id).expect("id"),
+                        construction: false,
+                    },
+                    x: Coord::literal(x),
+                    y: Coord::literal(y),
+                }))
+                .expect("point");
+        }
+        for (id, start, end) in [
+            ("ent:line_a", "ent:p0", "ent:p1"),
+            ("ent:line_b", "ent:p2", "ent:p3"),
+        ] {
+            sketch
+                .add_entity(SketchEntity::Line(LineEntity {
+                    base: EntityBase {
+                        id: EntityId::new(id).expect("id"),
+                        construction: false,
+                    },
+                    start: EntityId::new(start).expect("id"),
+                    end: EntityId::new(end).expect("id"),
+                }))
+                .expect("line");
+        }
+        sketch
+            .add_constraint(Constraint::Equal {
+                id: ConstraintId::new("con:equal_lines").expect("id"),
+                a: EqualTarget::LineLength(EntityId::new("ent:line_a").expect("id")),
+                b: EqualTarget::LineLength(EntityId::new("ent:line_b").expect("id")),
+            })
+            .expect("equal");
+        sketch
+            .add_constraint(Constraint::Distance {
+                id: ConstraintId::new("con:line_a_length").expect("id"),
+                target: DistanceTarget::LineLength {
+                    line: EntityId::new("ent:line_a").expect("id"),
+                },
+                expr: Expression::new("80 mm").expect("expr"),
+            })
+            .expect("distance");
+
+        solve_sketch(&mut sketch, &SolverOptions::default()).expect("solve");
+        let point = |id: &str| {
+            let entity = sketch.find_entity(id).expect("point entity");
+            let SketchEntity::Point(point) = entity else {
+                panic!("expected point")
+            };
+            let Coord::Literal(x) = point.x else {
+                panic!("expected literal x")
+            };
+            let Coord::Literal(y) = point.y else {
+                panic!("expected literal y")
+            };
+            [x, y]
+        };
+        let a0 = point("ent:p0");
+        let a1 = point("ent:p1");
+        let b0 = point("ent:p2");
+        let b1 = point("ent:p3");
+        let length =
+            |a: [f64; 2], b: [f64; 2]| ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt();
+        assert!((length(a0, a1) - length(b0, b1)).abs() < 1e-8);
+        assert!((length(a0, a1) - 0.08).abs() < 1e-8);
+    }
+
+    #[test]
+    fn equal_circle_and_arc_radii_use_unit_bearing_values() {
+        let mut sketch = Sketch::new(
+            SketchId::new("sketch:equal_radii").expect("id"),
+            "Equal radii",
+            Workplane::xy(),
+        );
+        for id in ["ent:center_circle", "ent:center_arc"] {
+            sketch
+                .add_entity(SketchEntity::Point(PointEntity {
+                    base: EntityBase {
+                        id: EntityId::new(id).expect("id"),
+                        construction: false,
+                    },
+                    x: Coord::literal(0.0),
+                    y: Coord::literal(0.0),
+                }))
+                .expect("center");
+        }
+        sketch
+            .add_entity(SketchEntity::Circle(CircleEntity {
+                base: EntityBase {
+                    id: EntityId::new("ent:circle").expect("id"),
+                    construction: false,
+                },
+                center: EntityId::new("ent:center_circle").expect("id"),
+                radius: Coord::expr("80 mm").expect("radius"),
+            }))
+            .expect("circle");
+        sketch
+            .add_entity(SketchEntity::Arc(ArcEntity {
+                base: EntityBase {
+                    id: EntityId::new("ent:arc").expect("id"),
+                    construction: false,
+                },
+                center: EntityId::new("ent:center_arc").expect("id"),
+                radius: Coord::literal(0.04),
+                start_angle: Coord::literal(0.0),
+                end_angle: Coord::literal(1.0),
+            }))
+            .expect("arc");
+        sketch
+            .add_constraint(Constraint::Radius {
+                id: ConstraintId::new("con:circle_radius").expect("id"),
+                target: EntityId::new("ent:circle").expect("id"),
+                expr: Expression::new("80 mm").expect("expr"),
+            })
+            .expect("radius");
+        sketch
+            .add_constraint(Constraint::Equal {
+                id: ConstraintId::new("con:equal_radii").expect("id"),
+                a: EqualTarget::Radius(EntityId::new("ent:circle").expect("id")),
+                b: EqualTarget::Radius(EntityId::new("ent:arc").expect("id")),
+            })
+            .expect("equal");
+
+        solve_sketch(&mut sketch, &SolverOptions::default()).expect("solve");
+        let radius = |id: &str| {
+            let entity = sketch.find_entity(id).expect("radius entity");
+            let radius = match entity {
+                SketchEntity::Circle(circle) => &circle.radius,
+                SketchEntity::Arc(arc) => &arc.radius,
+                _ => panic!("expected circular entity"),
+            };
+            let Coord::Literal(radius) = radius else {
+                panic!("expected literal radius")
+            };
+            *radius
+        };
+        assert!((radius("ent:circle") - 0.08).abs() < 1e-8);
+        assert!((radius("ent:arc") - 0.08).abs() < 1e-8);
+    }
+
+    #[test]
+    fn seeds_arc_radius_from_existing_si_value() {
+        let mut sketch = Sketch::new(
+            SketchId::new("sketch:arc_seed").expect("id"),
+            "Arc seed",
+            Workplane::xy(),
+        );
+        sketch
+            .add_entity(SketchEntity::Point(PointEntity {
+                base: EntityBase {
+                    id: EntityId::new("ent:center").expect("id"),
+                    construction: false,
+                },
+                x: Coord::literal(0.0),
+                y: Coord::literal(0.0),
+            }))
+            .expect("center");
+        sketch
+            .add_entity(SketchEntity::Arc(ArcEntity {
+                base: EntityBase {
+                    id: EntityId::new("ent:arc").expect("id"),
+                    construction: false,
+                },
+                center: EntityId::new("ent:center").expect("id"),
+                radius: Coord::expr("40 mm").expect("radius"),
+                start_angle: Coord::literal(0.0),
+                end_angle: Coord::literal(1.0),
+            }))
+            .expect("arc");
+
+        let (_, registry, _) = build_problem(&sketch).expect("problem");
+        let mut values = registry.initial_values();
+        seed_radius_values(&registry, &mut values, &sketch);
+        let radius = registry.get("ent:arc.radius").expect("radius variable");
+        assert!((values[radius.index()] - 0.04).abs() < 1e-12);
+    }
+
+    #[test]
+    fn equal_target_kind_validation_is_explicit() {
+        let mut sketch = Sketch::new(
+            SketchId::new("sketch:equal_validation").expect("id"),
+            "Equal validation",
+            Workplane::xy(),
+        );
+        sketch
+            .add_entity(SketchEntity::Point(PointEntity {
+                base: EntityBase {
+                    id: EntityId::new("ent:point").expect("id"),
+                    construction: false,
+                },
+                x: Coord::literal(0.0),
+                y: Coord::literal(0.0),
+            }))
+            .expect("point");
+        sketch
+            .add_constraint(Constraint::Equal {
+                id: ConstraintId::new("con:invalid_line_target").expect("id"),
+                a: EqualTarget::LineLength(EntityId::new("ent:point").expect("id")),
+                b: EqualTarget::LineLength(EntityId::new("ent:point").expect("id")),
+            })
+            .expect("constraint");
+
+        let error = solve_sketch(&mut sketch, &SolverOptions::default()).expect_err("validation");
+        assert!(error
+            .to_string()
+            .contains("equal line-length target 'ent:point' must reference a line"));
+
+        sketch.constraints.clear();
+        sketch
+            .add_constraint(Constraint::Equal {
+                id: ConstraintId::new("con:missing_radius_target").expect("id"),
+                a: EqualTarget::Radius(EntityId::new("ent:missing").expect("id")),
+                b: EqualTarget::Radius(EntityId::new("ent:missing").expect("id")),
+            })
+            .expect("constraint");
+        let error = solve_sketch(&mut sketch, &SolverOptions::default()).expect_err("not found");
+        assert!(error
+            .to_string()
+            .contains("equal radius target 'ent:missing'"));
     }
 }

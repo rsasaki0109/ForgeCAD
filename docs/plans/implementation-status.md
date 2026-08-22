@@ -15,7 +15,7 @@ are defined in the [canonical roadmap](roadmap.md).
 | Design Graph, ParamGraph, Feature Graph, and semantic diff | Implemented | `modules/graph/src/` and graph tests | Preserve deterministic traversal while adding consumers |
 | Kernel-neutral geometry and Mock backend | Implemented | `modules/geometry/src/kernel.rs`, `transform.rs`, topology/ref and tessellation modules | Formalize reference guarantees (`MCAD-P5-001`) |
 | OCCT backend integration | Implemented | `modules/kernel-occt/src/backend.rs`, cadrum-backed integration tests | Track ABI and topology behavior in Phase 1/5 evidence |
-| Sketch data model and basic solver | Partial | `modules/sketch/src/constraint.rs`, `solve.rs`; Coincident, Horizontal, Vertical, distance/radius paths | `Equal`, `Parallel`, and `Perpendicular` currently contribute no residuals (`MCAD-P2-001`, `MCAD-P2-002`) |
+| Sketch data model and basic solver | Partial | `modules/sketch/src/constraint.rs`, `solve.rs`; Coincident, Horizontal, Vertical, distance/radius, and Equal line/radius paths | `Parallel` and `Perpendicular` currently contribute no residuals (`MCAD-P2-002`) |
 | Feature regeneration | Implemented | `modules/feature/src/` covers sketch, extrude, hole, revolve, fillet, chamfer, and patterns with regression fixtures | Add reference-focused cases (`MCAD-P5-002`) |
 | `.ocad` and expanded `.ocad.d` format | Implemented | `modules/file/src/`, schemas, canonical JSON, checksums, migration and round-trip tests | Keep schema changes synchronized with migrations and fixtures |
 | DesignPatch and Agent API | Partial | `modules/ai/src/patch.rs`, `validation.rs`, `agent_api.rs`; query/diff/dry-run/apply paths exist | Unify with persistent transactions, rollback, and stale preconditions (`MCAD-P3-001`–`MCAD-P3-005`) |

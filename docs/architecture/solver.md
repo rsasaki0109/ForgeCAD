@@ -18,12 +18,15 @@ MusubiCAD uses a numeric 2D geometric constraint solver in `opencad-solver`.
 | Vertical | `x1 - x2` |
 | Distance | `‖p2 - p1‖ - target` |
 | Radius / Diameter | `r - target` (diameter uses `target/2`) |
+| Equal | `length(a) - length(b)` for line lengths and circle/arc radii |
 | Fixed anchor | `x - x0`, `y - y0` (first point) |
 
 ## Units
 
 - Internal SI: meters.
 - Expression parser accepts `mm`, `cm`, `m`, `in`, or bare numbers (interpreted as meters).
+- Equal line-length and radius targets are all compared in internal meters; mixed
+  line/radius targets are valid because both target kinds represent lengths.
 
 ## DOF diagnostics
 
@@ -50,7 +53,6 @@ dof = n_variables - rank(J)
 ## Limitations (MVP)
 
 - No parallel / perpendicular sketch constraints yet.
-- Equal constraint not wired to solver.
 - Rectangle must be expanded to points + lines before solving.
 - No drag solving or redundancy decomposition (Phase 2).
 
