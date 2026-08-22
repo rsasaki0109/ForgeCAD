@@ -13,7 +13,7 @@ sudo apt-get install -y \
 Install the Tauri CLI once:
 
 ```bash
-cargo install tauri-cli --version "^2.0.0"
+cargo install tauri-cli --version 2.11.4 --locked
 ```
 
 ## Run (dev)
@@ -58,10 +58,10 @@ shell on every supported native target:
 
 | Artifact | GitHub runner | Rust target |
 |---|---|---|
-| `musubicad-desktop-windows-x86_64` | `windows-2022` | `x86_64-pc-windows-msvc` |
-| `musubicad-desktop-linux-x86_64` | `ubuntu-24.04` | `x86_64-unknown-linux-gnu` |
-| `musubicad-desktop-macos-aarch64` | `macos-15` | `aarch64-apple-darwin` |
-| `musubicad-desktop-macos-x86_64` | `macos-15-intel` | `x86_64-apple-darwin` |
+| `musubicad-desktop-v<version>-windows-x86_64` | `windows-2022` | `x86_64-pc-windows-msvc` |
+| `musubicad-desktop-v<version>-linux-x86_64` | `ubuntu-24.04` | `x86_64-unknown-linux-gnu` |
+| `musubicad-desktop-v<version>-macos-aarch64` | `macos-15` | `aarch64-apple-darwin` |
+| `musubicad-desktop-v<version>-macos-x86_64` | `macos-15-intel` | `x86_64-apple-darwin` |
 
 The desktop package has its own checked-in `Cargo.lock` because the Tauri shell
 is intentionally excluded from the Rust workspace. CI installs the pinned
@@ -70,9 +70,13 @@ uses the locked `cadrum` static OCCT 8.0.0 prebuilt for each target. Linux addit
 requires GTK 3, WebKitGTK 4.1, Ayatana AppIndicator, librsvg, and `patchelf`;
 Windows requires the Visual Studio 2022 C++ workload (MSVC 14.44 or newer).
 
-The workflow currently uploads the unsigned native executable from each build.
-`bundle.active` is intentionally still `false`, so installers, checksums,
-code-signing, and notarization are separate release work (`MCAD-P1-002` and
-`MCAD-P1-004`). A job fails when a required system tool is missing, dependency
-resolution is not locked, the Tauri build returns a non-zero status, the
-expected executable is absent or empty, or the build rewrites `Cargo.lock`.
+The workflow bundles and uploads two unsigned, versioned installer/archive files
+per platform together with a verified `SHA256SUMS` file. Windows produces MSI
+and NSIS installers; Linux produces Debian and AppImage packages; macOS
+produces a DMG and a zip archive of the `.app` bundle. See the
+[desktop distribution quick start](../../docs/developer-guide/desktop-releases.md)
+for exact names, verification, and local packaging commands. A job fails when
+a required system tool is missing, dependency resolution is not locked, the
+Tauri build returns a non-zero status, a required bundle is absent, checksums
+do not verify, the expected executable is absent or empty, or the build rewrites
+`Cargo.lock`. Code-signing and notarization remain `MCAD-P1-004`.

@@ -13,17 +13,13 @@ on:
       - rust-toolchain.toml
       - docs/developer-guide/desktop-ui.md
       - docs/developer-guide/occt-install.md
+      - docs/developer-guide/releases.md
+      - docs/developer-guide/desktop-releases.md
+      - tools/package-desktop-release.ps1
   push:
     branches: [main]
     tags:
       - "v*"
-    paths:
-      - .github/workflows/desktop.yml
-      - apps/desktop/**
-      - modules/**
-      - Cargo.toml
-      - Cargo.lock
-      - rust-toolchain.toml
 
 permissions:
   contents: read
@@ -44,18 +40,26 @@ jobs:
             platform: windows-x86_64
             target: x86_64-pc-windows-msvc
             binary_path: apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/musubicad-desktop.exe
+            bundles: msi,nsis
+            bundle_directory: apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle
           - runner: ubuntu-24.04
             platform: linux-x86_64
             target: x86_64-unknown-linux-gnu
             binary_path: apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/musubicad-desktop
+            bundles: deb,appimage
+            bundle_directory: apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle
           - runner: macos-15
             platform: macos-aarch64
             target: aarch64-apple-darwin
             binary_path: apps/desktop/src-tauri/target/aarch64-apple-darwin/release/musubicad-desktop
+            bundles: app,dmg
+            bundle_directory: apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle
           - runner: macos-15-intel
             platform: macos-x86_64
             target: x86_64-apple-darwin
             binary_path: apps/desktop/src-tauri/target/x86_64-apple-darwin/release/musubicad-desktop
+            bundles: app,dmg
+            bundle_directory: apps/desktop/src-tauri/target/x86_64-apple-darwin/release/bundle
 
     runs-on: ${{ matrix.runner }}
 
@@ -131,9 +135,38 @@ jobs:
         working-directory: apps/desktop/src-tauri
         run: cargo metadata --locked --no-deps --format-version 1
 
-      - name: Build Tauri application
+      - name: Resolve and verify desktop version
+        id: version
         working-directory: apps/desktop/src-tauri
-        run: cargo tauri build --ci --no-bundle --target "${{ matrix.target }}"
+        shell: pwsh
+        env:
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+        run: |
+          $metadata = cargo metadata --locked --no-deps --format-version 1 | ConvertFrom-Json
+          $packages = @($metadata.packages | Where-Object { $_.name -eq 'musubicad-desktop' })
+          if ($packages.Count -ne 1) {
+            throw "Expected exactly one musubicad-desktop package, found $($packages.Count)"
+          }
+          $cargoVersion = [string]$packages[0].version
+          $config = Get-Content -Raw tauri.conf.json | ConvertFrom-Json
+          $tauriVersion = [string]$config.version
+          if ([string]::IsNullOrWhiteSpace($cargoVersion) -or
+              [string]::IsNullOrWhiteSpace($tauriVersion)) {
+            throw 'Desktop Cargo.toml and tauri.conf.json must both declare a version'
+          }
+          if ($cargoVersion -ne $tauriVersion) {
+            throw "Desktop version mismatch: Cargo.toml=$cargoVersion tauri.conf.json=$tauriVersion"
+          }
+          if ($env:RELEASE_REF_TYPE -eq 'tag' -and
+              $env:RELEASE_REF_NAME -ne "v$cargoVersion") {
+            throw "Tag $env:RELEASE_REF_NAME does not match desktop version $cargoVersion"
+          }
+          "version=$cargoVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Build and bundle Tauri application
+        working-directory: apps/desktop/src-tauri
+        run: cargo tauri build --ci --bundles "${{ matrix.bundles }}" --target "${{ matrix.target }}"
 
       - name: Verify native executable
         shell: bash
@@ -147,10 +180,69 @@ jobs:
         shell: bash
         run: git diff --exit-code -- apps/desktop/src-tauri/Cargo.lock
 
-      - name: Upload desktop executable
+      - name: Package desktop artifacts and generate checksums
+        shell: pwsh
+        run: >-
+          ./tools/package-desktop-release.ps1
+          -Version "${{ steps.version.outputs.version }}"
+          -Platform "${{ matrix.platform }}"
+          -BundleDirectory "${{ matrix.bundle_directory }}"
+          -OutputDirectory dist
+
+      - name: Verify desktop artifact contract
+        shell: pwsh
+        env:
+          DESKTOP_VERSION: ${{ steps.version.outputs.version }}
+          DESKTOP_PLATFORM: ${{ matrix.platform }}
+        run: |
+          $artifacts = @(Get-ChildItem -LiteralPath dist -File | Where-Object Name -ne 'SHA256SUMS')
+          if ($artifacts.Count -ne 2) {
+            throw "Expected two packaged desktop artifacts, found $($artifacts.Count)"
+          }
+          $prefix = "musubicad-v$env:DESKTOP_VERSION-$env:DESKTOP_PLATFORM"
+          foreach ($artifact in $artifacts) {
+            if (-not $artifact.Name.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+              throw "Artifact is not versioned with the desktop contract: $($artifact.Name)"
+            }
+            if ($artifact.Length -eq 0) {
+              throw "Artifact is empty: $($artifact.Name)"
+            }
+          }
+          $checksumLines = @(Get-Content -LiteralPath dist/SHA256SUMS | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          if ($checksumLines.Count -ne $artifacts.Count) {
+            throw 'SHA256SUMS must contain one entry per packaged artifact'
+          }
+          $checksumNames = [System.Collections.Generic.List[string]]::new()
+          foreach ($line in $checksumLines) {
+            $match = [regex]::Match($line, '^([0-9a-fA-F]{64})  (.+)$')
+            if (-not $match.Success) {
+              throw "Invalid SHA256SUMS entry: $line"
+            }
+            $name = $match.Groups[2].Value
+            $artifact = $artifacts | Where-Object Name -eq $name
+            if ($null -eq $artifact) {
+              throw "SHA256SUMS references an unexpected file: $name"
+            }
+            $checksumNames.Add($name)
+            $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $artifact.FullName).Hash
+            if ($actual -ine $match.Groups[1].Value) {
+              throw "SHA-256 verification failed for $name"
+            }
+          }
+          $uniqueChecksumNames = @($checksumNames | Sort-Object -Unique)
+          if ($uniqueChecksumNames.Count -ne $artifacts.Count) {
+            throw 'SHA256SUMS must reference every artifact exactly once'
+          }
+          foreach ($artifact in $artifacts) {
+            if (-not ($checksumNames -contains $artifact.Name)) {
+              throw "SHA256SUMS does not cover artifact: $($artifact.Name)"
+            }
+          }
+
+      - name: Upload versioned desktop artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: musubicad-desktop-${{ matrix.platform }}
-          path: ${{ matrix.binary_path }}
+          name: musubicad-desktop-v${{ steps.version.outputs.version }}-${{ matrix.platform }}
+          path: dist/*
           if-no-files-found: error
           retention-days: 14

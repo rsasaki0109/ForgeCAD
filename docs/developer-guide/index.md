@@ -54,6 +54,7 @@ cargo run -p opencad-cli -- animate examples/assembly_two_brackets.ocad.d showca
 
 See [ocad-format.md](../architecture/ocad-format.md) for the native file layout.
 See [releases.md](releases.md) for the multi-platform CLI release contract.
+See [desktop-releases.md](desktop-releases.md) for the Tauri installer/archive and checksum contract.
 
 ## Development workflow
 
@@ -107,4 +108,5 @@ work is maintained in the [roadmap](../plans/roadmap.md), including desktop
 distribution, Sketch solver completion, transaction/DesignPatch unification,
 Plugin API contracts, and CAD reference/output quality.
 
-The desktop-specific setup remains in [desktop-ui.md](desktop-ui.md).
+The desktop-specific setup remains in [desktop-ui.md](desktop-ui.md), with distribution details in
+[desktop-releases.md](desktop-releases.md).

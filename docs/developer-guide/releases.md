@@ -4,10 +4,12 @@ MusubiCAD CLI releases are built entirely by `.github/workflows/release.yml`. Do
 binaries manually.
 
 The Tauri desktop shell has a separate [`Desktop` workflow](../../.github/workflows/desktop.yml).
-It builds unsigned native executables for Windows x86-64, Linux x86-64, macOS Apple Silicon, and
-macOS Intel on pull requests, `main`, version tags, and manual dispatch. Desktop artifacts are
-not published by the CLI `publish` job; installers, checksums, signing, and notarization remain
-the follow-up contracts in `MCAD-P1-002` and `MCAD-P1-004`.
+It builds and uploads unsigned, versioned installer/archive artifacts for Windows x86-64, Linux
+x86-64, macOS Apple Silicon, and macOS Intel on pull requests, `main`, version tags, and manual
+dispatch. The exact artifact names, bundle formats, and checksum verification are documented in
+the [desktop distribution quick start](desktop-releases.md). Desktop artifacts are not published
+by the CLI `publish` job; signing, notarization, credential handling, and release publication
+remain the follow-up contract in `MCAD-P1-004`.
 
 ## Release contract
 
