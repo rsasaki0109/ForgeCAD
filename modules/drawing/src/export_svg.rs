@@ -151,6 +151,42 @@ mod tests {
     }
 
     #[test]
+    fn partially_occluded_edges_match_svg_golden() -> opencad_core::Result<()> {
+        let mut sheet = Sheet::a4_portrait(SheetId::new("sheet:partial_occlusion")?, "HLR");
+        let view_id = ViewId::new("view:front")?;
+        sheet.views.push(DrawingView::new(
+            view_id.clone(),
+            "Front",
+            ModelReference::new("synthetic.ocad.d", DocumentId::new("doc:synthetic")?),
+            ProjectionKind::Front,
+            1.0,
+            [0.05, 0.05],
+        ));
+        let mesh = MeshSet {
+            positions: vec![
+                [-0.01, 0.0, 0.0],
+                [0.01, 0.0, 0.0],
+                [0.0, -0.01, 0.0],
+                [-0.005, -0.005, 0.001],
+                [0.005, -0.005, 0.001],
+                [0.0, 0.005, 0.001],
+            ],
+            normals: Vec::new(),
+            indices: vec![0, 1, 2, 3, 4, 5],
+            triangle_face_ids: vec![1, 2],
+        };
+        let svg = render_sheet_svg(
+            &sheet,
+            &[ViewMesh {
+                view_id,
+                mesh_set: mesh,
+            }],
+        )?;
+        assert_eq!(svg, include_str!("../tests/golden/partial-occlusion.svg"));
+        Ok(())
+    }
+
+    #[test]
     fn renders_model_driven_dimension_label() -> opencad_core::Result<()> {
         let mut sheet = Sheet::a4_portrait(SheetId::new("sheet:a4")?, "Sheet 1");
         let view_id = ViewId::new("view:front")?;

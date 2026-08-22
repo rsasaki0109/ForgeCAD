@@ -21,6 +21,18 @@ Ready-to-use MusubiCAD documents and Agent API requests.
 
 See [docs/examples/patterns.md](../docs/examples/patterns.md) for a full cut vs union comparison table.
 
+### Partial-occlusion drawing golden
+
+The synthetic two-triangle HLR example is pinned as
+[`partial-occlusion.svg`](../modules/drawing/tests/golden/partial-occlusion.svg).
+Its long horizontal model edge is split into visible, hidden dashed, then
+visible intervals at the projected occluder boundaries. Regenerate and verify
+it with:
+
+```bash
+cargo test -p opencad-drawing partially_occluded_edges_match_svg_golden
+```
+
 ### Sketch regression fixture
 
 `sketch_constraints_regression.ocad.d` is a schema-compatible, expanded

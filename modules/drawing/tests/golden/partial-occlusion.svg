@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210.000 297.000" width="210.0mm" height="297.0mm">
+<rect x="0" y="0" width="210.000" height="297.000" fill="white" stroke="#cccccc" stroke-width="0.2"/>
+<line x1="40.000" y1="247.000" x2="47.500" y2="247.000" stroke="#111111" stroke-width="0.25"/>
+<line x1="40.000" y1="247.000" x2="50.000" y2="257.000" stroke="#111111" stroke-width="0.25"/>
+<line x1="45.000" y1="252.000" x2="50.000" y2="242.000" stroke="#111111" stroke-width="0.25"/>
+<line x1="45.000" y1="252.000" x2="55.000" y2="252.000" stroke="#111111" stroke-width="0.25"/>
+<line x1="47.500" y1="247.000" x2="52.500" y2="247.000" stroke="#777777" stroke-width="0.18" stroke-dasharray="2,1"/>
+<line x1="50.000" y1="257.000" x2="60.000" y2="247.000" stroke="#111111" stroke-width="0.25"/>
+<line x1="50.000" y1="242.000" x2="55.000" y2="252.000" stroke="#111111" stroke-width="0.25"/>
+<line x1="52.500" y1="247.000" x2="60.000" y2="247.000" stroke="#111111" stroke-width="0.25"/>
+</svg>

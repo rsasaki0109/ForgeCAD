@@ -58,8 +58,17 @@ an empty `dimensions` collection through the Serde default.
 ## Hidden-line classification
 
 SVG drawing views classify tessellated mesh edges using projected triangle depth.
-Edges hidden at their midpoint are emitted as dashed lines, while coincident
-visible and hidden edges collapse to the visible edge. Comparisons use a
-`1e-7 m` depth tolerance. Tessellation diagonals with matching B-Rep face IDs are
-omitted. Because occlusion is sampled at the midpoint, partially occluded edges
-are not split in the current implementation.
+Each projected edge is split at non-adjacent triangle boundaries and at any
+interior crossing where the interpolated triangle/edge depth difference changes
+visibility. The resulting intervals are classified at their midpoint. Hidden
+intervals are dashed; coincident visible and hidden intervals collapse to the
+visible interval. Tessellation diagonals with matching B-Rep face IDs remain
+omitted.
+
+The deterministic contract uses `1e-7 m` depth, `1e-9 m` projection,
+dimensionless `1e-9` edge-parameter, and dimensionless `1e-9` barycentric
+tolerances. Split parameters are sorted and tolerance-deduplicated; source edges
+are traversed in canonical vertex-ID order. Tests cover visible-hidden-visible
+partial occlusion, depth crossings inside one projected triangle, triangle
+input-order independence, and the exact SVG under
+`modules/drawing/tests/golden/partial-occlusion.svg`.

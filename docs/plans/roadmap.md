@@ -219,7 +219,7 @@ assembly, drawing, mass-property, and rendering workflows.
 |---|---|---|---|
 | MCAD-P5-001 | Semantic TopoRef specification | Reference identity, fingerprint fallback, tolerance policy, and migration guidance | Complete |
 | MCAD-P5-002 | Feature reference stability | Boolean, fillet, chamfer, and pattern regeneration regressions with stable references | Complete |
-| MCAD-P5-003 | Drawing HLR quality | Split partially occluded edges and preserve deterministic visible/hidden segments | Planned |
+| MCAD-P5-003 | Drawing HLR quality | Split partially occluded edges and preserve deterministic visible/hidden segments | Complete |
 | MCAD-P5-004 | Assembly robustness | Cycle/path validation, nested-document errors, interference tolerance, and recovery behavior | Planned |
 | MCAD-P5-005 | End-to-end golden suite | Mass, bounding box, topology, assembly, drawing, and review artifacts across representative fixtures | Planned |
 | MCAD-P5-006 | Future geometry scope | Requirements and ADR for NURBS editing or new kernel features before implementation | Deferred |
@@ -241,6 +241,11 @@ and linear-pattern parameter edits. It asserts that semantic identity survives,
 the regenerated reference points at a current face, and stale stored face/edge
 IDs fall through to current discoveries when derivation history cannot bridge
 separate regeneration runs.
+
+MCAD-P5-003 replaces whole-edge midpoint classification with deterministic
+projected-boundary and depth-crossing subdivision. Explicit tolerances,
+visible-hidden-visible and order-independence tests, and an exact partial-
+occlusion SVG golden cover the drawing output contract.
 
 **Tests:** geometry tolerance tests; OCCT integration tests; TopoRef migration and
 round trips; assembly/drawing examples; deterministic SVG/mesh/review golden

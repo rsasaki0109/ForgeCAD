@@ -23,4 +23,17 @@ non-finite, missing-view, and projection-overlap cases return `OpenCadError`.
 ## Hidden lines
 
 `classify_hidden_lines` returns `ClassifiedEdge` values with `LineVisibility`.
-Depth comparisons use `HIDDEN_LINE_DEPTH_TOLERANCE_M` (`1e-7 m`).
+One source edge may return multiple ordered values when projected triangle
+boundaries or triangle/edge depth crossings change visibility. Adjacent
+triangles do not occlude their own edge, and same-face tessellation diagonals
+are omitted.
+
+The exported tolerance constants make units and numerical policy explicit:
+
+- `HIDDEN_LINE_DEPTH_TOLERANCE_M = 1e-7 m`
+- `HIDDEN_LINE_PROJECTION_TOLERANCE_M = 1e-9 m`
+- `HIDDEN_LINE_PARAMETER_TOLERANCE = 1e-9` (dimensionless)
+- `HIDDEN_LINE_BARYCENTRIC_TOLERANCE = 1e-9` (dimensionless)
+
+Output order is deterministic by canonical source-edge key and increasing
+split parameter. Equal adjacent visibility intervals are merged.
