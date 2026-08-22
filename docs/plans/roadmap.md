@@ -76,7 +76,7 @@ workflow.
 
 | ID | Scope | Deliverables | Status |
 |---|---|---|---|
-| MCAD-P1-001 | Native build matrix | GitHub Actions builds for Windows x64, Linux x64, macOS arm64, and macOS x64 | Planned |
+| MCAD-P1-001 | Native build matrix | GitHub Actions builds for Windows x64, Linux x64, macOS arm64, and macOS x64 | In progress |
 | MCAD-P1-002 | Artifact contract | Versioned archives/installers, SHA-256 checksums, and quick-start instructions | Planned |
 | MCAD-P1-003 | Desktop smoke tests | Open sample, preview, parameter edit, regenerate, pick, and export checks | Planned |
 | MCAD-P1-004 | Trust and release policy | Explicit code-signing/notarization scope and credential-gated release steps | Planned |
@@ -220,4 +220,3 @@ alone.
 | AI mutations | DesignPatch dry-run/apply, precondition, rollback, and semantic diff tests |
 | Regression | Committed examples, golden geometry/render/review artifacts |
 | Desktop/release | Platform build, install/open, command parity, checksum, and smoke tests |
-

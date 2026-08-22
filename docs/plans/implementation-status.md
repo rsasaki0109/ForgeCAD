@@ -21,8 +21,8 @@ are defined in the [canonical roadmap](roadmap.md).
 | DesignPatch and Agent API | Partial | `modules/ai/src/patch.rs`, `validation.rs`, `agent_api.rs`; query/diff/dry-run/apply paths exist | Unify with persistent transactions, rollback, and stale preconditions (`MCAD-P3-001`–`MCAD-P3-005`) |
 | Assembly model and regeneration | Implemented | `modules/assembly/src/`, ADR-003, `examples/assembly_two_brackets.ocad.d` | Harden path/cycle/interference and golden coverage (`MCAD-P5-004`, `MCAD-P5-005`) |
 | Drawing model and SVG export | Implemented | `modules/drawing/src/`, ADR-004, `examples/bracket_front_view.ocad.d` | Split partial hidden-line occlusion and expand golden coverage (`MCAD-P5-003`, `MCAD-P5-005`) |
-| Render and desktop preview | Partial | `modules/render`, `modules/desktop`, Tauri shell under `apps/desktop` | Build/release matrix, install smoke tests, and backend history integration (`MCAD-P1-001`–`MCAD-P1-004`, `MCAD-P3-003`) |
-| CLI and release workflow | Partial | `.github/workflows/ci.yml`, `release.yml`; cross-platform CLI archives and checksums are specified | Add Tauri desktop artifacts and command-parity evidence (`MCAD-P1-001`–`MCAD-P1-003`) |
+| Render and desktop preview | Partial | `modules/render`, `modules/desktop`, Tauri shell under `apps/desktop`, and `.github/workflows/desktop.yml` native matrix definition | Verify the native matrix on all four runners, then add install smoke tests, the desktop artifact contract, trust policy, and backend history integration (`MCAD-P1-001`–`MCAD-P1-004`, `MCAD-P3-003`) |
+| CLI and release workflow | Partial | `.github/workflows/ci.yml`, `release.yml`; cross-platform CLI archives/checksums remain independent of the desktop workflow | Add Tauri artifact contract and command-parity evidence (`MCAD-P1-002`–`MCAD-P1-003`) |
 | Plugin API | Stub | `modules/plugin-api/src/` contains reserved module files without public contracts | Versioned traits, registry, capabilities, integration, and example (`MCAD-P4-001`–`MCAD-P4-004`) |
 | Documentation and examples | Partial | Architecture, ADRs, API docs, examples, and this roadmap exist | Keep status/evidence synchronized in feature PRs (`MCAD-P0-002`, `MCAD-P0-003`) |
 
@@ -39,4 +39,3 @@ roadmap IDs:
 
 Historical `Task-###` references are retained only where they identify the
 original implementation change. New work must use `MCAD-P…` IDs.
-

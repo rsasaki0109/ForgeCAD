@@ -1,0 +1,156 @@
+name: Desktop
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/desktop.yml
+      - apps/desktop/**
+      - modules/**
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - docs/developer-guide/desktop-ui.md
+      - docs/developer-guide/occt-install.md
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+    paths:
+      - .github/workflows/desktop.yml
+      - apps/desktop/**
+      - modules/**
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  TAURI_CLI_VERSION: 2.11.4
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            platform: windows-x86_64
+            target: x86_64-pc-windows-msvc
+            binary_path: apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/musubicad-desktop.exe
+          - runner: ubuntu-24.04
+            platform: linux-x86_64
+            target: x86_64-unknown-linux-gnu
+            binary_path: apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/musubicad-desktop
+          - runner: macos-15
+            platform: macos-aarch64
+            target: aarch64-apple-darwin
+            binary_path: apps/desktop/src-tauri/target/aarch64-apple-darwin/release/musubicad-desktop
+          - runner: macos-15-intel
+            platform: macos-x86_64
+            target: x86_64-apple-darwin
+            binary_path: apps/desktop/src-tauri/target/x86_64-apple-darwin/release/musubicad-desktop
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: ${{ matrix.platform == 'linux-x86_64' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential \
+            curl \
+            file \
+            wget \
+            libgtk-3-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            pkg-config
+          pkg-config --exists gtk+-3.0 webkit2gtk-4.1
+          command -v patchelf
+
+      - name: Verify Apple SDK
+        if: ${{ startsWith(matrix.platform, 'macos-') }}
+        run: |
+          xcode-select -p
+          xcrun --sdk macosx --show-sdk-path
+
+      - name: Verify MSVC toolchain
+        if: ${{ matrix.platform == 'windows-x86_64' }}
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path -LiteralPath $vswhere)) {
+            throw 'Visual Studio installation discovery (vswhere) is missing'
+          }
+          $installationVersion = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationVersion
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($installationVersion)) {
+            throw 'The MSVC C++ workload is not installed'
+          }
+          if ([version]$installationVersion -lt [version]'17.14') {
+            throw "MSVC 14.44 or newer is required; found Visual Studio $installationVersion"
+          }
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cargo and OCCT
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            apps/desktop/src-tauri/target/
+          key: ${{ runner.os }}-${{ runner.arch }}-desktop-${{ matrix.target }}-${{ env.TAURI_CLI_VERSION }}-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-desktop-${{ matrix.target }}-${{ env.TAURI_CLI_VERSION }}-
+
+      - name: Install pinned Tauri CLI
+        run: cargo install tauri-cli --version "${{ env.TAURI_CLI_VERSION }}" --locked
+
+      - name: Verify locked desktop dependency graph
+        working-directory: apps/desktop/src-tauri
+        run: cargo metadata --locked --no-deps --format-version 1
+
+      - name: Build Tauri application
+        working-directory: apps/desktop/src-tauri
+        run: cargo tauri build --ci --no-bundle --target "${{ matrix.target }}"
+
+      - name: Verify native executable
+        shell: bash
+        env:
+          DESKTOP_BINARY: ${{ matrix.binary_path }}
+        run: |
+          test -f "$DESKTOP_BINARY"
+          test -s "$DESKTOP_BINARY"
+
+      - name: Verify build did not rewrite the lockfile
+        shell: bash
+        run: git diff --exit-code -- apps/desktop/src-tauri/Cargo.lock
+
+      - name: Upload desktop executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: musubicad-desktop-${{ matrix.platform }}
+          path: ${{ matrix.binary_path }}
+          if-no-files-found: error
+          retention-days: 14

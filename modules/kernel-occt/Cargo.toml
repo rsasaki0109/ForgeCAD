@@ -13,7 +13,7 @@ occt = ["dep:cadrum"]
 [dependencies]
 opencad-core = { workspace = true }
 opencad-geometry = { workspace = true }
-cadrum = { version = "0.8.5", optional = true, default-features = false }
+cadrum = { version = "=0.8.5", optional = true, default-features = false }
 
 [dev-dependencies]
 serde_json = { workspace = true }
