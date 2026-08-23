@@ -1,5 +1,8 @@
 # Desktop distribution quick start
 
+Local and external verification evidence is tracked in
+[`desktop-release-evidence.md`](../plans/desktop-release-evidence.md).
+
 The `Desktop` workflow builds the Tauri shell on four native GitHub-hosted
 runners. It uploads one versioned artifact per runner, containing the
 platform's supported installer/archive formats and a `SHA256SUMS` file:
