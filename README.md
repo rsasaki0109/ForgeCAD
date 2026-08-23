@@ -46,6 +46,28 @@
   </sub>
 </p>
 
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/assets/forgecad-demo.gif" alt="MusubiCAD regenerating a parametric model while keeping its engineering drawing synchronized" width="100%">
+      <br>
+      <sub><strong>One Design Graph, multiple views</strong><br>Regenerate the 3D model and its model-driven drawing together.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/assets/musubicad-showcase.gif" alt="MusubiCAD orbiting a two-component assembly with feature edges and a floor grid" width="100%">
+      <br>
+      <sub><strong>Assembly-aware geometry</strong><br>Inspect placed components, feature edges, connectors, and mates.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="docs/assets/preview.gif" alt="MusubiCAD regenerating a bracket after a unit-bearing width parameter change" width="800">
+      <br>
+      <sub><strong>Parametric regeneration</strong> — explicit-unit edits flow through validation into disposable OCCT geometry.</sub>
+    </td>
+  </tr>
+</table>
+
 ## The workflow
 
 | 1. Agent proposes | 2. MusubiCAD verifies | 3. Human approves |
@@ -192,13 +214,10 @@ API. See the [Agent API reference](docs/api/agent.md) and
 
 ## Desktop preview
 
-<p align="center">
-  <img src="docs/assets/musubicad-showcase.gif" alt="MusubiCAD desktop presentation orbit of a two-component assembly with feature edges and floor grid" width="800">
-</p>
-
 The Tauri desktop shell can open `.ocad.d` documents, regenerate previews, edit
 parameters through backend commands, undo and redo edits, pick faces and sketch
-entities, and open an interactive wgpu viewport.
+entities, and open an interactive wgpu viewport. The assembly presentation in
+the opening gallery is rendered through the same scene and presentation path.
 
 ```bash
 cd apps/desktop/src-tauri
