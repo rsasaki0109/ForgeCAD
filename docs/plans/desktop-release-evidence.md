@@ -44,14 +44,42 @@ both installers. This is expected for the unsigned local/CI workflow and is
 positive evidence that the trust policy does not imply signing without the
 protected release credentials.
 
+## Linux x86_64 local verification — 2026-08-23
+
+Source revision: `d49493a` (`main`, 25 commits ahead of `origin/main` at the
+time of verification).
+
+Ubuntu 22.04 under WSL used the same native dependency set as the GitHub
+workflow, Rust 1.98.0, `tauri-cli 2.11.4`, and target
+`x86_64-unknown-linux-gnu`. The following native build completed successfully:
+
+```bash
+cargo tauri build --ci --bundles deb,appimage \
+  --target x86_64-unknown-linux-gnu
+```
+
+The repository packaging contract produced and verified these files:
+
+| Artifact | Size (bytes) | SHA-256 for this run |
+|---|---:|---|
+| `musubicad-v0.1.0-linux-x86_64.AppImage` | 94,112,248 | `b29a5beb71570fdfc905d9c4c66292c6991690112bc43a729e7eb7d909e85b90` |
+| `musubicad-v0.1.0-linux-x86_64.deb` | 18,162,860 | `d7776c2dc42a67bd725e8ee635720b65ffbf34d7df28145bbf3f0ef8d719b4bb` |
+
+With `libvulkan1`, Mesa Vulkan, and `WGPU_BACKEND=vulkan`, the packaged
+AppImage completed `--smoke-test` through `APPIMAGE_EXTRACT_AND_RUN=1`. It
+reported an unchanged source, a `100 mm` width edit, 144 regenerated and
+exported triangles, a semantic top-face pick, and 36 highlight segments. The
+Debian package was then extracted with `dpkg-deb -x`; its installed
+`usr/bin/musubicad-desktop` payload completed the same contract. Both commands
+exited with code 0 and wrote new working `.ocad.d` documents.
+
 ## Remaining external evidence
 
-The following cannot be established by this Windows checkout:
+The following cannot be established by this local Windows/WSL checkout:
 
 - GitHub-hosted Windows, Linux x86_64, macOS arm64, and macOS x64 matrix runs
-  from the 24 unpushed roadmap commits;
+  from the 25 unpushed roadmap commits;
 - downloadable artifacts and checksums attached to a matching version tag;
-- Linux AppImage execution on a Linux runner;
 - Authenticode signing with the protected Windows certificate;
 - macOS codesign verification, notarization, stapling, and Gatekeeper checks.
 

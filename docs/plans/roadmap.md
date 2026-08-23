@@ -106,13 +106,15 @@ Linux as checksum-only. End-to-end completion still requires a real tagged CI
 run with configured credentials; until that evidence exists this item remains
 **In progress**.
 
-Local Windows evidence is recorded in
+Local Windows and Linux evidence is recorded in
 [`desktop-release-evidence.md`](desktop-release-evidence.md): Tauri 2.11.4
 produced x86_64 MSI and NSIS installers, the versioned packaging/checksum
 contract passed, the release executable passed headless smoke, and an
 administratively extracted MSI payload passed the same smoke contract. Both
-installers are intentionally unsigned. Hosted cross-platform, downloadable
-tag, and credentialed signing evidence remain external gates.
+installers are intentionally unsigned. A native Ubuntu 22.04 build also
+produced the x86_64 DEB and AppImage; both packaged payloads passed the full
+Mesa Vulkan smoke contract. Hosted cross-platform, downloadable tag, and
+credentialed signing evidence remain external gates.
 
 ## Phase 2 — Sketch solver completion
 

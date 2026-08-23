@@ -1,6 +1,7 @@
 # Desktop distribution quick start
 
-Local and external verification evidence is tracked in
+Local Windows and Linux verification evidence, together with the remaining
+external gates, is tracked in
 [`desktop-release-evidence.md`](../plans/desktop-release-evidence.md).
 
 The `Desktop` workflow builds the Tauri shell on four native GitHub-hosted
