@@ -23,6 +23,9 @@ jobs:
       - name: Verify desktop workflow syntax and trust boundaries
         run: python tools/test_desktop_release_policy.py
 
+      - name: Verify shared release version contract
+        run: python tools/test_release_version.py
+
   rust:
     runs-on: ubuntu-latest
     steps:

@@ -33,8 +33,15 @@ passes.
 ## Publish a version
 
 1. Update the workspace version and changelog material in a normal task PR.
-2. Wait for CI and the Release matrix to pass on `main`.
-3. Create and push an annotated version tag:
+2. Verify that the workspace crates, CLI, desktop package, Tauri
+   configuration, both lockfiles, and intended tag agree:
+
+```bash
+python tools/test_release_version.py --tag v0.1.1
+```
+
+3. Wait for CI and the Release matrix to pass on `main`.
+4. Create and push an annotated version tag:
 
 ```bash
 git switch main
@@ -43,8 +50,8 @@ git tag -a v0.1.0 -m "MusubiCAD CLI v0.1.0"
 git push origin v0.1.0
 ```
 
-4. Verify the GitHub Release has four platform archives and `SHA256SUMS`.
-5. Download at least one archive, verify its checksum, and run the commands in `QUICKSTART.md`.
+5. Verify the GitHub Release has four platform archives and `SHA256SUMS`.
+6. Download at least one archive, verify its checksum, and run the commands in `QUICKSTART.md`.
 
 The CLI binaries remain unsigned. CLI signing is outside the desktop trust policy; the workflow
 must not imply that a CLI checksum is a publisher signature. Desktop trust scope and the required
