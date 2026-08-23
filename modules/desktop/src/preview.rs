@@ -236,26 +236,35 @@ fn assembly_root_for_path(path: &Path) -> PathBuf {
 
 fn load_child_document(path: &Path) -> Result<ResolvedChild> {
     let doc = read_ocad(path)?;
-    if doc.metadata.kind == DocumentKind::Assembly {
-        let assembly = doc.assembly.ok_or_else(|| {
-            opencad_core::OpenCadError::validation(format!(
-                "assembly document '{}' is missing assembly model",
-                path.display()
-            ))
-        })?;
-        Ok(ResolvedChild::Assembly {
-            model: Box::new(assembly),
-            doc_id: doc.metadata.id,
-        })
-    } else {
-        let parameters = doc.parameters.clone();
-        let semantic_refs = doc.semantic_refs.clone();
-        let part = doc.into_part_model();
-        Ok(ResolvedChild::Part(Box::new(ChildPart {
-            parameters,
-            part,
-            semantic_refs,
-        })))
+    match doc.metadata.kind {
+        DocumentKind::Assembly => {
+            let assembly = doc.assembly.ok_or_else(|| {
+                opencad_core::OpenCadError::validation(format!(
+                    "assembly document '{}' is missing assembly model",
+                    path.display()
+                ))
+            })?;
+            Ok(ResolvedChild::Assembly {
+                model: Box::new(assembly),
+                doc_id: doc.metadata.id,
+            })
+        }
+        DocumentKind::Part => {
+            let doc_id = doc.metadata.id.clone();
+            let parameters = doc.parameters.clone();
+            let semantic_refs = doc.semantic_refs.clone();
+            let part = doc.into_part_model();
+            Ok(ResolvedChild::Part(Box::new(ChildPart {
+                doc_id,
+                parameters,
+                part,
+                semantic_refs,
+            })))
+        }
+        DocumentKind::Drawing => Err(opencad_core::OpenCadError::validation(format!(
+            "child document '{}' has drawing kind; expected part or assembly",
+            path.display()
+        ))),
     }
 }
 

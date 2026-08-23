@@ -1,5 +1,7 @@
 //! Top-level assembly document model.
 
+use std::collections::BTreeSet;
+
 use opencad_core::{DocumentId, OpenCadError, Result};
 use serde::{Deserialize, Serialize};
 
@@ -48,6 +50,25 @@ impl AssemblyModel {
 
     pub fn validate(&self, assembly_doc_id: &DocumentId) -> Result<()> {
         self.validate_no_self_reference(assembly_doc_id)?;
+        let mut component_ids = BTreeSet::new();
+        for component in &self.components {
+            if !component_ids.insert(component.id.as_str()) {
+                return Err(OpenCadError::validation(format!(
+                    "duplicate assembly component '{}'",
+                    component.id
+                )));
+            }
+            Component::validate_source_path(&component.source_path)?;
+        }
+        let mut instance_ids = BTreeSet::new();
+        for instance in &self.instances {
+            if !instance_ids.insert(instance.id.as_str()) {
+                return Err(OpenCadError::validation(format!(
+                    "duplicate assembly instance '{}'",
+                    instance.id
+                )));
+            }
+        }
         let instance_ids: Vec<_> = self.instances.iter().map(|i| i.id.clone()).collect();
         crate::mate::validate_mates(&self.mates, &instance_ids, &self.connectors)?;
         validate_connectors(&self.connectors, &instance_ids)?;

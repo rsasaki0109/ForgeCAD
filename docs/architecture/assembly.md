@@ -30,13 +30,20 @@ Applied through `GeometryKernel::transform_body`.
 
 ## Regeneration
 
-1. Validate references (no direct self-reference via `Component.source_doc`).
-2. Resolve each `Component.source_path` relative to the assembly directory.
-3. Regenerate the child part through `PartModel::regenerate`.
-4. Apply each instance `placement.transform` via `transform_body`.
-5. Aggregate successful instance bodies into a compound scene (mesh merge for export).
+1. Validate IDs, source kinds, relative path syntax, and direct self-reference.
+2. Canonicalize each existing child path and require it to remain inside the
+   canonical assembly directory. Distinct components may not alias one
+   canonical child document; multiple instances may reuse one component.
+3. Load only part or assembly documents and verify the loaded `DocumentId`
+   against `Component.source_doc`.
+4. Detect nested cycles using both the active `DocumentId` and canonical path.
+5. Regenerate the child through its appropriate pipeline and apply each
+   instance `placement.transform` via `transform_body`.
+6. Aggregate successful instance bodies into a compound scene (mesh merge for export).
 
-Failed child regeneration is reported per instance; the assembly document is not modified.
+Failed child loading or regeneration is reported per instance; sibling results
+remain usable and the assembly document is not modified. A later regeneration
+re-resolves the child, so transient failures are recoverable.
 
 ## Mate solving (M3.2)
 
@@ -56,9 +63,12 @@ Regeneration runs `solve_assembly_mates` when `mates` is non-empty, then places 
 - Agent API: `list_assembly_instances`, `list_assembly_mates`, `list_connectors` queries;
   `set_instance_placement`, `set_mate_distance`, `add_connector` patch operations.
 - Desktop preview tessellates each instance separately with distinct colors.
-- `detect_interferences` first rejects separated instance bounds with a `1e-9 m` tolerance, then
-  measures exact OCCT Boolean Intersect volume. Common volume must exceed the caller's explicit
-  cubic-metre tolerance; coincident contact alone is not reported as interference.
+- `detect_interferences_with_tolerance` validates an
+  `AssemblyInterferenceTolerance` containing a positive linear bounds
+  tolerance in meters and common-volume threshold in cubic meters. Defaults
+  are `1e-9 m` and `1e-12 m³`. It then measures candidate pairs with exact OCCT
+  Boolean Intersect. Contact within tolerance is not reported, and results are
+  ordered by `InstanceId` rather than scene input order.
 
 ## CLI
 
@@ -73,5 +83,6 @@ See `examples/assembly_two_brackets.ocad.d`.
 ## Related
 
 - [ADR-003](../adr/ADR-003-assembly-document-model.md)
+- [Assembly API](../api/assembly.md)
 - [Geometry kernel](geometry-kernel.md)
 - [Feature modeling](feature-modeling.md)

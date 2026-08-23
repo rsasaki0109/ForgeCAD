@@ -47,6 +47,21 @@ directory, runs the existing part regen pipeline, applies `transform_body`, and
 aggregates instance solids into a compound scene. Failed child regen reports
 per-instance errors without corrupting the assembly document.
 
+The robustness contract added in MCAD-P5-004 treats external child references
+as untrusted document input. Source paths must be relative and may not traverse
+parents. Existing paths are canonicalized beneath the canonical assembly root,
+so symbolic-link escape and canonical aliases are rejected. Loaded part and
+assembly IDs must equal `Component.source_doc`; Drawing documents are rejected.
+The active nested-regeneration stack tracks both `DocumentId` and canonical
+path, detects indirect cycles, and is unwound after each attempt so sibling
+reuse and retry remain valid.
+
+Interference detection uses a runtime-only
+`AssemblyInterferenceTolerance`: meters for broad-phase bounds and cubic meters
+for exact common volume. Both thresholds are finite and strictly positive;
+defaults are `1e-9 m` and `1e-12 m³`. A volume equal to the threshold is contact,
+not interference, and output is deterministically ordered by `InstanceId`.
+
 ## Consequences
 
 ### Positive
@@ -58,7 +73,8 @@ per-instance errors without corrupting the assembly document.
 ### Negative
 
 - Assembly documents still carry unused part fields (`sketches`, `feature_nodes`)
-- Child parts are external files; path resolution is the caller's responsibility
+- Child parts are external files and therefore require explicit containment,
+  identity, cycle, and availability diagnostics
 
 ## Alternatives considered
 

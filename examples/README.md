@@ -80,6 +80,14 @@ drawing fixtures `assembly_two_brackets.ocad.d` and
 `bracket_front_view.ocad.d`. Assembly and drawing operations require their
 corresponding model context and appear in the semantic diff before apply.
 
+`assembly_two_brackets.ocad.d` also exercises the P5-004 child-reference
+contract: paths are relative to the assembly root, loaded document IDs and
+kinds must match each component, and regenerated bodies remain disposable.
+Focused assembly tests cover canonical aliases, path/symlink escape, nested
+cycles, sibling reuse, localized failure, retry, and the explicit `m`/`m³`
+interference policy documented in
+[`docs/api/assembly.md`](../docs/api/assembly.md).
+
 ### Revision-guarded patches
 
 Attach a complete-state optimistic-concurrency guard before sending a patch

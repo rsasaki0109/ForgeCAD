@@ -20,9 +20,11 @@ pub use mate::{validate_mates, Mate, MateEntity, MateKind};
 pub use model::AssemblyModel;
 pub use pattern::{expand_patterns, validate_patterns, AssemblyPattern};
 pub use regen::{
-    detect_interferences, regenerate_assembly, resolve_component_path,
-    tessellate_assembly_instances, tessellate_assembly_scene, AssemblyInterference,
+    detect_interferences, detect_interferences_with_tolerance, regenerate_assembly,
+    resolve_component_path, tessellate_assembly_instances, tessellate_assembly_scene,
+    validate_component_path, AssemblyInterference, AssemblyInterferenceTolerance,
     AssemblyRegenReport, AssemblyScene, ChildPart, InstanceMesh, InstanceRegenResult,
-    InstanceRegenStatus, ResolvedChild,
+    InstanceRegenStatus, ResolvedChild, DEFAULT_INTERFERENCE_BOUNDS_TOLERANCE_M,
+    DEFAULT_INTERFERENCE_VOLUME_TOLERANCE_M3,
 };
 pub use solve::{solve_assembly_mates, AssemblySolveReport};

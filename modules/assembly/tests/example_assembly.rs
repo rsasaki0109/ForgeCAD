@@ -37,6 +37,7 @@ fn golden_two_bracket_instances_regen_mock() {
         let params = bracket_parameters();
         Ok(opencad_assembly::ResolvedChild::Part(Box::new(
             opencad_assembly::ChildPart {
+                doc_id: DocumentId::new("doc:bracket_001").expect("id"),
                 parameters: params,
                 part,
                 semantic_refs: Vec::new(),
