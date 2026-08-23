@@ -73,17 +73,43 @@ Debian package was then extracted with `dpkg-deb -x`; its installed
 `usr/bin/musubicad-desktop` payload completed the same contract. Both commands
 exited with code 0 and wrote new working `.ocad.d` documents.
 
+## GitHub-hosted native matrix — 2026-08-23
+
+Source revision: `130028187a2031a9bbde6613463558a248a65563` on `main`.
+
+GitHub Actions run
+[`32612751044`](https://github.com/rsasaki0109/MusubiCAD/actions/runs/32612751044)
+completed successfully on all four required native runners. Every matrix job
+verified its native SDK or toolchain, installed the pinned Tauri CLI, checked
+the locked dependency graph and package version, built the application,
+verified the native executable and unchanged lockfile, generated two
+platform artifacts plus `SHA256SUMS`, checked the artifact contract, and
+uploaded the versioned result.
+
+| Job | Result | Uploaded workflow artifact | Archive size (bytes) |
+|---|---|---|---:|
+| Windows x86_64 | Success | `musubicad-desktop-v0.1.0-windows-x86_64` | 26,960,066 |
+| Linux x86_64 | Success | `musubicad-desktop-v0.1.0-linux-x86_64` | 108,606,234 |
+| macOS x86_64 | Success | `musubicad-desktop-v0.1.0-macos-x86_64` | 29,533,685 |
+| macOS arm64 | Success | `musubicad-desktop-v0.1.0-macos-aarch64` | 27,444,592 |
+
+The dependent `headless backend and packaged Linux smoke` job downloaded the
+uploaded Linux artifact, verified `SHA256SUMS`, ran the OCCT backend smoke and
+command-parity audit, and executed the packaged AppImage under Mesa Vulkan.
+The independent CI run
+[`32612751048`](https://github.com/rsasaki0109/MusubiCAD/actions/runs/32612751048)
+also passed the workflow policy, formatting, clippy, examples, golden, render,
+and workspace test gates for the same revision.
+
 ## Remaining external evidence
 
-The following cannot be established by this local Windows/WSL checkout:
+The following release-level evidence remains external:
 
-- GitHub-hosted Windows, Linux x86_64, macOS arm64, and macOS x64 matrix runs
-  from the 25 unpushed roadmap commits;
 - downloadable artifacts and checksums attached to a matching version tag;
 - Authenticode signing with the protected Windows certificate;
 - macOS codesign verification, notarization, stapling, and Gatekeeper checks.
 
 At verification time, the GitHub repository exposed no Actions secrets and no
 `desktop-release` environment through the authenticated read-only audit. These
-external items remain the completion evidence for MCAD-P1-001, MCAD-P1-002,
-and MCAD-P1-004.
+These external items remain the completion evidence for MCAD-P1-002 and
+MCAD-P1-004. The successful hosted matrix completes MCAD-P1-001.
