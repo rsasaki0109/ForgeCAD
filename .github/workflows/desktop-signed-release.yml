@@ -160,6 +160,41 @@ jobs:
           EXPECTED_SHA: ${{ needs.prepare.outputs.sha }}
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
+      - name: Fail closed when Windows signing credentials are incomplete
+        if: ${{ matrix.platform == 'windows-x86_64' }}
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_SIGNING_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_THUMBPRINT }}
+          WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE) -or
+              [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD) -or
+              [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_THUMBPRINT) -or
+              [string]::IsNullOrWhiteSpace($env:WINDOWS_TIMESTAMP_URL)) {
+            throw 'Windows signed release requires certificate, password, thumbprint, and timestamp URL'
+          }
+
+      - name: Fail closed when Apple signing/notarization credentials are incomplete
+        if: ${{ startsWith(matrix.platform, 'macos-') }}
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required Apple release credential: $name" >&2
+              exit 1
+            fi
+          done
+
       - name: Install Linux system dependencies
         if: ${{ matrix.platform == 'linux-x86_64' }}
         run: |
@@ -228,22 +263,6 @@ jobs:
         working-directory: apps/desktop/src-tauri
         run: cargo metadata --locked --no-deps --format-version 1
 
-      - name: Fail closed when Windows signing credentials are incomplete
-        if: ${{ matrix.platform == 'windows-x86_64' }}
-        shell: pwsh
-        env:
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-          WINDOWS_SIGNING_THUMBPRINT: ${{ vars.WINDOWS_SIGNING_THUMBPRINT }}
-          WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE) -or
-              [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD) -or
-              [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_THUMBPRINT) -or
-              [string]::IsNullOrWhiteSpace($env:WINDOWS_TIMESTAMP_URL)) {
-            throw 'Windows signed release requires certificate, password, thumbprint, and timestamp URL'
-          }
-
       - name: Import Windows Authenticode certificate
         if: ${{ matrix.platform == 'windows-x86_64' }}
         shell: pwsh
@@ -267,25 +286,6 @@ jobs:
             Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $expected } |
             Select-Object -First 1
           if ($null -eq $certificate) { throw "Configured Authenticode certificate $expected was not imported" }
-
-      - name: Fail closed when Apple signing/notarization credentials are incomplete
-        if: ${{ startsWith(matrix.platform, 'macos-') }}
-        shell: bash
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          set -euo pipefail
-          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
-            if [ -z "${!name}" ]; then
-              echo "Missing required Apple release credential: $name" >&2
-              exit 1
-            fi
-          done
 
       - name: Import Apple Developer ID certificate
         if: ${{ startsWith(matrix.platform, 'macos-') }}

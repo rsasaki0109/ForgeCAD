@@ -121,9 +121,10 @@ Add these non-secret environment variables:
 | `WINDOWS_TIMESTAMP_URL` | RFC 3161 timestamp service |
 | `APPLE_SIGNING_IDENTITY` | Optional exact `Developer ID Application: ...` identity |
 
-The platform preflight checks require all relevant values, so a missing
-credential stops the release before artifacts are published. The decision and
-limitations are recorded in
+The platform preflight checks require all relevant values immediately after
+the immutable commit check. A missing credential therefore stops its platform
+job before SDK checks, toolchain/cache setup, Tauri CLI installation, build, or
+publication. The decision and limitations are recorded in
 [ADR-005](../adr/ADR-005-desktop-release-trust.md).
 
 ## Build locally

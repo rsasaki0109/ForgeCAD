@@ -155,12 +155,38 @@ def test_signed_workflow_contract() -> None:
     require(text, "tag_sha", SIGNED)
 
 
+def test_signed_credentials_fail_before_expensive_setup() -> None:
+    text = SIGNED.read_text(encoding="utf-8")
+    immutable = text.index("- name: Verify immutable build commit")
+    windows_gate = text.index(
+        "- name: Fail closed when Windows signing credentials are incomplete"
+    )
+    apple_gate = text.index(
+        "- name: Fail closed when Apple signing/notarization credentials are incomplete"
+    )
+    expensive_steps = (
+        "- name: Install Linux system dependencies",
+        "- name: Verify Apple SDK",
+        "- name: Verify MSVC toolchain",
+        "- name: Install Rust toolchain",
+        "- name: Cache Cargo and OCCT",
+        "- name: Install pinned Tauri CLI",
+    )
+    assert immutable < windows_gate
+    assert immutable < apple_gate
+    for step in expensive_steps:
+        position = text.index(step)
+        assert windows_gate < position, f"Windows credential gate must precede {step}"
+        assert apple_gate < position, f"Apple credential gate must precede {step}"
+
+
 def main() -> int:
     test_yaml_shape()
     test_unsigned_workflow_has_no_signing_boundary()
     test_tauri_cli_install_is_cache_safe_and_version_pinned()
     test_cached_bundle_cleanup_is_narrow_and_shared()
     test_signed_workflow_contract()
+    test_signed_credentials_fail_before_expensive_setup()
     print("desktop release policy contract: ok")
     return 0
 
