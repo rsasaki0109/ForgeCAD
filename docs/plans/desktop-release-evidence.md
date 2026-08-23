@@ -101,15 +101,69 @@ The independent CI run
 also passed the workflow policy, formatting, clippy, examples, golden, render,
 and workspace test gates for the same revision.
 
-## Remaining external evidence
+## Tagged v0.1.1 distribution — 2026-08-23
 
-The following release-level evidence remains external:
+Source revision: `06eaa3849c06db991bf39c459819b30130598351`, tagged
+`v0.1.1` on `main`.
 
-- downloadable artifacts and checksums attached to a matching version tag;
-- Authenticode signing with the protected Windows certificate;
-- macOS codesign verification, notarization, stapling, and Gatekeeper checks.
+GitHub Actions run
+[`32616853187`](https://github.com/rsasaki0109/MusubiCAD/actions/runs/32616853187)
+completed the tagged Desktop matrix on all four native runners. Its four
+downloadable workflow artifacts contain the expected two installers or
+archives plus `SHA256SUMS`:
 
-At verification time, the GitHub repository exposed no Actions secrets and no
-`desktop-release` environment through the authenticated read-only audit. These
-These external items remain the completion evidence for MCAD-P1-002 and
-MCAD-P1-004. The successful hosted matrix completes MCAD-P1-001.
+| Workflow artifact | Download size (bytes) |
+|---|---:|
+| `musubicad-desktop-v0.1.1-windows-x86_64` | 26,951,243 |
+| `musubicad-desktop-v0.1.1-linux-x86_64` | 108,587,206 |
+| `musubicad-desktop-v0.1.1-macos-aarch64` | 27,446,131 |
+| `musubicad-desktop-v0.1.1-macos-x86_64` | 29,535,591 |
+
+The dependent job downloaded the Linux artifact, verified its checksums, and
+ran the packaged AppImage smoke contract. A separate post-run download of all
+four artifacts verified every internal checksum independently:
+
+| Packaged file | Size (bytes) | SHA-256 |
+|---|---:|---|
+| `musubicad-v0.1.1-windows-x86_64-nsis.exe` | 11,089,372 | `e02b9c502e37273e764a6ca5e4c523f194d167eabbabbc820ae896726c688509` |
+| `musubicad-v0.1.1-windows-x86_64.msi` | 16,150,528 | `77cfbfe3260ec84fbc6f5891e581467cc2b455714fea6988afd9da9e808728dc` |
+| `musubicad-v0.1.1-linux-x86_64.AppImage` | 91,122,168 | `cba35092a569cf952f5f1832f4fd1faa47d533923275f569a55f8dfe1e89f86e` |
+| `musubicad-v0.1.1-linux-x86_64.deb` | 18,163,976 | `a505e542e4c33c1d7c6122e0fa3476289d0082f1055fefd7aebfe1e4b47918c5` |
+| `musubicad-v0.1.1-macos-aarch64-app.zip` | 13,477,985 | `0774d7d6e983aa698769841a3637ad908a1a1ec3d211d3837325c62ae6dc8904` |
+| `musubicad-v0.1.1-macos-aarch64.dmg` | 14,087,217 | `af25dc6616cd0e534e8ceadd84ac944a54bbab300b45f56f3b31a2aad1db2687` |
+| `musubicad-v0.1.1-macos-x86_64-app.zip` | 14,531,167 | `5f812c04a5dc623463ee5d65eb48e93b0ecb22738a416844b0a92e04433a5e1f` |
+| `musubicad-v0.1.1-macos-x86_64.dmg` | 15,109,047 | `c624a417cddbfeb06b5d799aaf4daaf091c71de7103163947c90b4845a8ac4e6` |
+
+The independent CLI
+[`Release` run `32616853192`](https://github.com/rsasaki0109/MusubiCAD/actions/runs/32616853192)
+built and smoke-tested all four CLI targets and published the non-draft,
+non-prerelease
+[`MusubiCAD CLI v0.1.1`](https://github.com/rsasaki0109/MusubiCAD/releases/tag/v0.1.1)
+release with four archives and `SHA256SUMS`. A clean post-publication download
+verified all four checksums; the released Windows executable reported
+`opencad 0.1.1` and `OCCT 8.0.0 (cadrum static)`. This tagged evidence, together
+with the checked-in distribution quick start, completes MCAD-P1-002.
+
+## Credential-gated signed release attempt — 2026-08-23
+
+The successful CLI release triggered
+[`Desktop signed release` run `32617085661`](https://github.com/rsasaki0109/MusubiCAD/actions/runs/32617085661).
+The trusted preflight verified the immutable tag, `main` ancestry, and shared
+desktop version. The Linux checksum-only job built, verified, and uploaded its
+artifact. Windows then failed before build/publication because its certificate,
+password, thumbprint, and timestamp URL were empty. Both macOS jobs failed
+before build/publication because the required Apple certificate and associated
+notarization credentials were empty. Consequently, the all-platform publish
+job was skipped and no unsigned artifact was presented as a signed release.
+The workflow reference created the `desktop-release` environment, but a
+post-run API audit found zero environment secrets, zero environment variables,
+and zero protection rules. Repository administrators still need to configure
+the credentials and reviewer/branch protection described in the distribution
+guide.
+
+MCAD-P1-004 therefore remains **In progress**. Its remaining work is environment
+protection and credential configuration, followed by a rerun that proves
+Authenticode signing plus timestamp verification, and macOS codesign,
+notarization, stapling, and Gatekeeper verification. The observed failures are
+positive evidence that the release path fails closed when protected credentials
+are absent.

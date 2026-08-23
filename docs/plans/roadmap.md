@@ -77,7 +77,7 @@ workflow.
 | ID | Scope | Deliverables | Status |
 |---|---|---|---|
 | MCAD-P1-001 | Native build matrix | GitHub Actions builds for Windows x64, Linux x64, macOS arm64, and macOS x64 | Complete |
-| MCAD-P1-002 | Artifact contract | Versioned archives/installers, SHA-256 checksums, and quick-start instructions | In progress |
+| MCAD-P1-002 | Artifact contract | Versioned archives/installers, SHA-256 checksums, and quick-start instructions | Complete |
 | MCAD-P1-003 | Desktop smoke tests | Open sample, preview, parameter edit, regenerate, pick, and export checks | Complete |
 | MCAD-P1-004 | Trust and release policy | Explicit code-signing/notarization scope and credential-gated release steps | In progress |
 
@@ -113,10 +113,13 @@ contract passed, the release executable passed headless smoke, and an
 administratively extracted MSI payload passed the same smoke contract. Both
 installers are intentionally unsigned. A native Ubuntu 22.04 build also
 produced the x86_64 DEB and AppImage; both packaged payloads passed the full
-Mesa Vulkan smoke contract. Hosted cross-platform, downloadable tag, and
-credentialed signing evidence remain external gates. GitHub Actions run
-`32612751044` subsequently completed the required four-platform native matrix,
-artifact contract, and packaged Linux smoke, completing MCAD-P1-001.
+Mesa Vulkan smoke contract. GitHub Actions run `32612751044` completed the
+required four-platform native matrix, artifact contract, and packaged Linux
+smoke, completing MCAD-P1-001. Tagged run `32616853187` then produced all four
+downloadable v0.1.1 Desktop artifacts with independently verified checksums,
+while run `32616853192` published and independently smoke-tested the matching
+CLI release, completing MCAD-P1-002. Credentialed signing evidence remains the
+only external Phase 1 gate.
 
 ## Phase 2 — Sketch solver completion
 
