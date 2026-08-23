@@ -136,7 +136,15 @@ jobs:
             ${{ runner.os }}-${{ runner.arch }}-desktop-${{ matrix.target }}-${{ env.TAURI_CLI_VERSION }}-
 
       - name: Install pinned Tauri CLI
-        run: cargo install tauri-cli --version "${{ env.TAURI_CLI_VERSION }}" --locked
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="tauri-cli $TAURI_CLI_VERSION"
+          actual="$(cargo tauri --version 2>/dev/null || true)"
+          if [ "$actual" != "$expected" ]; then
+            cargo install tauri-cli --version "$TAURI_CLI_VERSION" --locked --force
+          fi
+          test "$(cargo tauri --version)" = "$expected"
 
       - name: Verify locked desktop dependency graph
         working-directory: apps/desktop/src-tauri

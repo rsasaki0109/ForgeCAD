@@ -73,6 +73,18 @@ def test_unsigned_workflow_has_no_signing_boundary() -> None:
         raise AssertionError(f"{DESKTOP}: unsigned workflow contains a signing or write boundary")
 
 
+def test_tauri_cli_install_is_cache_safe_and_version_pinned() -> None:
+    for source in (DESKTOP, SIGNED):
+        text = source.read_text(encoding="utf-8")
+        for needle in (
+            'expected="tauri-cli $TAURI_CLI_VERSION"',
+            'actual="$(cargo tauri --version 2>/dev/null || true)"',
+            'cargo install tauri-cli --version "$TAURI_CLI_VERSION" --locked --force',
+            'test "$(cargo tauri --version)" = "$expected"',
+        ):
+            require(text, needle, source)
+
+
 def test_signed_workflow_contract() -> None:
     text = SIGNED.read_text(encoding="utf-8")
     for needle in (
@@ -129,6 +141,7 @@ def test_signed_workflow_contract() -> None:
 def main() -> int:
     test_yaml_shape()
     test_unsigned_workflow_has_no_signing_boundary()
+    test_tauri_cli_install_is_cache_safe_and_version_pinned()
     test_signed_workflow_contract()
     print("desktop release policy contract: ok")
     return 0
