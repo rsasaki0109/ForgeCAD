@@ -222,7 +222,7 @@ assembly, drawing, mass-property, and rendering workflows.
 | MCAD-P5-003 | Drawing HLR quality | Split partially occluded edges and preserve deterministic visible/hidden segments | Complete |
 | MCAD-P5-004 | Assembly robustness | Cycle/path validation, nested-document errors, interference tolerance, and recovery behavior | Complete |
 | MCAD-P5-005 | End-to-end golden suite | Mass, bounding box, topology, assembly, drawing, and review artifacts across representative fixtures | Complete |
-| MCAD-P5-006 | Future geometry scope | Requirements and ADR for NURBS editing or new kernel features before implementation | Deferred |
+| MCAD-P5-006 | Future geometry scope | Requirements and ADR for NURBS editing or new kernel features before implementation | Complete (implementation deferred) |
 
 **Definition of done:** semantic references survive the supported feature edits;
 drawing output handles partial occlusion deterministically; assembly failures are
@@ -264,6 +264,13 @@ SVG. It also runs the same CLI review twice and compares `review.json`,
 directory. The manifest links the Agent `DesignPatch` input and the resulting
 Desktop preview geometry evidence to the same fixture, and the test executes
 both `AgentApi::patch_dry_run` and `opencad_desktop::preview_document`.
+
+MCAD-P5-006 accepts ADR-012 and the future-geometry admission requirements.
+They require a separate task and feature ADR covering Design Graph ownership,
+units/tolerances, TopoRefs, transaction/DesignPatch parity, schema migration,
+kernel boundaries, failure atomicity, and tests before NURBS editing or a new
+kernel operation begins. No geometry feature is implemented by this planning
+task; implementation remains explicitly deferred.
 
 **Tests:** geometry tolerance tests; OCCT integration tests; TopoRef migration and
 round trips; assembly/drawing examples; deterministic SVG/mesh/review golden

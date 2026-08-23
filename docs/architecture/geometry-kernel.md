@@ -81,5 +81,7 @@ TopoRef fallback tolerances are documented and unit-labelled in
 
 - [ADR-002 OCCT backend](../adr/ADR-002-occt-backend.md)
 - [ADR-011 semantic TopoRef identity](../adr/ADR-011-semantic-toporef-identity.md)
+- [ADR-012 future geometry admission gate](../adr/ADR-012-future-geometry-admission-gate.md)
+- [Future geometry requirements](../plans/future-geometry-requirements.md)
 - [Semantic TopoRef API](../api/topo-ref.md)
 - Topological reference specification: [MCAD-P5-001 in the roadmap](../plans/roadmap.md)
