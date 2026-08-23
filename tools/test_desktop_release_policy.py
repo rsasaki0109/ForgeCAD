@@ -15,6 +15,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 DESKTOP = ROOT / ".github" / "workflows" / "desktop.yml"
 SIGNED = ROOT / ".github" / "workflows" / "desktop-signed-release.yml"
+BUNDLE_CLEANUP = ROOT / "tools" / "clear-desktop-bundle.ps1"
 
 
 def require(text: str, needle: str, source: Path) -> None:
@@ -85,6 +86,22 @@ def test_tauri_cli_install_is_cache_safe_and_version_pinned() -> None:
             require(text, needle, source)
 
 
+def test_cached_bundle_cleanup_is_narrow_and_shared() -> None:
+    cleanup = BUNDLE_CLEANUP.read_text(encoding="utf-8")
+    for needle in (
+        "apps/desktop/src-tauri/target",
+        'GetFileName($Bundle) -ne "bundle"',
+        'GetFileName([System.IO.Path]::GetDirectoryName($Bundle)) -ne "release"',
+        "Remove-Item -LiteralPath $Bundle -Recurse -Force",
+    ):
+        require(cleanup, needle, BUNDLE_CLEANUP)
+    for source in (DESKTOP, SIGNED):
+        text = source.read_text(encoding="utf-8")
+        require(text, "Clear cached desktop bundle outputs", source)
+        require(text, "./tools/clear-desktop-bundle.ps1", source)
+        require(text, '-BundleDirectory "${{ matrix.bundle_directory }}"', source)
+
+
 def test_signed_workflow_contract() -> None:
     text = SIGNED.read_text(encoding="utf-8")
     for needle in (
@@ -142,6 +159,7 @@ def main() -> int:
     test_yaml_shape()
     test_unsigned_workflow_has_no_signing_boundary()
     test_tauri_cli_install_is_cache_safe_and_version_pinned()
+    test_cached_bundle_cleanup_is_narrow_and_shared()
     test_signed_workflow_contract()
     print("desktop release policy contract: ok")
     return 0

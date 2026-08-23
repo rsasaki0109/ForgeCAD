@@ -321,6 +321,12 @@ jobs:
           echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
           echo "MUSUBI_KEYCHAIN_PATH=$keychain_path" >> "$GITHUB_ENV"
 
+      - name: Clear cached desktop bundle outputs
+        shell: pwsh
+        run: >-
+          ./tools/clear-desktop-bundle.ps1
+          -BundleDirectory "${{ matrix.bundle_directory }}"
+
       - name: Build and bundle Tauri application (Linux and macOS)
         if: ${{ matrix.platform != 'windows-x86_64' }}
         working-directory: apps/desktop/src-tauri

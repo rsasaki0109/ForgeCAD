@@ -179,6 +179,12 @@ jobs:
           }
           "version=$cargoVersion" >> $env:GITHUB_OUTPUT
 
+      - name: Clear cached desktop bundle outputs
+        shell: pwsh
+        run: >-
+          ./tools/clear-desktop-bundle.ps1
+          -BundleDirectory "${{ matrix.bundle_directory }}"
+
       - name: Build and bundle Tauri application
         working-directory: apps/desktop/src-tauri
         run: cargo tauri build --ci --bundles "${{ matrix.bundles }}" --target "${{ matrix.target }}"
