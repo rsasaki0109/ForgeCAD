@@ -3,6 +3,7 @@
 //! OCCT types must not leak outside `opencad-kernel-occt`.
 
 pub mod brep;
+pub mod instrument;
 pub mod kernel;
 pub mod mass;
 pub mod nurbs;
@@ -13,6 +14,7 @@ pub mod topo_sync;
 pub mod topology;
 pub mod transform;
 
+pub use instrument::CountingGeometryKernel;
 pub use kernel::{
     BooleanOp, ExtrudeExtent, ExtrudeOperation, FilletEdgeSelector, GeometryKernel, KernelBody,
     KernelWire, MockGeometryKernel, ProfilePlane, RevolveInput, RevolveOperation, SketchPlacement,

@@ -26,6 +26,7 @@ flowchart LR
 | `FeatureRegistry` | Dispatches executors by feature type |
 | `PartModel` | Feature graph + sketches + regen outputs |
 | `RegenContext` | Kernel + prior feature outputs |
+| `RegenerationTrace` | Serializable execution order, call counts, timing, and logical output hashes |
 
 ## Regeneration
 
@@ -37,6 +38,14 @@ model.regenerate(&kernel, &registry)?;
 ```
 
 Features run in topological order from `FeatureGraph::recompute_order()`. Suppressed features are skipped.
+
+The pipeline observes every kernel-neutral call through
+`CountingGeometryKernel`. Logical output hashes contain canonical feature input
+and upstream output hashes, never disposable kernel handles. Trace identity
+excludes wall-clock time. Change-impact prediction lives in `opencad-ai`, reads
+the Feature Graph without invoking geometry, and cannot mutate dirty state.
+Incremental output reuse is intentionally a later phase: MCAD-P6-001 establishes
+the evidence oracle before MCAD-P6-002 changes which nodes execute.
 
 The flagship `robot_joint_actuator_housing()` example exercises a 22-node
 modifying chain: base extrusion → stepped joined hubs → shaft bore → bearing

@@ -17,8 +17,8 @@ echo '{"jsonrpc":"2.0","id":1,"method":"opencad.inspect","params":{"path":"brack
 
 | Method | Params | Result |
 |---|---|---|
-| `opencad.patch_dry_run` | `{ parameters, feature_nodes, semantic_refs?, assembly?, drawing?, patch }` | `{ validation, diff }` |
-| `opencad.patch_apply` | `{ parameters, feature_nodes, semantic_refs?, assembly?, drawing?, patch }` | `{ parameters, feature_nodes, semantic_refs, assembly?, drawing?, diff }` |
+| `opencad.patch_dry_run` | `{ parameters, feature_nodes, semantic_refs?, assembly?, drawing?, patch }` | `{ validation, diff, impact }` |
+| `opencad.patch_apply` | `{ parameters, feature_nodes, semantic_refs?, assembly?, drawing?, patch }` | `{ parameters, feature_nodes, semantic_refs, assembly?, drawing?, diff, impact }` |
 | `opencad.diff` | `{ before, after }` (each may include `semantic_refs`, `assembly`, `drawing`) | `DesignDiff` |
 | `opencad.regen` | `{ parameters, sketches, feature_graph, feature_nodes }` | `RegenResult` |
 | `opencad.query` | `{ parameters, feature_nodes, feature_graph?, assembly?, drawing?, query }` | `QueryResult` |
@@ -30,7 +30,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"opencad.inspect","params":{"path":"brack
 |---|---|---|
 | `opencad.inspect` | `{ path }` | document summary |
 | `opencad.validate` | `{ path }` | `{ valid, path }` |
-| `opencad.patch_dry_run_document` | `{ path, patch }` | `{ validation, diff }` |
+| `opencad.patch_dry_run_document` | `{ path, patch }` | `{ validation, diff, impact }` |
 | `opencad.patch_apply_document` | `{ path, patch, history? }` | `{ patched, history, can_undo, can_redo }` |
 | `opencad.history_undo_document` | `{ path, history }` | `{ history, can_undo, can_redo }` |
 | `opencad.history_redo_document` | `{ path, history }` | `{ history, can_undo, can_redo }` |
@@ -82,6 +82,12 @@ Design Graph, applies all operations, and evaluates the resulting parameter
 graph before returning the candidate. Assembly operations require an assembly
 model and drawing operations require a drawing model; missing context is a
 deterministic validation error in both paths.
+
+`impact` uses the shared `ChangeImpact` DTO documented in
+[Change impact and regeneration trace](change-impact-and-regeneration-trace.md).
+Document dry-run predicts the exact dependency-propagated Feature Graph suffix.
+`RegenResult.trace` uses the same serializable `RegenerationTrace` returned by
+Desktop regeneration.
 
 Rust callers that must validate a part regeneration in the same boundary can
 use `opencad_desktop::apply_patch_and_regenerate`. The command-layer helper runs the patch and
@@ -223,7 +229,16 @@ opencad regen bracket.ocad.d --sync-topo-refs
   "skipped_suppressed": [],
   "volume_m3": 2.833178323652379e-5,
   "mass_kg": 0.07649581473861423,
-  "density_kg_per_m3": 2700.0
+  "density_kg_per_m3": 2700.0,
+  "trace": {
+    "executed_nodes": ["feature:sketch_base", "feature:extrude_base"],
+    "skipped_nodes": [],
+    "solver_call_count": 1,
+    "geometry_kernel_call_count": 3,
+    "elapsed_time_ms": 2,
+    "output_hashes_sha256": {},
+    "trace_hash_sha256": "<sha256>"
+  }
 }
 ```
 

@@ -32,6 +32,7 @@ pub use regenerate::{
     bracket_hole_ring, bracket_hole_row, bracket_pin_mirror, bracket_pin_ring, bracket_pin_row,
     bracket_semantic_refs, bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet,
     revolve_bushing, revolve_sector, robot_joint_actuator_housing, PartModel, RegenReport,
+    RegenerationTrace,
 };
 pub use registry::FeatureRegistry;
 pub use revolve::{RevolveFeature, RevolveFeatureExecutor};

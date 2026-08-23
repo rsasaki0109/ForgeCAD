@@ -4,7 +4,7 @@ use std::path::Path;
 
 use opencad_assembly::{regenerate_assembly, ChildPart, InstanceRegenStatus, ResolvedChild};
 use opencad_core::DocumentKind;
-use opencad_feature::{FeatureRegistry, PartModel, RegenReport};
+use opencad_feature::{FeatureRegistry, PartModel, RegenReport, RegenerationTrace};
 use opencad_file::{read_ocad, write_expanded_dir, OcadDocument};
 use opencad_geometry::GeometryKernel;
 use opencad_graph::{FeatureGraph, ParamGraph};
@@ -41,6 +41,7 @@ pub struct RegenResult {
     pub density_kg_per_m3: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instances: Option<usize>,
+    pub trace: RegenerationTrace,
 }
 
 /// Design body required for in-memory regeneration.
@@ -54,14 +55,16 @@ pub struct RegenBodyParams {
 
 impl From<RegenSummary> for RegenResult {
     fn from(summary: RegenSummary) -> Self {
+        let report = summary.report;
         Self {
             kernel: summary.kernel,
-            regenerated: summary.report.regenerated,
-            skipped_suppressed: summary.report.skipped_suppressed,
+            regenerated: report.regenerated,
+            skipped_suppressed: report.skipped_suppressed,
             volume_m3: summary.volume_m3,
             mass_kg: summary.mass_kg,
             density_kg_per_m3: DEFAULT_DENSITY_KG_PER_M3,
             instances: summary.instances,
+            trace: report.trace,
         }
     }
 }
@@ -167,16 +170,19 @@ fn regen_assembly_document(
 }
 
 fn assembly_regen_report(report: &opencad_assembly::AssemblyRegenReport) -> RegenReport {
-    let regenerated = report
+    let regenerated: Vec<String> = report
         .instances
         .iter()
         .filter(|instance| matches!(instance.status, InstanceRegenStatus::Ok))
         .map(|instance| instance.instance_id.as_str().to_string())
         .collect();
+    let trace =
+        RegenerationTrace::observed(regenerated.clone(), Vec::new(), 0, 0, 0, Default::default());
     RegenReport {
         regenerated,
         skipped_suppressed: Vec::new(),
         face_history: Vec::new(),
+        trace,
     }
 }
 
@@ -288,6 +294,13 @@ pub fn print_summary(summary: &RegenSummary) {
     for id in &summary.report.regenerated {
         println!("  {id}");
     }
+    println!(
+        "trace: solver_calls={} kernel_calls={} elapsed_time_ms={} hash={}",
+        summary.report.trace.solver_call_count,
+        summary.report.trace.geometry_kernel_call_count,
+        summary.report.trace.elapsed_time_ms,
+        summary.report.trace.trace_hash_sha256
+    );
     if !summary.report.skipped_suppressed.is_empty() {
         println!("suppressed: {}", summary.report.skipped_suppressed.len());
         for id in &summary.report.skipped_suppressed {

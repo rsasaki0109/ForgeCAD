@@ -1,8 +1,8 @@
 //! Apply DesignPatch operations to `.ocad` documents.
 
 use opencad_ai::{
-    build_patch_candidate, dry_run_patch_state, DesignPatch, DesignState, PatchDryRunReport,
-    PatchOperation,
+    build_patch_candidate, dry_run_patch_state_with_context, DesignPatch, DesignState,
+    ImpactContext, PatchDryRunReport, PatchOperation,
 };
 use opencad_core::Result;
 
@@ -74,7 +74,7 @@ fn apply_patch_to_document_in_place(doc: &mut OcadDocument, patch: &DesignPatch)
 
 /// Validate and preview a patch against a document without persisting changes.
 pub fn dry_run_patch_document(before: &OcadDocument, patch: &DesignPatch) -> PatchDryRunReport {
-    dry_run_patch_state(
+    dry_run_patch_state_with_context(
         &DesignState::with_models(
             before.parameters.clone(),
             before.feature_nodes.clone(),
@@ -83,6 +83,10 @@ pub fn dry_run_patch_document(before: &OcadDocument, patch: &DesignPatch) -> Pat
             before.drawing.clone(),
         ),
         patch,
+        ImpactContext {
+            feature_graph: Some(&before.feature_graph),
+            sketches: &before.sketches,
+        },
     )
 }
 
@@ -92,7 +96,8 @@ mod tests {
     use opencad_ai::FeatureExprField;
     use opencad_core::{DocumentId, DocumentMetadata, TopoRefId};
     use opencad_feature::{
-        bracket_with_hole, bracket_with_top_fillet, FeatureDefinition, FeatureRegistry,
+        bracket_with_hole, bracket_with_top_fillet, robot_joint_actuator_housing,
+        FeatureDefinition, FeatureRegistry,
     };
     use opencad_geometry::{assign_named_face_ref, GeometryKernel};
     use opencad_graph::{bracket_parameters, SemanticChange};
@@ -180,6 +185,39 @@ mod tests {
             SemanticChange::FeatureModified { id, field, .. }
                 if id == "feature:extrude_base" && field == "definition"
         )));
+    }
+
+    #[test]
+    fn robot_joint_tower_edit_predicts_exact_downstream_suffix() {
+        let part = robot_joint_actuator_housing().expect("robot joint");
+        let metadata = DocumentMetadata::new(
+            DocumentId::new("doc:impact_robot_joint").expect("id"),
+            "Impact Robot Joint",
+        );
+        let mut before = OcadDocument::from_part_model(metadata, &part);
+        before.parameters = opencad_graph::robot_joint_housing_parameters();
+        let report = dry_run_patch_document(
+            &before,
+            &DesignPatch::set_parameter("param:upper_hub_height", "42 mm"),
+        );
+
+        assert!(report.validation.is_ok());
+        assert_eq!(
+            report.impact.directly_affected_nodes,
+            ["feature:upper_hub", "feature:shaft_bore"]
+        );
+        assert_eq!(
+            report.impact.predicted_dirty_nodes,
+            [
+                "feature:upper_hub",
+                "feature:shaft_bore",
+                "feature:counterbore",
+                "feature:pcd_fasteners",
+                "feature:radial_ribs",
+                "feature:mounting_ears",
+                "feature:mounting_holes",
+            ]
+        );
     }
 
     #[test]

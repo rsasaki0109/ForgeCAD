@@ -5,13 +5,14 @@ use opencad_graph::{build_summary, evaluate_param_graph, DesignDiff, ParamGraph}
 use serde::{Deserialize, Serialize};
 
 use crate::state::{diff_design_state, DesignState};
-use crate::DesignPatch;
+use crate::{predict_change_impact, ChangeImpact, DesignPatch, ImpactContext};
 
 /// Result of validating a patch without mutating the source document.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PatchDryRunReport {
     pub validation: ValidationReport,
     pub diff: DesignDiff,
+    pub impact: ChangeImpact,
 }
 
 /// Build and validate the candidate state used by both dry-run and apply.
@@ -30,6 +31,15 @@ pub fn build_patch_candidate(before: &DesignState, patch: &DesignPatch) -> Resul
 
 /// Validate that a patch can be applied against a full design state.
 pub fn dry_run_patch_state(before: &DesignState, patch: &DesignPatch) -> PatchDryRunReport {
+    dry_run_patch_state_with_context(before, patch, ImpactContext::default())
+}
+
+/// Validate a patch and predict its affected Feature Graph nodes.
+pub fn dry_run_patch_state_with_context(
+    before: &DesignState,
+    patch: &DesignPatch,
+    context: ImpactContext<'_>,
+) -> PatchDryRunReport {
     let mut validation = ValidationReport::new();
 
     let after = match build_patch_candidate(before, patch) {
@@ -42,6 +52,7 @@ pub fn dry_run_patch_state(before: &DesignState, patch: &DesignPatch) -> PatchDr
             return PatchDryRunReport {
                 validation,
                 diff: DesignDiff::semantic("Patch rejected", Vec::new()),
+                impact: ChangeImpact::default(),
             };
         }
     };
@@ -57,9 +68,12 @@ pub fn dry_run_patch_state(before: &DesignState, patch: &DesignPatch) -> PatchDr
         "Patch rejected".into()
     };
 
+    let diff = DesignDiff::semantic(summary, diff.changes);
+    let impact = predict_change_impact(before, &after, &diff, context);
     PatchDryRunReport {
         validation,
-        diff: DesignDiff::semantic(summary, diff.changes),
+        diff,
+        impact,
     }
 }
 

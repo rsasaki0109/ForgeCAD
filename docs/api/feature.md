@@ -25,11 +25,14 @@ Graph.
 let mut model = opencad_feature::robot_joint_actuator_housing()?;
 let parameters = opencad_graph::robot_joint_housing_parameters();
 let registry = opencad_feature::FeatureRegistry::with_defaults();
-model.regenerate(&kernel, &registry, Some(&parameters), None)?;
+let report = model.regenerate(&kernel, &registry, Some(&parameters), None)?;
+println!("{}", report.trace.trace_hash_sha256);
 ```
 
 The constructor performs no file-system or network I/O. The desktop template
 layer owns `.ocad` persistence through the `robot-joint` template.
+`RegenReport.trace` records deterministic execution evidence; see
+[Change impact and regeneration trace](change-impact-and-regeneration-trace.md).
 
 ## Feature-build animation
 

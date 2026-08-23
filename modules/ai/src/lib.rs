@@ -4,6 +4,7 @@ pub mod agent_api;
 pub mod assembly;
 pub mod drawing;
 pub mod explain;
+pub mod impact;
 pub mod intent;
 pub mod merge;
 pub mod patch;
@@ -25,6 +26,10 @@ pub use drawing::{
     list_drawing_views,
 };
 pub use explain::{explain_design, DesignExplanation, ExplainParams};
+pub use impact::{
+    predict_change_impact, ChangeImpact, ChangedInput, ChangedInputKind, ImpactContext,
+    CHANGE_IMPACT_VERSION,
+};
 pub use intent::{
     apply_approved_proposal, create_proposal, AgentIntent, AgentProposal, AgentSelection,
     IntentProvider,
@@ -48,6 +53,6 @@ pub use state::{
     DESIGN_STATE_REVISION_ALGORITHM, DESIGN_STATE_REVISION_VERSION,
 };
 pub use validation::{
-    build_patch_candidate, dry_run_patch, dry_run_patch_state, ensure_patch_valid,
-    PatchDryRunReport,
+    build_patch_candidate, dry_run_patch, dry_run_patch_state, dry_run_patch_state_with_context,
+    ensure_patch_valid, PatchDryRunReport,
 };

@@ -1,11 +1,16 @@
 //! Feature graph regeneration pipeline (Task-098+).
 
-use indexmap::IndexMap;
+use std::collections::BTreeMap;
+use std::time::Instant;
 
-use opencad_core::{Length, OpenCadError, Result};
+use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
+
+use opencad_core::{sha256_hex, Length, OpenCadError, Result};
 use opencad_geometry::EdgeRefDiscovery;
 use opencad_geometry::{
-    ExtrudeExtent, FaceDerivation, FaceRefDiscovery, GeometryKernel, KernelBody, TopoRef,
+    CountingGeometryKernel, ExtrudeExtent, FaceDerivation, FaceRefDiscovery, GeometryKernel,
+    KernelBody, TopoRef,
 };
 use opencad_graph::FeatureGraph;
 use opencad_sketch::Sketch;
@@ -40,6 +45,66 @@ pub struct RegenReport {
     pub skipped_suppressed: Vec<String>,
     /// Face derivation pairs accumulated across modifying features in regen order.
     pub face_history: Vec<FaceDerivation>,
+    pub trace: RegenerationTrace,
+}
+
+/// Serializable evidence produced by one regeneration pass.
+///
+/// `elapsed_time_ms` is intentionally excluded from `trace_hash_sha256`; timing
+/// is observable evidence but not deterministic identity.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RegenerationTrace {
+    pub executed_nodes: Vec<String>,
+    pub skipped_nodes: Vec<String>,
+    pub solver_call_count: u64,
+    pub geometry_kernel_call_count: u64,
+    pub elapsed_time_ms: u64,
+    pub output_hashes_sha256: BTreeMap<String, String>,
+    pub trace_hash_sha256: String,
+}
+
+impl RegenerationTrace {
+    pub fn no_op() -> Self {
+        let mut trace = Self::default();
+        trace.trace_hash_sha256 = trace.deterministic_hash();
+        trace
+    }
+
+    /// Construct a trace from observed execution evidence and seal its hash.
+    pub fn observed(
+        executed_nodes: Vec<String>,
+        skipped_nodes: Vec<String>,
+        solver_call_count: u64,
+        geometry_kernel_call_count: u64,
+        elapsed_time_ms: u64,
+        output_hashes_sha256: BTreeMap<String, String>,
+    ) -> Self {
+        let mut trace = Self {
+            executed_nodes,
+            skipped_nodes,
+            solver_call_count,
+            geometry_kernel_call_count,
+            elapsed_time_ms,
+            output_hashes_sha256,
+            trace_hash_sha256: String::new(),
+        };
+        trace.trace_hash_sha256 = trace.deterministic_hash();
+        trace
+    }
+
+    fn deterministic_hash(&self) -> String {
+        let payload = (
+            "opencad.regeneration-trace.v1",
+            &self.executed_nodes,
+            &self.skipped_nodes,
+            self.solver_call_count,
+            self.geometry_kernel_call_count,
+            &self.output_hashes_sha256,
+        );
+        serde_json::to_vec(&payload)
+            .map(|bytes| sha256_hex(&bytes))
+            .unwrap_or_default()
+    }
 }
 
 /// Session context passed to feature executors during regeneration.
@@ -149,6 +214,7 @@ impl PartModel {
         parameters: Option<&ParamGraph>,
         semantic_refs: Option<&[TopoRef]>,
     ) -> Result<RegenReport> {
+        let started = Instant::now();
         if let Some(params) = parameters {
             apply_parameters(self, params)?;
         }
@@ -161,6 +227,9 @@ impl PartModel {
         let mut face_discoveries: Vec<FaceRefDiscovery> = Vec::new();
         let mut edge_discoveries: Vec<EdgeRefDiscovery> = Vec::new();
         let node_list: Vec<FeatureNode> = self.nodes.values().cloned().collect();
+        let counted_kernel = CountingGeometryKernel::new(kernel);
+        let solver_call_count = u64::try_from(self.sketches.len()).unwrap_or(u64::MAX);
+        let mut output_hashes = BTreeMap::new();
 
         for feature_id in order {
             let Some(node) = self.nodes.get(&feature_id) else {
@@ -172,7 +241,7 @@ impl PartModel {
             }
 
             let session = RegenSession {
-                kernel,
+                kernel: &counted_kernel,
                 nodes: &self.nodes,
                 sketches: &self.sketches,
                 outputs: &self.outputs,
@@ -186,17 +255,55 @@ impl PartModel {
             if let Some(ref body) = output.body {
                 report
                     .face_history
-                    .extend(kernel.face_derivation_history(body));
+                    .extend(counted_kernel.face_derivation_history(body));
                 if !refs.is_empty() {
                     face_discoveries =
-                        discover_face_refs_from_body(kernel, body, &node_list).unwrap_or_default();
+                        discover_face_refs_from_body(&counted_kernel, body, &node_list)
+                            .unwrap_or_default();
                     edge_discoveries =
-                        discover_edge_refs_from_body(kernel, body, &node_list).unwrap_or_default();
+                        discover_edge_refs_from_body(&counted_kernel, body, &node_list)
+                            .unwrap_or_default();
                 }
             }
+            let mut upstream_hashes: Vec<(&str, &str)> = self
+                .graph
+                .dependency_edges()
+                .iter()
+                .filter(|edge| edge.target == feature_id)
+                .filter_map(|edge| {
+                    output_hashes
+                        .get(&edge.source)
+                        .map(|hash: &String| (edge.source.as_str(), hash.as_str()))
+                })
+                .collect();
+            upstream_hashes.sort_unstable();
+            let source_sketch = match &node.definition {
+                FeatureDefinition::Sketch(definition) => self.sketches.get(&definition.sketch_id),
+                _ => None,
+            };
+            let output_identity = (
+                "opencad.logical-feature-output.v1",
+                feature_id.as_str(),
+                &node.definition,
+                source_sketch,
+                node.suppressed,
+                output.body.is_some(),
+                upstream_hashes,
+            );
+            let output_hash = sha256_hex(&serde_json::to_vec(&output_identity)?);
+            output_hashes.insert(feature_id.clone(), output_hash);
             self.outputs.insert(feature_id.clone(), output);
             report.regenerated.push(feature_id);
         }
+
+        report.trace = RegenerationTrace::observed(
+            report.regenerated.clone(),
+            report.skipped_suppressed.clone(),
+            solver_call_count,
+            counted_kernel.call_count(),
+            u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+            output_hashes,
+        );
 
         Ok(report)
     }
@@ -1960,6 +2067,91 @@ mod tests {
             Some("feature:mounting_holes")
         );
         assert!(model.active_body().is_some());
+        assert_eq!(report.trace.executed_nodes.len(), 22);
+        assert_eq!(report.trace.solver_call_count, 9);
+        assert!(report.trace.geometry_kernel_call_count > 0);
+        assert_eq!(report.trace.output_hashes_sha256.len(), 22);
+        assert!(!report.trace.trace_hash_sha256.is_empty());
+    }
+
+    #[test]
+    fn robot_joint_trace_order_and_hash_are_deterministic() {
+        let registry = FeatureRegistry::with_defaults();
+        let parameters = opencad_graph::robot_joint_housing_parameters();
+        let mut first = robot_joint_actuator_housing().expect("first model");
+        let mut second = robot_joint_actuator_housing().expect("second model");
+        let first_trace = first
+            .regenerate(
+                &MockGeometryKernel::new(),
+                &registry,
+                Some(&parameters),
+                None,
+            )
+            .expect("first regen")
+            .trace;
+        let second_trace = second
+            .regenerate(
+                &MockGeometryKernel::new(),
+                &registry,
+                Some(&parameters),
+                None,
+            )
+            .expect("second regen")
+            .trace;
+
+        assert_eq!(first_trace.executed_nodes, second_trace.executed_nodes);
+        assert_eq!(
+            first_trace.output_hashes_sha256,
+            second_trace.output_hashes_sha256
+        );
+        assert_eq!(
+            first_trace.trace_hash_sha256,
+            second_trace.trace_hash_sha256
+        );
+        assert_eq!(
+            first_trace.geometry_kernel_call_count,
+            second_trace.geometry_kernel_call_count
+        );
+    }
+
+    #[test]
+    fn logical_output_hash_changes_when_parameterized_sketch_changes() {
+        let registry = FeatureRegistry::with_defaults();
+        let mut baseline = bracket_base_plate().expect("baseline model");
+        let baseline_parameters = opencad_graph::bracket_parameters();
+        let baseline_trace = baseline
+            .regenerate(
+                &MockGeometryKernel::new(),
+                &registry,
+                Some(&baseline_parameters),
+                None,
+            )
+            .expect("baseline regen")
+            .trace;
+
+        let mut edited = bracket_base_plate().expect("edited model");
+        let mut edited_parameters = opencad_graph::bracket_parameters();
+        edited_parameters
+            .set_expr("param:width", "100 mm")
+            .expect("edit width");
+        let edited_trace = edited
+            .regenerate(
+                &MockGeometryKernel::new(),
+                &registry,
+                Some(&edited_parameters),
+                None,
+            )
+            .expect("edited regen")
+            .trace;
+
+        assert_ne!(
+            baseline_trace.output_hashes_sha256["feature:sketch_base"],
+            edited_trace.output_hashes_sha256["feature:sketch_base"]
+        );
+        assert_ne!(
+            baseline_trace.output_hashes_sha256["feature:extrude_base"],
+            edited_trace.output_hashes_sha256["feature:extrude_base"]
+        );
     }
 
     #[test]

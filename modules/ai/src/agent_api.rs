@@ -14,6 +14,7 @@ use crate::patch::DesignPatch;
 use crate::query::{run_query, QueryParams, QueryResult};
 use crate::state::{diff_design_state, DesignState};
 use crate::validation::{build_patch_candidate, dry_run_patch_state, PatchDryRunReport};
+use crate::{predict_change_impact, ChangeImpact, ImpactContext};
 
 /// JSON-RPC 2.0 request.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -126,6 +127,7 @@ pub struct PatchApplyResult {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drawing: Option<DrawingModel>,
     pub diff: DesignDiff,
+    pub impact: ChangeImpact,
 }
 
 /// Parsed `opencad.diff` parameters.
@@ -218,6 +220,7 @@ impl AgentApi {
         );
         let after = build_patch_candidate(&before, &params.patch)?;
         let diff = diff_design_state(&before, &after);
+        let impact = predict_change_impact(&before, &after, &diff, ImpactContext::default());
         Ok(PatchApplyResult {
             parameters: after.parameters,
             feature_nodes: after.feature_nodes,
@@ -225,6 +228,7 @@ impl AgentApi {
             assembly: after.assembly,
             drawing: after.drawing,
             diff,
+            impact,
         })
     }
 

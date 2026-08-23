@@ -21,7 +21,9 @@ pub use parameters::{
     list_document_parameters, redo_document_with_history, set_document_parameter,
     set_document_parameter_with_history, undo_document_with_history, ParameterRow,
 };
-pub use patch::apply_patch_and_regenerate;
+pub use patch::{
+    apply_patch_and_regenerate, apply_patch_and_regenerate_with_trace, PatchRegenerationResult,
+};
 pub use pick::{
     build_pick_summary, highlight_segments_for_camera, pick_document, preview_highlight_segments,
     PickOptions, PickSummary, PickTarget, ScreenSegment,

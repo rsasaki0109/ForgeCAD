@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":"robot-joint-impact","method":"opencad.patch_dry_run_document","params":{"path":"examples/robot_joint_actuator.ocad.d","patch":{"operations":[{"type":"set_parameter","id":"param:upper_hub_height","expr":"42 mm"}]}}}

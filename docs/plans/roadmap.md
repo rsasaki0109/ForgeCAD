@@ -37,10 +37,13 @@ the public model carry explicit units.
 | 3 | Transaction and DesignPatch unification | 0, existing file/AI APIs | Atomic backend edits with reliable undo/redo |
 | 4 | Plugin API | 0, 3 | Versioned, deterministic extension boundary with an example |
 | 5 | CAD reference and output quality | 2, 3, existing assembly/drawing | Stable references and end-to-end regression coverage |
+| 6 | Intent Integrity | 3, 5 | Fail-closed, explainable, incremental, Git-native regeneration |
 
 Phase 1 and Phase 2 may proceed in parallel after Phase 0. Phase 3 is the
 integration gate for mutating workflows; Phase 4 depends on that gate so plugins
 cannot bypass validation. Phase 5 consumes the solver and transaction contracts.
+Phase 6 converts those foundations into the product's primary differentiation:
+reviewable proof that regenerated geometry still satisfies authored intent.
 
 ## Phase 0 — Planning and repository baseline
 
@@ -304,6 +307,43 @@ regressions; mass and bounding-box comparisons with explicit units.
 **Known risks:** kernel topology naming limits, floating-point tolerance choices,
 mesh-dependent HLR approximations, external component paths, and fixture churn
 when OCCT versions change.
+
+## Phase 6 — Intent Integrity
+
+**Objective:** exceed heuristic-only CAD recovery with a fail-closed contract for
+change impact, reference provenance, design assertions, incremental regeneration,
+semantic merge, and human/agent explanation.
+
+**Dependencies:** Phase 3 and Phase 5; existing dirty propagation, semantic
+TopoRefs, DesignPatch dry-run/apply parity, semantic merge, `.ocad.d`, and the
+flagship actuator fixture.
+
+The research basis, acceptance metrics, sequencing rationale, and explicit
+non-goals are defined in the
+[FreeCAD differentiation plan](freecad-differentiation-plan.md).
+
+| ID | Scope | Deliverables | Status |
+|---|---|---|---|
+| MCAD-P6-001 | Regeneration trace and impact preview | Shared serializable trace, exact dirty-node prediction, kernel/solver call counts, CLI/Desktop/Agent query parity | Complete |
+| MCAD-P6-002 | Incremental content-addressed regeneration | Dirty-subgraph execution, disposable versioned cache, cold-regeneration equivalence, 22/100/250-node benchmarks | Planned |
+| MCAD-P6-003 | Semantic reference provenance | Exact/derived/fingerprint/ambiguous/missing status, candidate evidence, fail-closed repair patches | Planned |
+| MCAD-P6-004 | Executable design assertions | Typed unit-explicit engineering assertions evaluated by dry-run and regeneration | Planned |
+| MCAD-P6-005 | Git-native semantic merge | CLI merge driver, stable semantic conflicts, DesignPatch resolution, branch/merge golden workflow | Planned |
+| MCAD-P6-006 | Unified intent inspector | One backend dependency/impact/reference/assertion/trace query surface across Desktop, CLI, and Agent API | Planned |
+
+**Definition of done:** the flagship model can undergo adversarial edits and
+concurrent branch changes while MusubiCAD deterministically explains the exact
+impact, refuses ambiguous or assertion-breaking results, executes no unnecessary
+solver/kernel work, merges independent intent, and leaves source/history
+byte-for-byte unchanged on failure.
+
+**Tests:** pure trace and cache-key tests; Mock and OCCT execution-count tests;
+reference ambiguity fixtures; assertion dry-run/apply parity; cold/incremental
+equivalence; semantic merge order independence; Desktop/CLI/Agent surface parity;
+GitHub review goldens.
+
+**Known risks:** incomplete cache keys, overly strict reference rejection,
+assertion-language scope creep, benchmark noise, and review DTO/schema growth.
 
 ## Cross-phase verification matrix
 

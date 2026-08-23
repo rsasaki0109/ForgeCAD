@@ -1,7 +1,7 @@
 //! File-backed regeneration for desktop and headless smoke clients.
 
 use opencad_core::{DocumentKind, OpenCadError, Result};
-use opencad_feature::FeatureRegistry;
+use opencad_feature::{FeatureRegistry, RegenerationTrace};
 use opencad_file::read_ocad;
 use opencad_geometry::GeometryKernel;
 use serde::{Deserialize, Serialize};
@@ -18,6 +18,7 @@ pub struct DocumentRegeneration {
     pub regenerated: Vec<String>,
     pub skipped_suppressed: Vec<String>,
     pub triangles: usize,
+    pub trace: RegenerationTrace,
 }
 
 /// Regenerate a file-backed part without persisting cached B-Rep or mesh data.
@@ -53,6 +54,7 @@ pub fn regenerate_document(path: &str) -> Result<DocumentRegeneration> {
             regenerated: report.regenerated,
             skipped_suppressed: report.skipped_suppressed,
             triangles: mesh.triangle_count(),
+            trace: report.trace,
         })
     }
 

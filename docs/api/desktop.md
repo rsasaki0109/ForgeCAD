@@ -14,6 +14,7 @@ render/viewport layer and are not written to the document.
 | `inspect_document(path)` | Open and summarize document metadata, graph counts, and semantic references |
 | `preview_document(path)` | Regenerate, tessellate, and render a deterministic offscreen PNG preview |
 | `regenerate_document(path)` | Read-only OCCT regeneration report and triangle count for a part document |
+| `apply_patch_and_regenerate_with_trace(doc, patch, kernel, registry)` | Atomically apply a patch and return shared `ChangeImpact` plus `RegenerationTrace`; no-op performs zero kernel calls |
 | `list_document_parameters(path)` | Return parameters in deterministic evaluation order with explicit unit values |
 | `set_document_parameter(path, id, expr)` | Compatibility wrapper: apply one validated `DesignPatch` and persist without retaining history |
 | `set_document_parameter_with_history(path, id, expr, history?)` | Apply one validated parameter patch and return an opaque `DocumentHistoryState` |
@@ -29,6 +30,10 @@ ownership. Assembly and drawing export continue to use their specialized
 CLI/Agent API paths until the corresponding Phase 5 backend contracts are
 completed. `regenerate_document` and `export_stl_document` are shared backend
 functions, not Tauri/UI commands.
+
+`DocumentRegeneration.trace` is the same DTO returned by CLI/Agent regeneration.
+The richer patch helper returns `PatchRegenerationResult { impact,
+regeneration }`; the compatibility helper retains its `RegenReport` return.
 
 ## Tauri/UI/CLI/Agent parity
 

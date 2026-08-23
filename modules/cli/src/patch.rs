@@ -53,6 +53,15 @@ pub fn patch_document_with_options(args: &PatchArgs) -> Result<()> {
     ensure_patch_valid(&report)?;
 
     if args.options.dry_run {
+        if args.options.json && !args.options.geometry {
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            return Ok(());
+        }
+        println!(
+            "impact: {} directly affected, {} predicted dirty",
+            report.impact.directly_affected_nodes.len(),
+            report.impact.predicted_dirty_nodes.len()
+        );
         let mut diff = report.diff;
         if args.options.geometry {
             diff = diff::diff_patch_on_document(

@@ -3042,6 +3042,7 @@ dependencies = [
  "opencad-sketch",
  "opencad-solver",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
