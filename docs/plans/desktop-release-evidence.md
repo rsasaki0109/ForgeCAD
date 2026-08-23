@@ -157,16 +157,17 @@ notarization credentials were empty. Consequently, the all-platform publish
 job was skipped and no unsigned artifact was presented as a signed release.
 The workflow reference created the `desktop-release` environment, but a
 post-run API audit found zero environment secrets, zero environment variables,
-and zero protection rules. Repository administrators still need to configure
+and zero protection rules. Repository administrators would need to configure
 the credentials and reviewer/branch protection described in the distribution
-guide.
+guide before enabling signed publication.
 
-MCAD-P1-004 therefore remains **In progress**. Its remaining work is environment
-protection and credential configuration, followed by a rerun that proves
-Authenticode signing plus timestamp verification, and macOS codesign,
-notarization, stapling, and Gatekeeper verification. The observed failures are
-positive evidence that the release path fails closed when protected credentials
-are absent.
+The observed failures are positive evidence that the release path fails closed
+when protected credentials are absent. By product-owner direction on
+2026-08-23, production credential provisioning and the resulting Authenticode,
+timestamp, codesign, notarization, stapling, and Gatekeeper evidence are
+deferred. MCAD-P1-004 is complete at the policy and gated-workflow scope; no
+signed-publication claim is made, and the verified unsigned artifacts remain
+the current supported desktop distribution.
 
 After the credential gates were moved ahead of SDK, Rust, cache, Tauri CLI,
 dependency, and build setup, a manual dispatch against the same immutable

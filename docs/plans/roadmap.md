@@ -79,7 +79,7 @@ workflow.
 | MCAD-P1-001 | Native build matrix | GitHub Actions builds for Windows x64, Linux x64, macOS arm64, and macOS x64 | Complete |
 | MCAD-P1-002 | Artifact contract | Versioned archives/installers, SHA-256 checksums, and quick-start instructions | Complete |
 | MCAD-P1-003 | Desktop smoke tests | Open sample, preview, parameter edit, regenerate, pick, and export checks | Complete |
-| MCAD-P1-004 | Trust and release policy | Explicit code-signing/notarization scope and credential-gated release steps | In progress |
+| MCAD-P1-004 | Trust and release policy | Explicit code-signing/notarization scope and credential-gated release steps | Complete |
 
 **Definition of done:** the shared `run_desktop_smoke` contract and integration
 test open `examples/bracket.ocad.d`, edit a parameter through the backend,
@@ -99,12 +99,13 @@ security warnings.
 
 MCAD-P1-004 keeps `desktop.yml` as an unsigned, `contents: read` CI contract
 and adds the separate `desktop-signed-release.yml` workflow. The signed path
-uses the protected `desktop-release` environment, validates a `v<version>` tag
-on `main`, fails closed when Windows or Apple credentials are missing, verifies
+uses the `desktop-release` environment, validates a `v<version>` tag on `main`,
+fails closed when Windows or Apple credentials are missing, verifies
 Authenticode/codesign/notarization and checksums before publication, and marks
-Linux as checksum-only. End-to-end completion still requires a real tagged CI
-run with configured credentials; until that evidence exists this item remains
-**In progress**.
+Linux as checksum-only. The policy and credential gates are complete. By
+product-owner direction on 2026-08-23, provisioning production certificates,
+environment reviewers, and a credentialed publication run is deferred; the
+current supported distribution remains the verified unsigned artifact path.
 
 Local Windows and Linux evidence is recorded in
 [`desktop-release-evidence.md`](desktop-release-evidence.md): Tauri 2.11.4
