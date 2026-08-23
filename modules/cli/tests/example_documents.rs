@@ -14,6 +14,31 @@ fn workspace_root() -> std::path::PathBuf {
 }
 
 #[test]
+fn example_bearing_carrier_regenerates_with_occt() {
+    let path = workspace_root().join("examples/bearing_carrier.ocad.d");
+    validate_expanded_dir(&path).expect("validate");
+    let doc = read_expanded_dir(&path).expect("read");
+    let parameters = doc.parameters.clone();
+    let mut model = doc.into_part_model();
+    let kernel = OcctGeometryKernel::new();
+    let registry = FeatureRegistry::with_defaults();
+    let report = model
+        .regenerate(&kernel, &registry, Some(&parameters), None)
+        .expect("regen");
+    let body = model.active_body().expect("body");
+    let mass = kernel.mass_properties(body, 2700.0).expect("mass");
+
+    assert_eq!(report.regenerated.len(), 9);
+    assert!(model.outputs.contains_key("feature:bearing_bore"));
+    assert!(model.outputs.contains_key("feature:bolt_circle"));
+    assert!(
+        (0.12..=0.14).contains(&mass.mass_kg),
+        "bearing carrier mass {} kg",
+        mass.mass_kg
+    );
+}
+
+#[test]
 fn example_bracket_face_pin_regenerates_with_occt() {
     let path = workspace_root().join("examples/bracket_face_pin.ocad.d");
     validate_expanded_dir(&path).expect("validate");

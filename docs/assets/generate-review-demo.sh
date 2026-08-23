@@ -18,8 +18,8 @@ rm -f \
 
 cd "$ROOT"
 cargo run --locked -p opencad-cli -- review \
-  examples/bracket.ocad.d \
-  examples/agent/review_width_patch.json \
+  examples/bearing_carrier.ocad.d \
+  examples/agent/review_bearing_carrier_patch.json \
   --output docs/assets/review-demo
 
 echo "Regenerated docs/assets/review-demo from the flagship DesignPatch."

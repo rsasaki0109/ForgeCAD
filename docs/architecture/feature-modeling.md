@@ -38,6 +38,13 @@ model.regenerate(&kernel, &registry)?;
 
 Features run in topological order from `FeatureGraph::recompute_order()`. Suppressed features are skipped.
 
+The flagship `bearing_carrier()` example exercises a representative modifying
+chain rather than a single primitive: base extrusion → joined bearing hub →
+central through bore → four-hole circular cut pattern. Its explicit-unit
+parameter graph comes from `bearing_carrier_parameters()`, and the OCCT
+regression edits the hub height while proving that the downstream bore and bolt
+circle regenerate successfully.
+
 ## Supported feature types
 
 | type | Description |

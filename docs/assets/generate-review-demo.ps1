@@ -22,8 +22,8 @@ foreach ($Name in $GeneratedFiles) {
 Push-Location $Root
 try {
     cargo run --locked -p opencad-cli -- review `
-        examples/bracket.ocad.d `
-        examples/agent/review_width_patch.json `
+        examples/bearing_carrier.ocad.d `
+        examples/agent/review_bearing_carrier_patch.json `
         --output docs/assets/review-demo
     if ($LASTEXITCODE -ne 0) {
         throw "README review generation failed with exit code $LASTEXITCODE"

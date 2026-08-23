@@ -1,0 +1,255 @@
+{
+  "feature_graph": {
+    "order": [
+      "feature:sketch_base",
+      "feature:extrude_base",
+      "feature:sketch_carrier_boss",
+      "feature:carrier_boss",
+      "feature:sketch_bearing_bore",
+      "feature:bearing_bore",
+      "feature:sketch_bolt_hole",
+      "feature:bolt_hole_tool",
+      "feature:bolt_circle"
+    ],
+    "features": {
+      "feature:sketch_base": {
+        "id": "feature:sketch_base",
+        "name": "Base Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:extrude_base": {
+        "id": "feature:extrude_base",
+        "name": "Extrude Base",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_carrier_boss": {
+        "id": "feature:sketch_carrier_boss",
+        "name": "Carrier Hub Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:carrier_boss": {
+        "id": "feature:carrier_boss",
+        "name": "Raised Bearing Hub",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_bearing_bore": {
+        "id": "feature:sketch_bearing_bore",
+        "name": "Bearing Bore Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:bearing_bore": {
+        "id": "feature:bearing_bore",
+        "name": "Central Bearing Bore",
+        "feature_type": "hole",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_bolt_hole": {
+        "id": "feature:sketch_bolt_hole",
+        "name": "Bolt Hole Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:bolt_hole_tool": {
+        "id": "feature:bolt_hole_tool",
+        "name": "Bolt Hole Tool",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:bolt_circle": {
+        "id": "feature:bolt_circle",
+        "name": "Four Hole Bolt Circle",
+        "feature_type": "circular_pattern",
+        "suppressed": false,
+        "dirty": false
+      }
+    },
+    "edges": [
+      {
+        "source": "feature:sketch_base",
+        "target": "feature:extrude_base",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_carrier_boss",
+        "target": "feature:carrier_boss",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:extrude_base",
+        "target": "feature:carrier_boss",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_bearing_bore",
+        "target": "feature:bearing_bore",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:carrier_boss",
+        "target": "feature:bearing_bore",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_bolt_hole",
+        "target": "feature:bolt_hole_tool",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:bolt_hole_tool",
+        "target": "feature:bolt_circle",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:bearing_bore",
+        "target": "feature:bolt_circle",
+        "kind": "depends_on"
+      }
+    ]
+  },
+  "feature_nodes": [
+    {
+      "id": "feature:bearing_bore",
+      "name": "Central Bearing Bore",
+      "definition": {
+        "type": "hole",
+        "sketch_feature": "feature:sketch_bearing_bore",
+        "profile_ref": "sketch:bearing_bore/profile:outer",
+        "depth": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.022
+          }
+        },
+        "target_feature": "feature:carrier_boss",
+        "depth_expr": "thickness + boss_height"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:bolt_circle",
+      "name": "Four Hole Bolt Circle",
+      "definition": {
+        "type": "circular_pattern",
+        "source_feature": "feature:bolt_hole_tool",
+        "axis_origin_m": [
+          0.048,
+          0.036,
+          0.0
+        ],
+        "axis_direction_m": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "count": 4,
+        "operation": "cut",
+        "target_feature": "feature:bearing_bore"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:bolt_hole_tool",
+      "name": "Bolt Hole Tool",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_bolt_hole",
+        "profile_ref": "sketch:bolt_hole/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.008
+          }
+        },
+        "operation": "new_body",
+        "length_expr": "thickness"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:carrier_boss",
+      "name": "Raised Bearing Hub",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_carrier_boss",
+        "profile_ref": "sketch:carrier_boss/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.014
+          }
+        },
+        "operation": "join",
+        "length_expr": "boss_height",
+        "target_feature": "feature:extrude_base"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:extrude_base",
+      "name": "Extrude Base",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_base",
+        "profile_ref": "sketch:base/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.008
+          }
+        },
+        "operation": "new_body",
+        "length_expr": "thickness"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_base",
+      "name": "Base Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:base"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_bearing_bore",
+      "name": "Bearing Bore Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:bearing_bore"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_bolt_hole",
+      "name": "Bolt Hole Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:bolt_hole"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_carrier_boss",
+      "name": "Carrier Hub Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:carrier_boss"
+      },
+      "suppressed": false
+    }
+  ]
+}

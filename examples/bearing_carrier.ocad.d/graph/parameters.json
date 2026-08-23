@@ -1,0 +1,47 @@
+{
+  "parameters": {
+    "param:width": {
+      "id": "param:width",
+      "name": "width",
+      "expr": "96 mm",
+      "dirty": false
+    },
+    "param:height": {
+      "id": "param:height",
+      "name": "height",
+      "expr": "72 mm",
+      "dirty": false
+    },
+    "param:thickness": {
+      "id": "param:thickness",
+      "name": "thickness",
+      "expr": "8 mm",
+      "dirty": false
+    },
+    "param:boss_outer_diameter": {
+      "id": "param:boss_outer_diameter",
+      "name": "boss_outer_diameter",
+      "expr": "38 mm",
+      "dirty": false
+    },
+    "param:bore_diameter": {
+      "id": "param:bore_diameter",
+      "name": "bore_diameter",
+      "expr": "18 mm",
+      "dirty": false
+    },
+    "param:boss_height": {
+      "id": "param:boss_height",
+      "name": "boss_height",
+      "expr": "14 mm",
+      "dirty": false
+    },
+    "param:bolt_hole_diameter": {
+      "id": "param:bolt_hole_diameter",
+      "name": "bolt_hole_diameter",
+      "expr": "5.5 mm",
+      "dirty": false
+    }
+  },
+  "edges": []
+}

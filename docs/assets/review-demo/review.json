@@ -1,58 +1,58 @@
 {
-  "document_id": "doc:bracket_001",
-  "intent": "Increase bracket width for a wider mounting pattern",
-  "rationale": "The downstream enclosure requires 20 mm additional clearance.",
-  "patch_file": "review_width_patch.json",
+  "document_id": "doc:bearing_carrier_001",
+  "intent": "Increase the bearing hub engagement depth",
+  "rationale": "The revised bearing stack requires 6 mm more axial support without changing the bore or bolt circle.",
+  "patch_file": "review_bearing_carrier_patch.json",
   "diff": {
     "diff_type": "semantic",
-    "summary": "param:width: 80 mm -> 100 mm",
+    "summary": "param:boss_height: 14 mm -> 20 mm",
     "changes": [
       {
         "kind": "parameter_changed",
-        "id": "param:width",
-        "before": "80 mm",
-        "after": "100 mm"
+        "id": "param:boss_height",
+        "before": "14 mm",
+        "after": "20 mm"
       },
       {
         "kind": "mass_changed",
-        "before": "76.50 g",
-        "after": "84.10 g"
+        "before": "131.02 g",
+        "after": "145.18 g"
       }
     ],
     "geometry": {
-      "volume_before": 0.00002833178323652379,
-      "volume_after": 0.00003114947927485105,
-      "mass_before": 0.07649581473861423,
-      "mass_after": 0.08410359404209784
+      "volume_before": 0.000048525323199870465,
+      "volume_after": 0.00005376935095080392,
+      "mass_before": 0.13101837263965024,
+      "mass_after": 0.14517724756717057
     }
   },
   "geometry": {
     "before_bounds_m": [
       [
         0.0,
-        0.0,
+        -0.005138843,
         0.0
       ],
       [
-        0.08,
-        0.06,
-        0.006
+        0.09586236,
+        0.0651352,
+        0.014
       ]
     ],
     "after_bounds_m": [
       [
         0.0,
-        6.3362164e-15,
+        -0.005138843,
         0.0
       ],
       [
-        0.09998689,
-        0.06,
-        0.006
+        0.09586236,
+        0.0651352,
+        0.02
       ]
     ],
-    "before_triangles": 144,
-    "after_triangles": 144,
+    "before_triangles": 732,
+    "after_triangles": 732,
     "before_interference_count": null,
     "after_interference_count": null
   },
@@ -60,20 +60,20 @@
     {
       "effect": {
         "type": "parameter_expr_equals",
-        "id": "param:width",
-        "expr": "100 mm"
+        "id": "param:boss_height",
+        "expr": "20 mm"
       },
       "passed": true,
-      "message": "parameter 'param:width' expression is 100 mm"
+      "message": "parameter 'param:boss_height' expression is 20 mm"
     },
     {
       "effect": {
         "type": "mass_delta_kg",
-        "min": 0.006,
-        "max": 0.009
+        "min": 0.014,
+        "max": 0.019
       },
       "passed": true,
-      "message": "mass delta is 0.007607779303483608 kg"
+      "message": "mass delta is 0.014158874927520326 kg"
     }
   ],
   "before_image": "before.png",

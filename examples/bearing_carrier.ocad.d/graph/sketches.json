@@ -1,0 +1,244 @@
+{
+  "sketches": [
+    {
+      "id": "sketch:base",
+      "name": "Base Sketch",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:c0",
+          "construction": false,
+          "x": 3.87387834257374e-10,
+          "y": -2.0760059706201935e-11
+        },
+        {
+          "type": "point",
+          "id": "ent:c1",
+          "construction": false,
+          "x": 0.09586236196686777,
+          "y": -0.0051388430054436105
+        },
+        {
+          "type": "point",
+          "id": "ent:c2",
+          "construction": false,
+          "x": 0.08019207246390826,
+          "y": 0.06513520650194736
+        },
+        {
+          "type": "point",
+          "id": "ent:c3",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.06
+        },
+        {
+          "type": "line",
+          "id": "ent:e0",
+          "construction": false,
+          "start": "ent:c0",
+          "end": "ent:c1"
+        },
+        {
+          "type": "line",
+          "id": "ent:e1",
+          "construction": false,
+          "start": "ent:c1",
+          "end": "ent:c2"
+        },
+        {
+          "type": "line",
+          "id": "ent:e2",
+          "construction": false,
+          "start": "ent:c2",
+          "end": "ent:c3"
+        },
+        {
+          "type": "line",
+          "id": "ent:e3",
+          "construction": false,
+          "start": "ent:c3",
+          "end": "ent:c0"
+        }
+      ],
+      "constraints": [
+        {
+          "type": "distance",
+          "id": "con:width",
+          "target": {
+            "line": "ent:e0"
+          },
+          "expr": "width"
+        },
+        {
+          "type": "distance",
+          "id": "con:height",
+          "target": {
+            "line": "ent:e1"
+          },
+          "expr": "height"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "under_constrained",
+        "dof": 4
+      },
+      "profiles": [
+        {
+          "id": "profile:loop:0",
+          "entity_ids": [
+            "ent:e0",
+            "ent:e1",
+            "ent:e2",
+            "ent:e3"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:base/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:bearing_bore",
+      "name": "Bearing Bore",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:bearing_bore_center",
+          "construction": false,
+          "x": 0.048,
+          "y": 0.036
+        },
+        {
+          "type": "circle",
+          "id": "ent:bearing_bore_circle",
+          "construction": false,
+          "center": "ent:bearing_bore_center",
+          "radius": 0.00899999991001801
+        }
+      ],
+      "constraints": [
+        {
+          "type": "radius",
+          "id": "con:bearing_bore_radius",
+          "target": "ent:bearing_bore_circle",
+          "expr": "bore_diameter / 2"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      },
+      "profiles": [
+        {
+          "id": "profile:circle:ent:bearing_bore_circle",
+          "entity_ids": [
+            "ent:bearing_bore_circle"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:bearing_bore/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:bolt_hole",
+      "name": "Bolt Hole Tool",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:bolt_hole_center",
+          "construction": false,
+          "x": 0.078,
+          "y": 0.036
+        },
+        {
+          "type": "circle",
+          "id": "ent:bolt_hole_circle",
+          "construction": false,
+          "center": "ent:bolt_hole_center",
+          "radius": 0.0027499999725055023
+        }
+      ],
+      "constraints": [
+        {
+          "type": "radius",
+          "id": "con:bolt_hole_radius",
+          "target": "ent:bolt_hole_circle",
+          "expr": "bolt_hole_diameter / 2"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      },
+      "profiles": [
+        {
+          "id": "profile:circle:ent:bolt_hole_circle",
+          "entity_ids": [
+            "ent:bolt_hole_circle"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:bolt_hole/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:carrier_boss",
+      "name": "Carrier Hub",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:carrier_boss_center",
+          "construction": false,
+          "x": 0.048,
+          "y": 0.036
+        },
+        {
+          "type": "circle",
+          "id": "ent:carrier_boss_circle",
+          "construction": false,
+          "center": "ent:carrier_boss_center",
+          "radius": 0.018999999810037357
+        }
+      ],
+      "constraints": [
+        {
+          "type": "radius",
+          "id": "con:carrier_boss_radius",
+          "target": "ent:carrier_boss_circle",
+          "expr": "boss_outer_diameter / 2"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      },
+      "profiles": [
+        {
+          "id": "profile:circle:ent:carrier_boss_circle",
+          "entity_ids": [
+            "ent:carrier_boss_circle"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:carrier_boss/profile:outer"
+        }
+      ]
+    }
+  ]
+}

@@ -74,20 +74,21 @@
     "expected_feature_count": 4
   },
   "review": {
-    "document": "examples/bracket.ocad.d",
-    "patch": "examples/agent/review_width_patch.json",
+    "document": "examples/bearing_carrier.ocad.d",
+    "patch": "examples/agent/review_bearing_carrier_patch.json",
     "golden_dir": "docs/assets/review-demo",
     "exact_artifacts": [
       "review.json",
       "review.html",
       "github-summary.md"
     ],
-    "before_bounds_m": [[0.0, 0.0, 0.0], [0.08, 0.06, 0.006]],
-    "after_bounds_m": [[0.0, 0.0, 0.0], [0.09998689, 0.06, 0.006]],
+    "before_bounds_m": [[0.0, -0.005138843, 0.0], [0.09586236, 0.0651352, 0.014]],
+    "after_bounds_m": [[0.0, -0.005138843, 0.0], [0.09586236, 0.0651352, 0.02]],
     "geometry_tolerance_m": 1e-6
   },
   "agent_evidence": {
     "method": "opencad.patch_dry_run",
+    "patch": "examples/agent/review_width_patch.json",
     "operation": "set_parameter",
     "parameter_id": "param:width",
     "expression": "100 mm",

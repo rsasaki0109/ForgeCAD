@@ -688,6 +688,177 @@ pub fn bracket_boss_join() -> Result<PartModel> {
     Ok(model)
 }
 
+/// Multi-feature flanged bearing carrier with a raised hub, central bore, and
+/// four-hole bolt circle.
+pub fn bearing_carrier() -> Result<PartModel> {
+    use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
+    use opencad_graph::bearing_carrier_parameters;
+    use opencad_sketch::{
+        constraint::Constraint,
+        entity::{CircleEntity, Coord, EntityBase, PointEntity, SketchEntity},
+        workplane::Workplane,
+    };
+
+    use crate::pattern::CircularPatternFeature;
+
+    fn circle_sketch(
+        id: &str,
+        name: &str,
+        entity_prefix: &str,
+        center: [f64; 2],
+        radius_expr: &str,
+    ) -> Result<Sketch> {
+        let center_id = format!("ent:{entity_prefix}_center");
+        let circle_id = format!("ent:{entity_prefix}_circle");
+        let constraint_id = format!("con:{entity_prefix}_radius");
+        let mut sketch = Sketch::new(SketchId::new(id)?, name, Workplane::xy());
+        sketch.add_entity(SketchEntity::Point(PointEntity {
+            base: EntityBase {
+                id: EntityId::new(&center_id)?,
+                construction: false,
+            },
+            x: Coord::literal(center[0]),
+            y: Coord::literal(center[1]),
+        }))?;
+        sketch.add_entity(SketchEntity::Circle(CircleEntity {
+            base: EntityBase {
+                id: EntityId::new(&circle_id)?,
+                construction: false,
+            },
+            center: EntityId::new(&center_id)?,
+            radius: Coord::expr(radius_expr)?,
+        }))?;
+        sketch.add_constraint(Constraint::Radius {
+            id: ConstraintId::new(constraint_id)?,
+            target: EntityId::new(circle_id)?,
+            expr: Expression::new(radius_expr)?,
+        })?;
+        Ok(sketch)
+    }
+
+    let parameters = bearing_carrier_parameters();
+    let mut model = bracket_base_plate()?;
+    apply_parameters(&mut model, &parameters)?;
+
+    let center = [0.048, 0.036];
+    let boss_sketch = circle_sketch(
+        "sketch:carrier_boss",
+        "Carrier Hub",
+        "carrier_boss",
+        center,
+        "boss_outer_diameter / 2",
+    )?;
+    model
+        .sketches
+        .insert(boss_sketch.id.as_str().to_string(), boss_sketch);
+    model.add_node(FeatureNode::new(
+        "feature:sketch_carrier_boss",
+        "Carrier Hub Sketch",
+        FeatureDefinition::Sketch(SketchFeatureDef {
+            sketch_id: "sketch:carrier_boss".into(),
+        }),
+    ))?;
+    let mut boss = ExtrudeFeature::join(
+        "feature:sketch_carrier_boss",
+        "sketch:carrier_boss/profile:outer",
+        "feature:extrude_base",
+        ExtrudeExtent::Distance {
+            length: Length::from_meters(0.014),
+        },
+    );
+    boss.length_expr = Some("boss_height".into());
+    model.add_node(FeatureNode::new(
+        "feature:carrier_boss",
+        "Raised Bearing Hub",
+        FeatureDefinition::Extrude(boss),
+    ))?;
+    model.add_dependency("feature:sketch_carrier_boss", "feature:carrier_boss")?;
+    model.add_dependency("feature:extrude_base", "feature:carrier_boss")?;
+
+    let bore_sketch = circle_sketch(
+        "sketch:bearing_bore",
+        "Bearing Bore",
+        "bearing_bore",
+        center,
+        "bore_diameter / 2",
+    )?;
+    model
+        .sketches
+        .insert(bore_sketch.id.as_str().to_string(), bore_sketch);
+    model.add_node(FeatureNode::new(
+        "feature:sketch_bearing_bore",
+        "Bearing Bore Sketch",
+        FeatureDefinition::Sketch(SketchFeatureDef {
+            sketch_id: "sketch:bearing_bore".into(),
+        }),
+    ))?;
+    let mut bore = HoleFeature::through(
+        "feature:sketch_bearing_bore",
+        "sketch:bearing_bore/profile:outer",
+        ExtrudeExtent::Distance {
+            length: Length::from_meters(0.022),
+        },
+        "feature:carrier_boss",
+    );
+    bore.depth_expr = Some("thickness + boss_height".into());
+    model.add_node(FeatureNode::new(
+        "feature:bearing_bore",
+        "Central Bearing Bore",
+        FeatureDefinition::Hole(bore),
+    ))?;
+    model.add_dependency("feature:sketch_bearing_bore", "feature:bearing_bore")?;
+    model.add_dependency("feature:carrier_boss", "feature:bearing_bore")?;
+
+    let bolt_sketch = circle_sketch(
+        "sketch:bolt_hole",
+        "Bolt Hole Tool",
+        "bolt_hole",
+        [0.078, 0.036],
+        "bolt_hole_diameter / 2",
+    )?;
+    model
+        .sketches
+        .insert(bolt_sketch.id.as_str().to_string(), bolt_sketch);
+    model.add_node(FeatureNode::new(
+        "feature:sketch_bolt_hole",
+        "Bolt Hole Sketch",
+        FeatureDefinition::Sketch(SketchFeatureDef {
+            sketch_id: "sketch:bolt_hole".into(),
+        }),
+    ))?;
+    model.add_node(FeatureNode::new(
+        "feature:bolt_hole_tool",
+        "Bolt Hole Tool",
+        FeatureDefinition::Extrude(ExtrudeFeature {
+            sketch_feature: "feature:sketch_bolt_hole".into(),
+            profile_ref: "sketch:bolt_hole/profile:outer".into(),
+            extent: ExtrudeExtent::Distance {
+                length: Length::from_meters(0.008),
+            },
+            operation: opencad_geometry::ExtrudeOperation::NewBody,
+            length_expr: Some("thickness".into()),
+            target_feature: None,
+        }),
+    ))?;
+    model.add_node(FeatureNode::new(
+        "feature:bolt_circle",
+        "Four Hole Bolt Circle",
+        FeatureDefinition::CircularPattern(CircularPatternFeature::cut(
+            "feature:bolt_hole_tool",
+            "feature:bearing_bore",
+            [center[0], center[1], 0.0],
+            [0.0, 0.0, 1.0],
+            4,
+        )),
+    ))?;
+    model.add_dependency("feature:sketch_bolt_hole", "feature:bolt_hole_tool")?;
+    model.add_dependency("feature:bolt_hole_tool", "feature:bolt_circle")?;
+    model.add_dependency("feature:bearing_bore", "feature:bolt_circle")?;
+
+    apply_parameters(&mut model, &parameters)?;
+    Ok(model)
+}
+
 /// Bracket plate with a pin boss sketched on the top face via `face_ref` workplane.
 pub fn bracket_face_pin() -> Result<PartModel> {
     use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
@@ -1252,6 +1423,23 @@ mod tests {
         assert_eq!(report.regenerated.len(), 2);
         let body = model.active_body().expect("body");
         assert!(body.0 > 0);
+    }
+
+    #[test]
+    fn regenerates_multi_feature_bearing_carrier() {
+        let mut model = bearing_carrier().expect("model");
+        let kernel = MockGeometryKernel::new();
+        let registry = FeatureRegistry::with_defaults();
+        let parameters = opencad_graph::bearing_carrier_parameters();
+        let report = model
+            .regenerate(&kernel, &registry, Some(&parameters), None)
+            .expect("regen");
+        assert_eq!(report.regenerated.len(), 9);
+        assert_eq!(
+            report.regenerated.last().map(String::as_str),
+            Some("feature:bolt_circle")
+        );
+        assert!(model.active_body().is_some());
     }
 
     #[test]

@@ -23,6 +23,7 @@ cargo run -p opencad-cli -- help
 
 # Use committed samples
 cargo run -p opencad-cli -- regen examples/bracket.ocad.d
+cargo run -p opencad-cli -- new my_carrier.ocad.d bearing-carrier
 cargo run -p opencad-cli -- new my_part.ocad.d hole-row
 cargo run -p opencad-cli -- new my_holes.ocad.d hole-ring
 cargo run -p opencad-cli -- new my_bosses.ocad.d pin-row
@@ -53,6 +54,7 @@ cargo run -p opencad-cli -- animate examples/assembly_two_brackets.ocad.d showca
 | `opencad-plugin-api` | Plugin extension points |
 
 See [ocad-format.md](../architecture/ocad-format.md) for the native file layout.
+See [feature.md](../api/feature.md) for the kernel-neutral feature-modeling API and flagship model.
 See [plugins.md](plugins.md) for the linked-plugin authoring workflow and
 [plugin-api.md](../api/plugin-api.md) for the complete public contract.
 See [releases.md](releases.md) for the multi-platform CLI release contract.
@@ -77,9 +79,10 @@ cargo test --workspace
 
 ## README review demo
 
-The README hero is generated from `examples/bracket.ocad.d` and
-`examples/agent/review_width_patch.json`; do not edit its images or reports by hand. Regenerate the
-complete bundle on Linux or macOS with:
+The README hero is generated from `examples/bearing_carrier.ocad.d` and
+`examples/agent/review_bearing_carrier_patch.json`; do not edit its images or reports by hand.
+The flagship model chains a base extrusion, joined bearing hub, through bore,
+and four-hole circular cut pattern. Regenerate the complete bundle on Linux or macOS with:
 
 ```bash
 ./docs/assets/generate-review-demo.sh

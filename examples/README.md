@@ -6,6 +6,7 @@ Ready-to-use MusubiCAD documents and Agent API requests.
 
 | Directory | Template | Features |
 |---|---|---|
+| `bearing_carrier.ocad.d` | `opencad new <path> bearing-carrier` | Base extrude, joined hub, through bore, four-hole circular cut pattern |
 | `bracket.ocad.d` | `opencad new <path>` | Sketch, extrude, hole (`face_ref`) |
 | `bracket_boss_join.ocad.d` | `opencad new <path> boss-join` | + extrude join onto plate |
 | `bracket_face_pin.ocad.d` | `opencad new <path> face-pin` | + sketch-on-face pin (`face_ref` workplane) |

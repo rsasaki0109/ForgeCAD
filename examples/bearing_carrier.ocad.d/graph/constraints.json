@@ -1,0 +1,53 @@
+{
+  "constraints": [
+    {
+      "sketch_id": "sketch:bearing_bore",
+      "constraint": {
+        "type": "radius",
+        "id": "con:bearing_bore_radius",
+        "target": "ent:bearing_bore_circle",
+        "expr": "bore_diameter / 2"
+      }
+    },
+    {
+      "sketch_id": "sketch:bolt_hole",
+      "constraint": {
+        "type": "radius",
+        "id": "con:bolt_hole_radius",
+        "target": "ent:bolt_hole_circle",
+        "expr": "bolt_hole_diameter / 2"
+      }
+    },
+    {
+      "sketch_id": "sketch:carrier_boss",
+      "constraint": {
+        "type": "radius",
+        "id": "con:carrier_boss_radius",
+        "target": "ent:carrier_boss_circle",
+        "expr": "boss_outer_diameter / 2"
+      }
+    },
+    {
+      "sketch_id": "sketch:base",
+      "constraint": {
+        "type": "distance",
+        "id": "con:height",
+        "target": {
+          "line": "ent:e1"
+        },
+        "expr": "height"
+      }
+    },
+    {
+      "sketch_id": "sketch:base",
+      "constraint": {
+        "type": "distance",
+        "id": "con:width",
+        "target": {
+          "line": "ent:e0"
+        },
+        "expr": "width"
+      }
+    }
+  ]
+}

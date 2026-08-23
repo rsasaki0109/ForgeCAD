@@ -780,6 +780,7 @@ mod tests {
     #[derive(Debug, Deserialize)]
     struct AgentEvidenceGolden {
         method: String,
+        patch: String,
         operation: String,
         parameter_id: String,
         expression: String,
@@ -1214,7 +1215,7 @@ mod tests {
         assert_eq!(svg, drawing_golden);
 
         let patch: DesignPatch = serde_json::from_str(
-            &fs::read_to_string(repo_path(&manifest.review.patch)).expect("agent patch"),
+            &fs::read_to_string(repo_path(&manifest.agent_evidence.patch)).expect("agent patch"),
         )
         .expect("agent patch JSON");
         assert_eq!(manifest.agent_evidence.method, "opencad.patch_dry_run");
@@ -1302,13 +1303,13 @@ mod tests {
             f64::from(first_artifact.geometry.before_bounds_m[1][0]),
             manifest.review.before_bounds_m[1][0],
             manifest.review.geometry_tolerance_m,
-            "review before width_m",
+            "review before max bounds x_m",
         );
         assert_near(
             f64::from(first_artifact.geometry.after_bounds_m[1][0]),
             manifest.review.after_bounds_m[1][0],
             manifest.review.geometry_tolerance_m,
-            "review after width_m",
+            "review after max bounds x_m",
         );
         let golden_review_dir = repo_path(&manifest.review.golden_dir);
         for name in &manifest.review.exact_artifacts {

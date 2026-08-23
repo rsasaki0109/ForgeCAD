@@ -4,32 +4,32 @@
 
 | Context | Value |
 |---|---|
-| Document | doc:bracket_001 |
-| Intent | Increase bracket width for a wider mounting pattern |
-| Rationale | The downstream enclosure requires 20 mm additional clearance. |
-| Patch | review_width_patch.json |
+| Document | doc:bearing_carrier_001 |
+| Intent | Increase the bearing hub engagement depth |
+| Rationale | The revised bearing stack requires 6 mm more axial support without changing the bore or bolt circle. |
+| Patch | review_bearing_carrier_patch.json |
 
 ### Semantic changes
 
 | Change | Before | After |
 |---|---|---|
-| Parameter param:width | 80 mm | 100 mm |
-| Mass | 76.50 g | 84.10 g |
+| Parameter param:boss_height | 14 mm | 20 mm |
+| Mass | 131.02 g | 145.18 g |
 
 ### Regenerated geometry
 
 | Property | Before | After |
 |---|---:|---:|
-| Volume | 28.33 cm³ | 31.15 cm³ |
-| Mass | 76.50 g | 84.10 g |
-| Bounds | 80.00 × 60.00 × 6.00 mm | 99.99 × 60.00 × 6.00 mm |
-| Triangles (count) | 144 | 144 |
+| Volume | 48.53 cm³ | 53.77 cm³ |
+| Mass | 131.02 g | 145.18 g |
+| Bounds | 95.86 × 70.27 × 14.00 mm | 95.86 × 70.27 × 20.00 mm |
+| Triangles (count) | 732 | 732 |
 
 ### Expected effects
 
 | Status | Expectation | Evidence |
 |---|---|---|
-| ✅ | Parameter param:width equals 100 mm | parameter 'param:width' expression is 100 mm |
-| ✅ | Mass delta is between 0.006 kg and 0.009 kg | mass delta is 0.007607779303483608 kg |
+| ✅ | Parameter param:boss_height equals 20 mm | parameter 'param:boss_height' expression is 20 mm |
+| ✅ | Mass delta is between 0.014 kg and 0.019 kg | mass delta is 0.014158874927520326 kg |
 
 The workflow artifact contains `review.html`, `review.json`, `comparison.gif`, and the before/after images.

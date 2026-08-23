@@ -18,6 +18,9 @@ WGPU_BACKEND="${WGPU_BACKEND:-vulkan}" cargo run -p opencad-cli -- screenshot "$
 ffmpeg -y -i "$ASSETS/frame_pin_ring.png" -vf "scale=1280:-1:flags=lanczos" "$ASSETS/preview_pin_ring.png"
 WGPU_BACKEND="${WGPU_BACKEND:-vulkan}" cargo run -p opencad-cli -- screenshot "$ROOT/examples/bracket_pin_mirror.ocad.d" "$ASSETS/frame_pin_mirror.png"
 ffmpeg -y -i "$ASSETS/frame_pin_mirror.png" -vf "scale=1280:-1:flags=lanczos" "$ASSETS/preview_pin_mirror.png"
+WGPU_BACKEND="${WGPU_BACKEND:-vulkan}" cargo run -p opencad-cli -- animate \
+  "$ROOT/examples/bearing_carrier.ocad.d" "$ASSETS/bearing-carrier-showcase.gif" \
+  --frames 48 --fps 12 --orbit-deg 280
 ffmpeg -y \
   -loop 1 -t 1.5 -framerate 4 -i "$ASSETS/frame_base.png" \
   -loop 1 -t 1.5 -framerate 4 -i "$ASSETS/frame_wide.png" \
@@ -25,4 +28,4 @@ ffmpeg -y \
   -r 4 "$ASSETS/preview.gif"
 rm -f "$ASSETS/frame_base.png" "$ASSETS/frame_wide.png" "$ASSETS/frame_pin_row.png" "$ASSETS/frame_pin_ring.png" "$ASSETS/frame_pin_mirror.png"
 rm -rf "$(dirname "$TMP_WIDE")"
-echo "wrote $ASSETS/preview.png, $ASSETS/preview.gif, $ASSETS/preview_pin_row.png, $ASSETS/preview_pin_ring.png, and $ASSETS/preview_pin_mirror.png"
+echo "wrote README preview images and $ASSETS/bearing-carrier-showcase.gif"

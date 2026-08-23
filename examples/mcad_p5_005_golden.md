@@ -7,8 +7,10 @@ It connects:
 - `examples/bracket.ocad.d` and the `bracket_with_hole` mass fixture;
 - `examples/assembly_two_brackets.ocad.d` and its placed OCCT scene;
 - the partial-occlusion drawing SVG;
-- `examples/agent/review_width_patch.json`, its Agent API dry run, the Desktop
-  preview result, and the CLI review artifacts under `docs/assets/review-demo`.
+- `examples/agent/review_width_patch.json` and its Agent API dry run;
+- `examples/bearing_carrier.ocad.d`, its hub-height review DesignPatch, and the
+  CLI review artifacts under `docs/assets/review-demo`;
+- the Desktop preview result for the bracket fixture.
 
 Run the deterministic cross-artifact check from the repository root:
 

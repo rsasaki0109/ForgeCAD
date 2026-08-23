@@ -2,7 +2,7 @@
 
 use opencad_core::{Length, TopoRefId};
 use opencad_feature::{
-    bracket_base_plate, bracket_edge_fillet, bracket_hole_row, bracket_pin_mirror,
+    bearing_carrier, bracket_base_plate, bracket_edge_fillet, bracket_hole_row, bracket_pin_mirror,
     bracket_semantic_refs, bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet,
     profile_to_solved, FeatureRegistry, PartModel,
 };
@@ -10,7 +10,7 @@ use opencad_geometry::{
     build_src_to_post_map, resolve_kernel_face_id_for_topo_ref_with_discoveries,
     sync_semantic_refs_with_history, ExtrudeExtent, ExtrudeOperation, GeometryKernel, TopoRef,
 };
-use opencad_graph::bracket_parameters;
+use opencad_graph::{bearing_carrier_parameters, bracket_parameters};
 use opencad_kernel_occt::OcctGeometryKernel;
 
 #[test]
@@ -61,6 +61,40 @@ fn occt_regenerates_bracket_plate_volume() {
         expected
     );
     assert!(mass.mass_kg > 0.0);
+}
+
+#[test]
+fn occt_bearing_carrier_preserves_bore_and_bolt_circle_across_hub_edit() {
+    let mut model = bearing_carrier().expect("model");
+    let kernel = OcctGeometryKernel::new();
+    let registry = FeatureRegistry::with_defaults();
+    let mut parameters = bearing_carrier_parameters();
+    let before_report = model
+        .regenerate(&kernel, &registry, Some(&parameters), None)
+        .expect("before regen");
+    assert_eq!(before_report.regenerated.len(), 9);
+    let before = kernel
+        .mass_properties(model.active_body().expect("before body"), 2700.0)
+        .expect("before mass");
+
+    parameters
+        .set_expr("param:boss_height", "20 mm")
+        .expect("edit hub height");
+    let after_report = model
+        .regenerate(&kernel, &registry, Some(&parameters), None)
+        .expect("after regen");
+    let after = kernel
+        .mass_properties(model.active_body().expect("after body"), 2700.0)
+        .expect("after mass");
+
+    assert_eq!(after_report.regenerated.len(), 9);
+    assert!(model.outputs.contains_key("feature:bearing_bore"));
+    assert!(model.outputs.contains_key("feature:bolt_circle"));
+    let mass_delta_kg = after.mass_kg - before.mass_kg;
+    assert!(
+        (0.014..=0.019).contains(&mass_delta_kg),
+        "mass delta {mass_delta_kg} kg"
+    );
 }
 
 #[test]

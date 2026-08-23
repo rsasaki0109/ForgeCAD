@@ -313,6 +313,25 @@ pub fn bracket_parameters() -> ParamGraph {
     graph
 }
 
+/// Parameters for the multi-feature bearing carrier sample.
+pub fn bearing_carrier_parameters() -> ParamGraph {
+    let mut graph = ParamGraph::new();
+    for (id, name, expression) in [
+        ("param:width", "width", "96 mm"),
+        ("param:height", "height", "72 mm"),
+        ("param:thickness", "thickness", "8 mm"),
+        ("param:boss_outer_diameter", "boss_outer_diameter", "38 mm"),
+        ("param:bore_diameter", "bore_diameter", "18 mm"),
+        ("param:boss_height", "boss_height", "14 mm"),
+        ("param:bolt_hole_diameter", "bolt_hole_diameter", "5.5 mm"),
+    ] {
+        graph
+            .add_parameter(ParameterEntry::new(id, name, expression))
+            .expect("static bearing carrier parameter");
+    }
+    graph
+}
+
 /// Default revolve bushing/sector parameters (lengths in mm, angle in degrees).
 pub fn revolve_parameters(angle_expr: &str) -> ParamGraph {
     let mut graph = ParamGraph::new();
@@ -358,6 +377,15 @@ mod tests {
     fn evaluates_simple_units() {
         let values = IndexMap::new();
         assert!((eval_length_expr("80 mm", &values).expect("eval") - 0.08).abs() < 1e-9);
+    }
+
+    #[test]
+    fn bearing_carrier_parameters_are_deterministic_and_unit_bearing() {
+        let graph = bearing_carrier_parameters();
+        let values = evaluate_param_graph(&graph).expect("evaluate carrier parameters");
+        assert_eq!(graph.parameter_ids().len(), 7);
+        assert!((values["boss_height"] - 0.014).abs() < 1e-12);
+        assert!((values["bolt_hole_diameter"] - 0.0055).abs() < 1e-12);
     }
 
     #[test]

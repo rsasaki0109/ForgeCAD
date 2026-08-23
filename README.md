@@ -41,8 +41,8 @@
 
 <p align="center">
   <sub>
-    A real DesignPatch changes the bracket width from 80 mm to 100 mm.
-    The generated review walks through the source, transactional dry-run, regenerated result, semantic parameter and mass diff, and 2/2 passing engineering checks—without mutating the original document.
+    A real DesignPatch increases the bearing hub from 14 mm to 20 mm.
+    The generated review walks through the 9-feature source, transactional dry-run, regenerated result, semantic parameter and mass diff, and 2/2 passing engineering checks—without mutating the original document.
   </sub>
 </p>
 
@@ -61,9 +61,9 @@
   </tr>
   <tr>
     <td colspan="2" align="center">
-      <img src="docs/assets/preview.gif" alt="MusubiCAD regenerating a bracket after a unit-bearing width parameter change" width="800">
+      <img src="docs/assets/bearing-carrier-showcase.gif" alt="MusubiCAD orbiting a flanged bearing carrier with a raised hub, through bore, and four-hole bolt circle" width="800">
       <br>
-      <sub><strong>Parametric regeneration</strong> — explicit-unit edits flow through validation into disposable OCCT geometry.</sub>
+      <sub><strong>Multi-feature mechanical part</strong> — base extrusion, joined hub, through bore, and circular cut pattern regenerate as one Design Graph.</sub>
     </td>
   </tr>
 </table>
@@ -87,7 +87,7 @@ and cached B-Rep shapes and meshes remain disposable outputs of the Design Graph
 | Automation mutates application state | Agents submit serializable `DesignPatch` proposals |
 | Cached geometry can become implicit state | The deterministic Design Graph is the source of truth |
 | Failures may be discovered after editing | Patches can be dry-run and rejected before mutation |
-| Diffs stop at file-level changes | Semantic diff reports values such as `80 mm → 100 mm` |
+| Diffs stop at file-level changes | Semantic diff reports values such as `boss height: 14 mm → 20 mm` |
 
 The goal is not to let an LLM silently manufacture geometry. The goal is to give
 humans and agents the same inspectable, testable model-editing protocol.
@@ -106,7 +106,7 @@ On Windows PowerShell:
 git clone --depth 1 https://github.com/rsasaki0109/MusubiCAD.git; cd MusubiCAD; ./quickstart.ps1
 ```
 
-This opens the real, generated `80 mm → 100 mm` DesignPatch report already shown above. It runs no
+This opens the real, generated `14 mm → 20 mm` bearing-hub DesignPatch report already shown above. It runs no
 downloaded executable, makes no network request after cloning, and does not mutate the model. The
 scripts verify that the HTML, JSON, Markdown, GIF, and before/after images are all present first.
 
@@ -131,8 +131,8 @@ required.
 git clone https://github.com/rsasaki0109/MusubiCAD.git
 cd MusubiCAD
 cargo run -p opencad-cli -- review \
-  examples/bracket.ocad.d \
-  examples/agent/review_width_patch.json \
+  examples/bearing_carrier.ocad.d \
+  examples/agent/review_bearing_carrier_patch.json \
   --output review
 ```
 
@@ -140,20 +140,20 @@ The command produces a self-contained review bundle:
 
 ```text
 review: review/review.html
-document: doc:bracket_001
+document: doc:bearing_carrier_001
 changes: 2
 ```
 
 Open `review/review.html` to inspect:
 
-- width: **80 mm → 100 mm**
-- mass: **76.50 g → 84.10 g**
+- boss height: **14 mm → 20 mm**
+- mass: **131.02 g → 145.18 g**
 - regenerated before/after geometry
 - the patch intent and rationale
 - two checked expected effects
 
 The source document is unchanged. The checked-in
-[`review_width_patch.json`](examples/agent/review_width_patch.json) contains the
+[`review_bearing_carrier_patch.json`](examples/agent/review_bearing_carrier_patch.json) contains the
 proposal, preconditions, and expected engineering effects.
 
 The repository's [Design Review workflow](.github/workflows/design-review.yml) dogfoods this
@@ -231,6 +231,7 @@ See the [desktop guide](apps/desktop/README.md) for platform prerequisites.
 
 | Example | Demonstrates |
 |---|---|
+| [`bearing_carrier.ocad.d`](examples/bearing_carrier.ocad.d) | Nine-feature bearing carrier: joined hub, through bore, and four-hole circular cut pattern |
 | [`bracket.ocad.d`](examples/bracket.ocad.d) | Plate, centered hole, and semantic face reference |
 | [`bracket_hole_row.ocad.d`](examples/bracket_hole_row.ocad.d) | Parametric linear cut pattern |
 | [`bracket_pin_mirror.ocad.d`](examples/bracket_pin_mirror.ocad.d) | Mirror pattern driven by a semantic plane reference |

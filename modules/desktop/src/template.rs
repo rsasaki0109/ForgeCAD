@@ -3,8 +3,8 @@
 use opencad_assembly::{AssemblyModel, Component, Instance, Mate, MateEntity, MateKind, Placement};
 use opencad_core::{DocumentId, DocumentMetadata, Result};
 use opencad_feature::{
-    bracket_boss_join, bracket_edge_fillet, bracket_face_pin, bracket_hole_ring, bracket_hole_row,
-    bracket_pin_mirror, bracket_pin_ring, bracket_pin_row, bracket_semantic_refs,
+    bearing_carrier, bracket_boss_join, bracket_edge_fillet, bracket_face_pin, bracket_hole_ring,
+    bracket_hole_row, bracket_pin_mirror, bracket_pin_ring, bracket_pin_row, bracket_semantic_refs,
     bracket_with_hole, revolve_bushing, revolve_sector,
 };
 use opencad_file::{write_ocad, OcadDocument};
@@ -16,6 +16,7 @@ use opencad_graph::{bracket_parameters, revolve_parameters, FeatureGraph, ParamG
 pub enum DocumentTemplate {
     #[default]
     Bracket,
+    BearingCarrier,
     BossJoin,
     FacePin,
     EdgeFillet,
@@ -34,6 +35,7 @@ impl DocumentTemplate {
     pub fn parse(name: &str) -> Result<Self> {
         match name {
             "bracket" => Ok(Self::Bracket),
+            "bearing-carrier" => Ok(Self::BearingCarrier),
             "boss-join" => Ok(Self::BossJoin),
             "face-pin" => Ok(Self::FacePin),
             "edge-fillet" => Ok(Self::EdgeFillet),
@@ -47,7 +49,7 @@ impl DocumentTemplate {
             "assembly" => Ok(Self::AssemblyTwoBrackets),
             "drawing" => Ok(Self::BracketFrontViewDrawing),
             _ => Err(opencad_core::OpenCadError::validation(format!(
-                "unknown template '{name}'; expected 'bracket', 'boss-join', 'face-pin', 'edge-fillet', 'hole-row', 'hole-ring', 'pin-row', 'pin-ring', 'pin-mirror', 'revolve-bushing', 'revolve-sector', 'assembly', or 'drawing'"
+                "unknown template '{name}'; expected 'bracket', 'bearing-carrier', 'boss-join', 'face-pin', 'edge-fillet', 'hole-row', 'hole-ring', 'pin-row', 'pin-ring', 'pin-mirror', 'revolve-bushing', 'revolve-sector', 'assembly', or 'drawing'"
             ))),
         }
     }
@@ -55,6 +57,7 @@ impl DocumentTemplate {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Bracket => "bracket",
+            Self::BearingCarrier => "bearing-carrier",
             Self::BossJoin => "boss-join",
             Self::FacePin => "face-pin",
             Self::EdgeFillet => "edge-fillet",
@@ -73,6 +76,7 @@ impl DocumentTemplate {
     pub fn all() -> &'static [Self] {
         &[
             Self::Bracket,
+            Self::BearingCarrier,
             Self::BossJoin,
             Self::FacePin,
             Self::EdgeFillet,
@@ -92,6 +96,7 @@ impl DocumentTemplate {
 pub fn create_document(path: &str, template: DocumentTemplate) -> Result<()> {
     match template {
         DocumentTemplate::Bracket => create_bracket_document(path),
+        DocumentTemplate::BearingCarrier => create_bearing_carrier_document(path),
         DocumentTemplate::BossJoin => create_bracket_boss_join_document(path),
         DocumentTemplate::FacePin => create_bracket_face_pin_document(path),
         DocumentTemplate::EdgeFillet => create_bracket_edge_fillet_document(path),
@@ -105,6 +110,17 @@ pub fn create_document(path: &str, template: DocumentTemplate) -> Result<()> {
         DocumentTemplate::AssemblyTwoBrackets => create_assembly_two_brackets_document(path),
         DocumentTemplate::BracketFrontViewDrawing => create_bracket_front_view_document(path),
     }
+}
+
+pub fn create_bearing_carrier_document(path: &str) -> Result<()> {
+    let part = bearing_carrier()?;
+    let metadata = DocumentMetadata::new(
+        DocumentId::new("doc:bearing_carrier_001")?,
+        "Flanged Bearing Carrier",
+    );
+    let mut doc = OcadDocument::from_part_model(metadata, &part);
+    doc.parameters = opencad_graph::bearing_carrier_parameters();
+    write_ocad(path, &doc)
 }
 
 pub fn create_bracket_document(path: &str) -> Result<()> {
