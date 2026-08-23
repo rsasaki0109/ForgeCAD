@@ -4,13 +4,15 @@ use opencad_core::{Length, TopoRefId};
 use opencad_feature::{
     bearing_carrier, bracket_base_plate, bracket_edge_fillet, bracket_hole_row, bracket_pin_mirror,
     bracket_semantic_refs, bracket_with_hole, bracket_with_top_chamfer, bracket_with_top_fillet,
-    profile_to_solved, FeatureRegistry, PartModel,
+    profile_to_solved, robot_joint_actuator_housing, FeatureRegistry, PartModel,
 };
 use opencad_geometry::{
     build_src_to_post_map, resolve_kernel_face_id_for_topo_ref_with_discoveries,
     sync_semantic_refs_with_history, ExtrudeExtent, ExtrudeOperation, GeometryKernel, TopoRef,
 };
-use opencad_graph::{bearing_carrier_parameters, bracket_parameters};
+use opencad_graph::{
+    bearing_carrier_parameters, bracket_parameters, robot_joint_housing_parameters,
+};
 use opencad_kernel_occt::OcctGeometryKernel;
 
 #[test]
@@ -94,6 +96,71 @@ fn occt_bearing_carrier_preserves_bore_and_bolt_circle_across_hub_edit() {
     assert!(
         (0.014..=0.019).contains(&mass_delta_kg),
         "mass delta {mass_delta_kg} kg"
+    );
+}
+
+#[test]
+fn occt_robot_joint_preserves_downstream_features_across_tower_edit() {
+    let mut model = robot_joint_actuator_housing().expect("model");
+    let kernel = OcctGeometryKernel::new();
+    let registry = FeatureRegistry::with_defaults();
+    let mut parameters = robot_joint_housing_parameters();
+    let before_report = model
+        .regenerate(&kernel, &registry, Some(&parameters), None)
+        .expect("before regen");
+    let before = kernel
+        .mass_properties(model.active_body().expect("before body"), 2700.0)
+        .expect("before mass");
+
+    assert_eq!(before_report.regenerated.len(), 22);
+    assert!((0.60..=0.62).contains(&before.mass_kg));
+
+    parameters
+        .set_expr("param:upper_hub_height", "42 mm")
+        .expect("edit bearing tower height");
+    let after_report = model
+        .regenerate(&kernel, &registry, Some(&parameters), None)
+        .expect("after regen");
+    let after = kernel
+        .mass_properties(model.active_body().expect("after body"), 2700.0)
+        .expect("after mass");
+
+    assert_eq!(after_report.regenerated.len(), 22);
+    for feature_id in [
+        "feature:shaft_bore",
+        "feature:counterbore",
+        "feature:pcd_fasteners",
+        "feature:radial_ribs",
+        "feature:mounting_ears",
+        "feature:mounting_holes",
+    ] {
+        assert!(model.outputs.contains_key(feature_id), "{feature_id}");
+    }
+    let mass_delta_kg = after.mass_kg - before.mass_kg;
+    assert!(
+        (0.043..=0.048).contains(&mass_delta_kg),
+        "mass delta {mass_delta_kg} kg"
+    );
+
+    parameters
+        .set_expr("param:upper_hub_height", "32 mm")
+        .expect("restore tower height");
+    parameters
+        .set_expr("param:bolt_circle_radius", "50 mm")
+        .expect("edit bolt circle radius");
+    let pcd_report = model
+        .regenerate(&kernel, &registry, Some(&parameters), None)
+        .expect("PCD regen");
+    let pcd_mass = kernel
+        .mass_properties(model.active_body().expect("PCD body"), 2700.0)
+        .expect("PCD mass");
+    assert_eq!(pcd_report.regenerated.len(), 22);
+    assert!(model.outputs.contains_key("feature:pcd_fasteners"));
+    assert!(
+        (pcd_mass.mass_kg - before.mass_kg).abs() < 1e-6,
+        "moving eight equal holes should preserve mass: {} vs {} kg",
+        pcd_mass.mass_kg,
+        before.mass_kg
     );
 }
 

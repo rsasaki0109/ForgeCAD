@@ -332,6 +332,45 @@ pub fn bearing_carrier_parameters() -> ParamGraph {
     graph
 }
 
+/// Parameters for the robot-joint actuator housing flagship sample.
+pub fn robot_joint_housing_parameters() -> ParamGraph {
+    let mut graph = ParamGraph::new();
+    for (id, name, expression) in [
+        ("param:width", "width", "140 mm"),
+        ("param:height", "height", "110 mm"),
+        ("param:base_thickness", "base_thickness", "10 mm"),
+        ("param:lower_hub_diameter", "lower_hub_diameter", "72 mm"),
+        ("param:lower_hub_height", "lower_hub_height", "20 mm"),
+        ("param:upper_hub_diameter", "upper_hub_diameter", "52 mm"),
+        ("param:upper_hub_height", "upper_hub_height", "32 mm"),
+        ("param:shaft_diameter", "shaft_diameter", "24 mm"),
+        (
+            "param:counterbore_diameter",
+            "counterbore_diameter",
+            "38 mm",
+        ),
+        ("param:counterbore_depth", "counterbore_depth", "8 mm"),
+        ("param:bolt_circle_radius", "bolt_circle_radius", "45 mm"),
+        ("param:bolt_hole_diameter", "bolt_hole_diameter", "6.2 mm"),
+        ("param:rib_length", "rib_length", "38 mm"),
+        ("param:rib_thickness", "rib_thickness", "7 mm"),
+        ("param:rib_height", "rib_height", "15 mm"),
+        ("param:mounting_ear_width", "mounting_ear_width", "22 mm"),
+        ("param:mounting_ear_depth", "mounting_ear_depth", "34 mm"),
+        ("param:mounting_ear_height", "mounting_ear_height", "16 mm"),
+        (
+            "param:mounting_hole_diameter",
+            "mounting_hole_diameter",
+            "9 mm",
+        ),
+    ] {
+        graph
+            .add_parameter(ParameterEntry::new(id, name, expression))
+            .expect("static robot-joint parameter must be valid");
+    }
+    graph
+}
+
 /// Default revolve bushing/sector parameters (lengths in mm, angle in degrees).
 pub fn revolve_parameters(angle_expr: &str) -> ParamGraph {
     let mut graph = ParamGraph::new();
@@ -386,6 +425,20 @@ mod tests {
         assert_eq!(graph.parameter_ids().len(), 7);
         assert!((values["boss_height"] - 0.014).abs() < 1e-12);
         assert!((values["bolt_hole_diameter"] - 0.0055).abs() < 1e-12);
+    }
+
+    #[test]
+    fn robot_joint_housing_parameters_are_deterministic_and_unit_bearing() {
+        let graph = robot_joint_housing_parameters();
+        let values = evaluate_param_graph(&graph).expect("evaluate housing parameters");
+        assert_eq!(graph.parameter_ids().len(), 19);
+        assert!((values["upper_hub_height"] - 0.032).abs() < 1e-12);
+        assert!((values["bolt_circle_radius"] - 0.045).abs() < 1e-12);
+        assert!((values["mounting_hole_diameter"] - 0.009).abs() < 1e-12);
+        assert_eq!(
+            graph.evaluation_order().expect("order"),
+            graph.parameter_ids()
+        );
     }
 
     #[test]

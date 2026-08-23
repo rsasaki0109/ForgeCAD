@@ -239,6 +239,7 @@ assembly, drawing, mass-property, and rendering workflows.
 | MCAD-P5-004 | Assembly robustness | Cycle/path validation, nested-document errors, interference tolerance, and recovery behavior | Complete |
 | MCAD-P5-005 | End-to-end golden suite | Mass, bounding box, topology, assembly, drawing, and review artifacts across representative fixtures | Complete |
 | MCAD-P5-006 | Future geometry scope | Requirements and ADR for NURBS editing or new kernel features before implementation | Complete (implementation deferred) |
+| MCAD-P5-007 | Flagship actuator housing | 22-node parametric example, OCCT/DesignPatch regressions, Feature-build animation, and README review/orbit evidence | Complete |
 
 **Definition of done:** semantic references survive the supported feature edits;
 drawing output handles partial occlusion deterministically; assembly failures are
@@ -287,6 +288,14 @@ units/tolerances, TopoRefs, transaction/DesignPatch parity, schema migration,
 kernel boundaries, failure atomicity, and tests before NURBS editing or a new
 kernel operation begins. No geometry feature is implemented by this planning
 task; implementation remains explicitly deferred.
+
+MCAD-P5-007 adds a robot-joint actuator housing that composes only the admitted
+kernel-neutral features: stepped joined hubs, shaft and bearing cuts, an
+eight-hole circular cut pattern, a six-rib circular union, and mirrored mounting
+ears and holes. Nineteen explicit-unit parameters drive its 22-node Feature
+Graph. A real OCCT regression, checked-in DesignPatch review, deterministic
+Feature-build animation, and 360° orbit make the same model executable evidence
+for the CLI, Desktop template, Agent review workflow, and README.
 
 **Tests:** geometry tolerance tests; OCCT integration tests; TopoRef migration and
 round trips; assembly/drawing examples; deterministic SVG/mesh/review golden

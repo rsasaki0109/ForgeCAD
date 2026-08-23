@@ -7,8 +7,8 @@ The Design Graph remains the source of truth; review geometry is regenerated and
 ## Review
 
 ```bash
-opencad review examples/bearing_carrier.ocad.d \
-  examples/agent/review_bearing_carrier_patch.json --output review
+opencad review examples/robot_joint_actuator.ocad.d \
+  examples/agent/review_robot_joint_patch.json --output review
 ```
 
 The command performs an in-memory dry run and writes deterministic `review.json`,
@@ -18,7 +18,7 @@ and expected effect results. It does not mutate the input document. After writin
 review bundle, the command exits unsuccessfully if any declared expected effect failed.
 
 The repository's `Design Review` GitHub Actions workflow runs this command against the flagship
-multi-feature bearing-carrier patch. It appends `github-summary.md` to the job summary and uploads the full bundle as a
+22-feature robot-joint housing patch. It appends `github-summary.md` to the job summary and uploads the full bundle as a
 14-day workflow artifact. Summary and artifact publication use `always()` so failed expected-effect
 checks retain their review evidence. GitHub I/O remains in the workflow; the CLI only writes local
 files.

@@ -5,27 +5,40 @@ regeneration through the kernel-neutral `GeometryKernel` interface.
 
 ## Representative multi-feature part
 
-`bearing_carrier()` constructs the checked-in
-`examples/bearing_carrier.ocad.d` model. Its nine nodes cover four sketches and
-five geometry operations:
+`robot_joint_actuator_housing()` constructs the checked-in
+`examples/robot_joint_actuator.ocad.d` model. Its 22 nodes expose nine visible
+body milestones:
 
-1. base sketch and extrusion;
-2. circular hub sketch and joined extrusion;
-3. central bearing-bore sketch and through cut;
-4. bolt-hole tool sketch and extrusion;
-5. four-instance circular cut pattern.
+1. base plate;
+2. lower and upper stepped hubs;
+3. output-shaft bore and bearing counterbore;
+4. eight-hole circular fastener pattern;
+5. six-instance circular rib union;
+6. mirrored mounting-ear union and mirrored mounting-hole cut.
 
-Use `opencad_graph::bearing_carrier_parameters()` for its seven explicit-unit
+Use `opencad_graph::robot_joint_housing_parameters()` for its 19 explicit-unit
 parameters. Call `PartModel::regenerate()` with a `FeatureRegistry` and a
 `GeometryKernel`; generated bodies remain disposable outputs of the Design
 Graph.
 
 ```rust
-let mut model = opencad_feature::bearing_carrier()?;
-let parameters = opencad_graph::bearing_carrier_parameters();
+let mut model = opencad_feature::robot_joint_actuator_housing()?;
+let parameters = opencad_graph::robot_joint_housing_parameters();
 let registry = opencad_feature::FeatureRegistry::with_defaults();
 model.regenerate(&kernel, &registry, Some(&parameters), None)?;
 ```
 
 The constructor performs no file-system or network I/O. The desktop template
-layer owns `.ocad` persistence through the `bearing-carrier` template.
+layer owns `.ocad` persistence through the `robot-joint` template.
+
+## Feature-build animation
+
+`opencad animate-features` regenerates a part, omits standalone pattern-tool
+bodies, and renders the remaining body-producing milestones in deterministic
+Feature Graph order. Every frame uses a camera fitted to the final body so
+geometry growth is directly comparable:
+
+```bash
+opencad animate-features examples/robot_joint_actuator.ocad.d build.gif \
+  --frames 54 --fps 9 --orbit-deg 35 --pitch-deg 30
+```

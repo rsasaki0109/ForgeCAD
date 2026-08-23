@@ -275,4 +275,38 @@ mod tests {
         };
         assert!((length.meters() - 0.016).abs() < 1e-9);
     }
+
+    #[test]
+    fn applies_robot_joint_bolt_circle_radius_to_tool_position() {
+        let mut model = crate::regenerate::robot_joint_actuator_housing().expect("model");
+        let mut params = opencad_graph::robot_joint_housing_parameters();
+        params
+            .set_expr("param:bolt_circle_radius", "50 mm")
+            .expect("bolt circle radius");
+
+        apply_parameters(&mut model, &params).expect("apply");
+        let sketch = model.sketches.get("sketch:pcd_hole").expect("PCD sketch");
+        let center_x = sketch
+            .find_entity("ent:pcd_hole_center")
+            .and_then(|entity| match entity {
+                opencad_sketch::SketchEntity::Point(point) => match point.x {
+                    opencad_sketch::Coord::Literal(value) => Some(value),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .expect("PCD hole center x");
+        let axis_x = sketch
+            .find_entity("ent:pcd_axis_center")
+            .and_then(|entity| match entity {
+                opencad_sketch::SketchEntity::Point(point) => match point.x {
+                    opencad_sketch::Coord::Literal(value) => Some(value),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .expect("PCD axis center x");
+        assert!(((center_x - axis_x).abs() - 0.050).abs() < 1e-5);
+        assert!((axis_x - 0.070).abs() < 1e-5, "axis center x {axis_x}");
+    }
 }

@@ -44,6 +44,11 @@ pub fn run() -> Result<()> {
             let output = args.next();
             cmd_animate(input.as_deref(), output.as_deref(), args.collect())
         }
+        Some("animate-features") => {
+            let input = args.next();
+            let output = args.next();
+            cmd_animate_features(input.as_deref(), output.as_deref(), args.collect())
+        }
         Some("patch") => cmd_patch(args.collect()),
         Some("plugin") => cmd_plugin(args.collect()),
         Some("diff") => cmd_diff(args.collect()),
@@ -61,7 +66,7 @@ pub fn run() -> Result<()> {
 fn cmd_new(path: Option<&str>, extra_args: &[String]) -> Result<()> {
     let path = path.ok_or_else(|| {
         opencad_core::OpenCadError::validation(
-            "usage: opencad new <path> [bracket|bearing-carrier|boss-join|face-pin|edge-fillet|hole-row|hole-ring|pin-row|pin-ring|pin-mirror|revolve-bushing|revolve-sector|assembly|drawing]",
+            "usage: opencad new <path> [bracket|bearing-carrier|robot-joint|boss-join|face-pin|edge-fillet|hole-row|hole-ring|pin-row|pin-ring|pin-mirror|revolve-bushing|revolve-sector|assembly|drawing]",
         )
     })?;
     let template = extra_args
@@ -318,6 +323,28 @@ fn cmd_animate(input: Option<&str>, output: Option<&str>, args: Vec<String>) -> 
     Ok(())
 }
 
+fn cmd_animate_features(
+    input: Option<&str>,
+    output: Option<&str>,
+    args: Vec<String>,
+) -> Result<()> {
+    let input = input.ok_or_else(|| {
+        opencad_core::OpenCadError::validation(
+            "usage: opencad animate-features <input> <output.gif> [--frames N] [--fps N] [--orbit-deg DEG] [--pitch-deg DEG]",
+        )
+    })?;
+    let output = output.ok_or_else(|| {
+        opencad_core::OpenCadError::validation("feature animation output path is required")
+    })?;
+    let options = animate::parse_animation_options(&args)?;
+    let summary = animate::animate_feature_build_document(input, output, options)?;
+    println!("feature_animation: {output}");
+    println!("frames: {}", summary.frame_count);
+    println!("fps: {}", summary.frames_per_second);
+    println!("size_px: {}x{}", summary.width_px, summary.height_px);
+    Ok(())
+}
+
 fn cmd_patch(args: Vec<String>) -> Result<()> {
     let parsed = patch::parse_patch_args(args)?;
     patch::patch_document_with_options(&parsed)
@@ -487,6 +514,7 @@ COMMANDS:
     view        Open an interactive 3D viewport
     screenshot  Render a PNG preview of the active body
     animate     Render a deterministic presentation orbit GIF
+    animate-features  Render Feature Graph body milestones as a deterministic GIF
     patch       Apply a DesignPatch JSON to parameters
     plugin      List or invoke linked feature/importer/exporter plugins
     diff        Show semantic diff between documents or a patch preview
@@ -504,6 +532,7 @@ OPTIONS (patch):
 EXAMPLES:
     opencad new bracket.ocad.d
     opencad new bearing_carrier.ocad.d bearing-carrier
+    opencad new robot_joint.ocad.d robot-joint
     opencad new bracket_boss_join.ocad.d boss-join
     opencad new bracket_face_pin.ocad.d face-pin
     opencad new bracket_hole_row.ocad.d hole-row
@@ -528,6 +557,7 @@ EXAMPLES:
     opencad view bracket.ocad.d
     opencad screenshot bracket.ocad.d preview.png
     opencad animate bracket.ocad.d showcase.gif --frames 48 --fps 12 --orbit-deg 220
+    opencad animate-features robot_joint.ocad.d build.gif --frames 54 --fps 9
     opencad patch bracket.ocad.d width.patch.json
     opencad patch bracket.ocad.d combined.patch.json --dry-run --geometry
     opencad diff bracket.ocad.d --patch width.patch.json --geometry

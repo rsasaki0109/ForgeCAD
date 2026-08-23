@@ -1,0 +1,143 @@
+{
+  "constraints": [
+    {
+      "sketch_id": "sketch:counterbore",
+      "constraint": {
+        "type": "radius",
+        "id": "con:counterbore_radius",
+        "target": "ent:counterbore_circle",
+        "expr": "counterbore_diameter / 2"
+      }
+    },
+    {
+      "sketch_id": "sketch:joint_base",
+      "constraint": {
+        "type": "distance",
+        "id": "con:joint_base_height",
+        "target": {
+          "line": "ent:joint_base_e1"
+        },
+        "expr": "height"
+      }
+    },
+    {
+      "sketch_id": "sketch:joint_base",
+      "constraint": {
+        "type": "distance",
+        "id": "con:joint_base_width",
+        "target": {
+          "line": "ent:joint_base_e0"
+        },
+        "expr": "width"
+      }
+    },
+    {
+      "sketch_id": "sketch:lower_hub",
+      "constraint": {
+        "type": "radius",
+        "id": "con:lower_hub_radius",
+        "target": "ent:lower_hub_circle",
+        "expr": "lower_hub_diameter / 2"
+      }
+    },
+    {
+      "sketch_id": "sketch:mounting_ear",
+      "constraint": {
+        "type": "distance",
+        "id": "con:mounting_ear_height",
+        "target": {
+          "line": "ent:mounting_ear_e1"
+        },
+        "expr": "mounting_ear_depth"
+      }
+    },
+    {
+      "sketch_id": "sketch:mounting_ear",
+      "constraint": {
+        "type": "distance",
+        "id": "con:mounting_ear_width",
+        "target": {
+          "line": "ent:mounting_ear_e0"
+        },
+        "expr": "mounting_ear_width"
+      }
+    },
+    {
+      "sketch_id": "sketch:mounting_hole",
+      "constraint": {
+        "type": "radius",
+        "id": "con:mounting_hole_radius",
+        "target": "ent:mounting_hole_circle",
+        "expr": "mounting_hole_diameter / 2"
+      }
+    },
+    {
+      "sketch_id": "sketch:pcd_hole",
+      "constraint": {
+        "type": "radius",
+        "id": "con:pcd_hole_radius",
+        "target": "ent:pcd_hole_circle",
+        "expr": "bolt_hole_diameter / 2"
+      }
+    },
+    {
+      "sketch_id": "sketch:pcd_hole",
+      "constraint": {
+        "type": "distance",
+        "id": "con:pcd_radius",
+        "target": {
+          "line": "ent:pcd_radius_line"
+        },
+        "expr": "bolt_circle_radius"
+      }
+    },
+    {
+      "sketch_id": "sketch:pcd_hole",
+      "constraint": {
+        "type": "horizontal",
+        "id": "con:pcd_radius_horizontal",
+        "line": "ent:pcd_radius_line"
+      }
+    },
+    {
+      "sketch_id": "sketch:rib",
+      "constraint": {
+        "type": "distance",
+        "id": "con:rib_height",
+        "target": {
+          "line": "ent:rib_e1"
+        },
+        "expr": "rib_thickness"
+      }
+    },
+    {
+      "sketch_id": "sketch:rib",
+      "constraint": {
+        "type": "distance",
+        "id": "con:rib_width",
+        "target": {
+          "line": "ent:rib_e0"
+        },
+        "expr": "rib_length"
+      }
+    },
+    {
+      "sketch_id": "sketch:shaft_bore",
+      "constraint": {
+        "type": "radius",
+        "id": "con:shaft_bore_radius",
+        "target": "ent:shaft_bore_circle",
+        "expr": "shaft_diameter / 2"
+      }
+    },
+    {
+      "sketch_id": "sketch:upper_hub",
+      "constraint": {
+        "type": "radius",
+        "id": "con:upper_hub_radius",
+        "target": "ent:upper_hub_circle",
+        "expr": "upper_hub_diameter / 2"
+      }
+    }
+  ]
+}

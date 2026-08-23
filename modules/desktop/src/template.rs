@@ -5,7 +5,7 @@ use opencad_core::{DocumentId, DocumentMetadata, Result};
 use opencad_feature::{
     bearing_carrier, bracket_boss_join, bracket_edge_fillet, bracket_face_pin, bracket_hole_ring,
     bracket_hole_row, bracket_pin_mirror, bracket_pin_ring, bracket_pin_row, bracket_semantic_refs,
-    bracket_with_hole, revolve_bushing, revolve_sector,
+    bracket_with_hole, revolve_bushing, revolve_sector, robot_joint_actuator_housing,
 };
 use opencad_file::{write_ocad, OcadDocument};
 use opencad_geometry::RigidTransform;
@@ -17,6 +17,7 @@ pub enum DocumentTemplate {
     #[default]
     Bracket,
     BearingCarrier,
+    RobotJoint,
     BossJoin,
     FacePin,
     EdgeFillet,
@@ -36,6 +37,7 @@ impl DocumentTemplate {
         match name {
             "bracket" => Ok(Self::Bracket),
             "bearing-carrier" => Ok(Self::BearingCarrier),
+            "robot-joint" => Ok(Self::RobotJoint),
             "boss-join" => Ok(Self::BossJoin),
             "face-pin" => Ok(Self::FacePin),
             "edge-fillet" => Ok(Self::EdgeFillet),
@@ -49,7 +51,7 @@ impl DocumentTemplate {
             "assembly" => Ok(Self::AssemblyTwoBrackets),
             "drawing" => Ok(Self::BracketFrontViewDrawing),
             _ => Err(opencad_core::OpenCadError::validation(format!(
-                "unknown template '{name}'; expected 'bracket', 'bearing-carrier', 'boss-join', 'face-pin', 'edge-fillet', 'hole-row', 'hole-ring', 'pin-row', 'pin-ring', 'pin-mirror', 'revolve-bushing', 'revolve-sector', 'assembly', or 'drawing'"
+                "unknown template '{name}'; expected 'bracket', 'bearing-carrier', 'robot-joint', 'boss-join', 'face-pin', 'edge-fillet', 'hole-row', 'hole-ring', 'pin-row', 'pin-ring', 'pin-mirror', 'revolve-bushing', 'revolve-sector', 'assembly', or 'drawing'"
             ))),
         }
     }
@@ -58,6 +60,7 @@ impl DocumentTemplate {
         match self {
             Self::Bracket => "bracket",
             Self::BearingCarrier => "bearing-carrier",
+            Self::RobotJoint => "robot-joint",
             Self::BossJoin => "boss-join",
             Self::FacePin => "face-pin",
             Self::EdgeFillet => "edge-fillet",
@@ -77,6 +80,7 @@ impl DocumentTemplate {
         &[
             Self::Bracket,
             Self::BearingCarrier,
+            Self::RobotJoint,
             Self::BossJoin,
             Self::FacePin,
             Self::EdgeFillet,
@@ -97,6 +101,7 @@ pub fn create_document(path: &str, template: DocumentTemplate) -> Result<()> {
     match template {
         DocumentTemplate::Bracket => create_bracket_document(path),
         DocumentTemplate::BearingCarrier => create_bearing_carrier_document(path),
+        DocumentTemplate::RobotJoint => create_robot_joint_document(path),
         DocumentTemplate::BossJoin => create_bracket_boss_join_document(path),
         DocumentTemplate::FacePin => create_bracket_face_pin_document(path),
         DocumentTemplate::EdgeFillet => create_bracket_edge_fillet_document(path),
@@ -110,6 +115,17 @@ pub fn create_document(path: &str, template: DocumentTemplate) -> Result<()> {
         DocumentTemplate::AssemblyTwoBrackets => create_assembly_two_brackets_document(path),
         DocumentTemplate::BracketFrontViewDrawing => create_bracket_front_view_document(path),
     }
+}
+
+pub fn create_robot_joint_document(path: &str) -> Result<()> {
+    let part = robot_joint_actuator_housing()?;
+    let metadata = DocumentMetadata::new(
+        DocumentId::new("doc:robot_joint_actuator_001")?,
+        "Robot Joint Actuator Housing",
+    );
+    let mut doc = OcadDocument::from_part_model(metadata, &part);
+    doc.parameters = opencad_graph::robot_joint_housing_parameters();
+    write_ocad(path, &doc)
 }
 
 pub fn create_bearing_carrier_document(path: &str) -> Result<()> {

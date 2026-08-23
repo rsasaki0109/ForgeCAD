@@ -23,6 +23,7 @@ cargo run -p opencad-cli -- help
 
 # Use committed samples
 cargo run -p opencad-cli -- regen examples/bracket.ocad.d
+cargo run -p opencad-cli -- new my_joint.ocad.d robot-joint
 cargo run -p opencad-cli -- new my_carrier.ocad.d bearing-carrier
 cargo run -p opencad-cli -- new my_part.ocad.d hole-row
 cargo run -p opencad-cli -- new my_holes.ocad.d hole-ring
@@ -79,10 +80,11 @@ cargo test --workspace
 
 ## README review demo
 
-The README hero is generated from `examples/bearing_carrier.ocad.d` and
-`examples/agent/review_bearing_carrier_patch.json`; do not edit its images or reports by hand.
-The flagship model chains a base extrusion, joined bearing hub, through bore,
-and four-hole circular cut pattern. Regenerate the complete bundle on Linux or macOS with:
+The README hero is generated from `examples/robot_joint_actuator.ocad.d` and
+`examples/agent/review_robot_joint_patch.json`; do not edit its images or reports by hand.
+The flagship model chains 22 nodes across stepped hubs, two bearing cuts,
+circular cut/union patterns, and mirrored mounting features. Regenerate the
+review bundle on Linux or macOS with:
 
 ```bash
 ./docs/assets/generate-review-demo.sh
@@ -92,6 +94,12 @@ On Windows PowerShell, use `./docs/assets/generate-review-demo.ps1`. The Design 
 compares reports byte-for-byte and raster output with a 1% normalized mean-absolute-error tolerance.
 The tolerance absorbs GPU rasterization differences while still detecting a material visual change,
 so Design Graph, flagship patch, or renderer changes may require updating the bundle in the same PR.
+
+`./docs/assets/generate.sh` additionally regenerates the README's deterministic
+Feature-build and 360° orbit GIFs. It requires `ffmpeg` for the legacy preview
+assets; the two robot-joint GIFs themselves are written directly by MusubiCAD.
+On Windows, `./docs/assets/generate-showcase.ps1` regenerates just those two
+flagship GIFs without requiring `ffmpeg`.
 
 ## PR checklist
 

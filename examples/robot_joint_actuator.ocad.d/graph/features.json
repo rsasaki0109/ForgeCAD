@@ -1,0 +1,624 @@
+{
+  "feature_graph": {
+    "order": [
+      "feature:sketch_joint_base",
+      "feature:joint_base",
+      "feature:sketch_lower_hub",
+      "feature:lower_hub",
+      "feature:sketch_upper_hub",
+      "feature:upper_hub",
+      "feature:sketch_shaft_bore",
+      "feature:shaft_bore",
+      "feature:sketch_counterbore",
+      "feature:counterbore",
+      "feature:sketch_pcd_hole",
+      "feature:pcd_hole_tool",
+      "feature:pcd_fasteners",
+      "feature:sketch_rib",
+      "feature:rib_tool",
+      "feature:radial_ribs",
+      "feature:sketch_mounting_ear",
+      "feature:mounting_ear_tool",
+      "feature:mounting_ears",
+      "feature:sketch_mounting_hole",
+      "feature:mounting_hole_tool",
+      "feature:mounting_holes"
+    ],
+    "features": {
+      "feature:sketch_joint_base": {
+        "id": "feature:sketch_joint_base",
+        "name": "Actuator Base Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:joint_base": {
+        "id": "feature:joint_base",
+        "name": "Actuator Base Plate",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_lower_hub": {
+        "id": "feature:sketch_lower_hub",
+        "name": "Lower Hub Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:lower_hub": {
+        "id": "feature:lower_hub",
+        "name": "Lower Actuator Hub",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_upper_hub": {
+        "id": "feature:sketch_upper_hub",
+        "name": "Upper Hub Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:upper_hub": {
+        "id": "feature:upper_hub",
+        "name": "Upper Bearing Tower",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_shaft_bore": {
+        "id": "feature:sketch_shaft_bore",
+        "name": "Output Shaft Bore Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:shaft_bore": {
+        "id": "feature:shaft_bore",
+        "name": "Through Output Shaft Bore",
+        "feature_type": "hole",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_counterbore": {
+        "id": "feature:sketch_counterbore",
+        "name": "Bearing Counterbore Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:counterbore": {
+        "id": "feature:counterbore",
+        "name": "Bearing Seat Counterbore",
+        "feature_type": "hole",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_pcd_hole": {
+        "id": "feature:sketch_pcd_hole",
+        "name": "PCD Fastener Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:pcd_hole_tool": {
+        "id": "feature:pcd_hole_tool",
+        "name": "PCD Fastener Tool",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:pcd_fasteners": {
+        "id": "feature:pcd_fasteners",
+        "name": "Eight Hole Fastener Circle",
+        "feature_type": "circular_pattern",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_rib": {
+        "id": "feature:sketch_rib",
+        "name": "Radial Rib Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:rib_tool": {
+        "id": "feature:rib_tool",
+        "name": "Radial Rib Tool",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:radial_ribs": {
+        "id": "feature:radial_ribs",
+        "name": "Six Radial Reinforcement Ribs",
+        "feature_type": "circular_pattern",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_mounting_ear": {
+        "id": "feature:sketch_mounting_ear",
+        "name": "Mounting Ear Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:mounting_ear_tool": {
+        "id": "feature:mounting_ear_tool",
+        "name": "Mounting Ear Tool",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:mounting_ears": {
+        "id": "feature:mounting_ears",
+        "name": "Mirrored Mounting Ears",
+        "feature_type": "mirror_pattern",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:sketch_mounting_hole": {
+        "id": "feature:sketch_mounting_hole",
+        "name": "Mounting Hole Sketch",
+        "feature_type": "sketch",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:mounting_hole_tool": {
+        "id": "feature:mounting_hole_tool",
+        "name": "Mounting Hole Tool",
+        "feature_type": "extrude",
+        "suppressed": false,
+        "dirty": false
+      },
+      "feature:mounting_holes": {
+        "id": "feature:mounting_holes",
+        "name": "Mirrored Mounting Holes",
+        "feature_type": "mirror_pattern",
+        "suppressed": false,
+        "dirty": false
+      }
+    },
+    "edges": [
+      {
+        "source": "feature:sketch_joint_base",
+        "target": "feature:joint_base",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_lower_hub",
+        "target": "feature:lower_hub",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:joint_base",
+        "target": "feature:lower_hub",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_upper_hub",
+        "target": "feature:upper_hub",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:lower_hub",
+        "target": "feature:upper_hub",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_shaft_bore",
+        "target": "feature:shaft_bore",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:upper_hub",
+        "target": "feature:shaft_bore",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_counterbore",
+        "target": "feature:counterbore",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:shaft_bore",
+        "target": "feature:counterbore",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_pcd_hole",
+        "target": "feature:pcd_hole_tool",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:pcd_hole_tool",
+        "target": "feature:pcd_fasteners",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:counterbore",
+        "target": "feature:pcd_fasteners",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_rib",
+        "target": "feature:rib_tool",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:rib_tool",
+        "target": "feature:radial_ribs",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:pcd_fasteners",
+        "target": "feature:radial_ribs",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_mounting_ear",
+        "target": "feature:mounting_ear_tool",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:mounting_ear_tool",
+        "target": "feature:mounting_ears",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:radial_ribs",
+        "target": "feature:mounting_ears",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:sketch_mounting_hole",
+        "target": "feature:mounting_hole_tool",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:mounting_hole_tool",
+        "target": "feature:mounting_holes",
+        "kind": "depends_on"
+      },
+      {
+        "source": "feature:mounting_ears",
+        "target": "feature:mounting_holes",
+        "kind": "depends_on"
+      }
+    ]
+  },
+  "feature_nodes": [
+    {
+      "id": "feature:counterbore",
+      "name": "Bearing Seat Counterbore",
+      "definition": {
+        "type": "hole",
+        "sketch_feature": "feature:sketch_counterbore",
+        "profile_ref": "sketch:counterbore/profile:outer",
+        "depth": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.008
+          }
+        },
+        "target_feature": "feature:shaft_bore",
+        "depth_expr": "counterbore_depth"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:joint_base",
+      "name": "Actuator Base Plate",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_joint_base",
+        "profile_ref": "sketch:joint_base/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.01
+          }
+        },
+        "operation": "new_body",
+        "length_expr": "base_thickness"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:lower_hub",
+      "name": "Lower Actuator Hub",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_lower_hub",
+        "profile_ref": "sketch:lower_hub/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.02
+          }
+        },
+        "operation": "join",
+        "length_expr": "lower_hub_height",
+        "target_feature": "feature:joint_base"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:mounting_ear_tool",
+      "name": "Mounting Ear Tool",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_mounting_ear",
+        "profile_ref": "sketch:mounting_ear/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.016
+          }
+        },
+        "operation": "new_body",
+        "length_expr": "mounting_ear_height"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:mounting_ears",
+      "name": "Mirrored Mounting Ears",
+      "definition": {
+        "type": "mirror_pattern",
+        "source_feature": "feature:mounting_ear_tool",
+        "plane_origin_m": [
+          0.07,
+          0.055,
+          0.0
+        ],
+        "plane_normal_m": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "operation": "union",
+        "target_feature": "feature:radial_ribs"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:mounting_hole_tool",
+      "name": "Mounting Hole Tool",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_mounting_hole",
+        "profile_ref": "sketch:mounting_hole/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.016
+          }
+        },
+        "operation": "new_body",
+        "length_expr": "mounting_ear_height"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:mounting_holes",
+      "name": "Mirrored Mounting Holes",
+      "definition": {
+        "type": "mirror_pattern",
+        "source_feature": "feature:mounting_hole_tool",
+        "plane_origin_m": [
+          0.07,
+          0.055,
+          0.0
+        ],
+        "plane_normal_m": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "operation": "cut",
+        "target_feature": "feature:mounting_ears"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:pcd_fasteners",
+      "name": "Eight Hole Fastener Circle",
+      "definition": {
+        "type": "circular_pattern",
+        "source_feature": "feature:pcd_hole_tool",
+        "axis_origin_m": [
+          0.07,
+          0.055,
+          0.0
+        ],
+        "axis_direction_m": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "count": 8,
+        "operation": "cut",
+        "target_feature": "feature:counterbore"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:pcd_hole_tool",
+      "name": "PCD Fastener Tool",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_pcd_hole",
+        "profile_ref": "sketch:pcd_hole/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.01
+          }
+        },
+        "operation": "new_body",
+        "length_expr": "base_thickness"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:radial_ribs",
+      "name": "Six Radial Reinforcement Ribs",
+      "definition": {
+        "type": "circular_pattern",
+        "source_feature": "feature:rib_tool",
+        "axis_origin_m": [
+          0.07,
+          0.055,
+          0.0
+        ],
+        "axis_direction_m": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "count": 6,
+        "operation": "union",
+        "target_feature": "feature:pcd_fasteners"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:rib_tool",
+      "name": "Radial Rib Tool",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_rib",
+        "profile_ref": "sketch:rib/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.015
+          }
+        },
+        "operation": "new_body",
+        "length_expr": "rib_height"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:shaft_bore",
+      "name": "Through Output Shaft Bore",
+      "definition": {
+        "type": "hole",
+        "sketch_feature": "feature:sketch_shaft_bore",
+        "profile_ref": "sketch:shaft_bore/profile:outer",
+        "depth": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.032
+          }
+        },
+        "target_feature": "feature:upper_hub",
+        "depth_expr": "upper_hub_height"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_counterbore",
+      "name": "Bearing Counterbore Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:counterbore"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_joint_base",
+      "name": "Actuator Base Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:joint_base"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_lower_hub",
+      "name": "Lower Hub Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:lower_hub"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_mounting_ear",
+      "name": "Mounting Ear Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:mounting_ear"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_mounting_hole",
+      "name": "Mounting Hole Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:mounting_hole"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_pcd_hole",
+      "name": "PCD Fastener Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:pcd_hole"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_rib",
+      "name": "Radial Rib Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:rib"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_shaft_bore",
+      "name": "Output Shaft Bore Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:shaft_bore"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:sketch_upper_hub",
+      "name": "Upper Hub Sketch",
+      "definition": {
+        "type": "sketch",
+        "sketch_id": "sketch:upper_hub"
+      },
+      "suppressed": false
+    },
+    {
+      "id": "feature:upper_hub",
+      "name": "Upper Bearing Tower",
+      "definition": {
+        "type": "extrude",
+        "sketch_feature": "feature:sketch_upper_hub",
+        "profile_ref": "sketch:upper_hub/profile:outer",
+        "extent": {
+          "type": "distance",
+          "length": {
+            "value_si": 0.032
+          }
+        },
+        "operation": "join",
+        "length_expr": "upper_hub_height",
+        "target_feature": "feature:lower_hub"
+      },
+      "suppressed": false
+    }
+  ]
+}

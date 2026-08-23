@@ -8,7 +8,7 @@ It connects:
 - `examples/assembly_two_brackets.ocad.d` and its placed OCCT scene;
 - the partial-occlusion drawing SVG;
 - `examples/agent/review_width_patch.json` and its Agent API dry run;
-- `examples/bearing_carrier.ocad.d`, its hub-height review DesignPatch, and the
+- `examples/robot_joint_actuator.ocad.d`, its tower-height review DesignPatch, and the
   CLI review artifacts under `docs/assets/review-demo`;
 - the Desktop preview result for the bracket fixture.
 

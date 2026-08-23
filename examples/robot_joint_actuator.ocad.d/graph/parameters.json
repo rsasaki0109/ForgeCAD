@@ -1,0 +1,119 @@
+{
+  "parameters": {
+    "param:width": {
+      "id": "param:width",
+      "name": "width",
+      "expr": "140 mm",
+      "dirty": false
+    },
+    "param:height": {
+      "id": "param:height",
+      "name": "height",
+      "expr": "110 mm",
+      "dirty": false
+    },
+    "param:base_thickness": {
+      "id": "param:base_thickness",
+      "name": "base_thickness",
+      "expr": "10 mm",
+      "dirty": false
+    },
+    "param:lower_hub_diameter": {
+      "id": "param:lower_hub_diameter",
+      "name": "lower_hub_diameter",
+      "expr": "72 mm",
+      "dirty": false
+    },
+    "param:lower_hub_height": {
+      "id": "param:lower_hub_height",
+      "name": "lower_hub_height",
+      "expr": "20 mm",
+      "dirty": false
+    },
+    "param:upper_hub_diameter": {
+      "id": "param:upper_hub_diameter",
+      "name": "upper_hub_diameter",
+      "expr": "52 mm",
+      "dirty": false
+    },
+    "param:upper_hub_height": {
+      "id": "param:upper_hub_height",
+      "name": "upper_hub_height",
+      "expr": "32 mm",
+      "dirty": false
+    },
+    "param:shaft_diameter": {
+      "id": "param:shaft_diameter",
+      "name": "shaft_diameter",
+      "expr": "24 mm",
+      "dirty": false
+    },
+    "param:counterbore_diameter": {
+      "id": "param:counterbore_diameter",
+      "name": "counterbore_diameter",
+      "expr": "38 mm",
+      "dirty": false
+    },
+    "param:counterbore_depth": {
+      "id": "param:counterbore_depth",
+      "name": "counterbore_depth",
+      "expr": "8 mm",
+      "dirty": false
+    },
+    "param:bolt_circle_radius": {
+      "id": "param:bolt_circle_radius",
+      "name": "bolt_circle_radius",
+      "expr": "45 mm",
+      "dirty": false
+    },
+    "param:bolt_hole_diameter": {
+      "id": "param:bolt_hole_diameter",
+      "name": "bolt_hole_diameter",
+      "expr": "6.2 mm",
+      "dirty": false
+    },
+    "param:rib_length": {
+      "id": "param:rib_length",
+      "name": "rib_length",
+      "expr": "38 mm",
+      "dirty": false
+    },
+    "param:rib_thickness": {
+      "id": "param:rib_thickness",
+      "name": "rib_thickness",
+      "expr": "7 mm",
+      "dirty": false
+    },
+    "param:rib_height": {
+      "id": "param:rib_height",
+      "name": "rib_height",
+      "expr": "15 mm",
+      "dirty": false
+    },
+    "param:mounting_ear_width": {
+      "id": "param:mounting_ear_width",
+      "name": "mounting_ear_width",
+      "expr": "22 mm",
+      "dirty": false
+    },
+    "param:mounting_ear_depth": {
+      "id": "param:mounting_ear_depth",
+      "name": "mounting_ear_depth",
+      "expr": "34 mm",
+      "dirty": false
+    },
+    "param:mounting_ear_height": {
+      "id": "param:mounting_ear_height",
+      "name": "mounting_ear_height",
+      "expr": "16 mm",
+      "dirty": false
+    },
+    "param:mounting_hole_diameter": {
+      "id": "param:mounting_hole_diameter",
+      "name": "mounting_hole_diameter",
+      "expr": "9 mm",
+      "dirty": false
+    }
+  },
+  "edges": []
+}

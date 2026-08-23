@@ -41,12 +41,24 @@
 
 <p align="center">
   <sub>
-    A real DesignPatch increases the bearing hub from 14 mm to 20 mm.
-    The generated review walks through the 9-feature source, transactional dry-run, regenerated result, semantic parameter and mass diff, and 2/2 passing engineering checks—without mutating the original document.
+    A real DesignPatch increases the actuator bearing tower from 32 mm to 42 mm.
+    The generated review walks through the 22-feature source, transactional dry-run, regenerated result, semantic parameter and mass diff, and 2/2 passing engineering checks—without mutating the original document.
   </sub>
 </p>
 
 <table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/assets/robot-joint-feature-build.gif" alt="MusubiCAD building a robot-joint actuator housing through nine visible Feature Graph milestones" width="100%">
+      <br>
+      <sub><strong>Feature Graph assembly</strong><br>Watch hubs, bores, fasteners, ribs, and mirrored mounts regenerate in dependency order.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/assets/robot-joint-orbit.gif" alt="MusubiCAD orbiting 360 degrees around a robot-joint actuator housing with stepped hubs, radial ribs, and mounting ears" width="100%">
+      <br>
+      <sub><strong>360° mechanical inspection</strong><br>Inspect the 2,444-triangle regenerated housing from every side.</sub>
+    </td>
+  </tr>
   <tr>
     <td width="50%" align="center">
       <img src="docs/assets/forgecad-demo.gif" alt="MusubiCAD regenerating a parametric model while keeping its engineering drawing synchronized" width="100%">
@@ -57,13 +69,6 @@
       <img src="docs/assets/musubicad-showcase.gif" alt="MusubiCAD orbiting a two-component assembly with feature edges and a floor grid" width="100%">
       <br>
       <sub><strong>Assembly-aware geometry</strong><br>Inspect placed components, feature edges, connectors, and mates.</sub>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center">
-      <img src="docs/assets/bearing-carrier-showcase.gif" alt="MusubiCAD orbiting a flanged bearing carrier with a raised hub, through bore, and four-hole bolt circle" width="800">
-      <br>
-      <sub><strong>Multi-feature mechanical part</strong> — base extrusion, joined hub, through bore, and circular cut pattern regenerate as one Design Graph.</sub>
     </td>
   </tr>
 </table>
@@ -87,7 +92,7 @@ and cached B-Rep shapes and meshes remain disposable outputs of the Design Graph
 | Automation mutates application state | Agents submit serializable `DesignPatch` proposals |
 | Cached geometry can become implicit state | The deterministic Design Graph is the source of truth |
 | Failures may be discovered after editing | Patches can be dry-run and rejected before mutation |
-| Diffs stop at file-level changes | Semantic diff reports values such as `boss height: 14 mm → 20 mm` |
+| Diffs stop at file-level changes | Semantic diff reports values such as `bearing tower: 32 mm → 42 mm` |
 
 The goal is not to let an LLM silently manufacture geometry. The goal is to give
 humans and agents the same inspectable, testable model-editing protocol.
@@ -106,7 +111,7 @@ On Windows PowerShell:
 git clone --depth 1 https://github.com/rsasaki0109/MusubiCAD.git; cd MusubiCAD; ./quickstart.ps1
 ```
 
-This opens the real, generated `14 mm → 20 mm` bearing-hub DesignPatch report already shown above. It runs no
+This opens the real, generated `32 mm → 42 mm` actuator-tower DesignPatch report already shown above. It runs no
 downloaded executable, makes no network request after cloning, and does not mutate the model. The
 scripts verify that the HTML, JSON, Markdown, GIF, and before/after images are all present first.
 
@@ -131,8 +136,8 @@ required.
 git clone https://github.com/rsasaki0109/MusubiCAD.git
 cd MusubiCAD
 cargo run -p opencad-cli -- review \
-  examples/bearing_carrier.ocad.d \
-  examples/agent/review_bearing_carrier_patch.json \
+  examples/robot_joint_actuator.ocad.d \
+  examples/agent/review_robot_joint_patch.json \
   --output review
 ```
 
@@ -140,20 +145,20 @@ The command produces a self-contained review bundle:
 
 ```text
 review: review/review.html
-document: doc:bearing_carrier_001
+document: doc:robot_joint_actuator_001
 changes: 2
 ```
 
 Open `review/review.html` to inspect:
 
-- boss height: **14 mm → 20 mm**
-- mass: **131.02 g → 145.18 g**
+- upper hub height: **32 mm → 42 mm**
+- mass: **608.49 g → 653.32 g**
 - regenerated before/after geometry
 - the patch intent and rationale
 - two checked expected effects
 
 The source document is unchanged. The checked-in
-[`review_bearing_carrier_patch.json`](examples/agent/review_bearing_carrier_patch.json) contains the
+[`review_robot_joint_patch.json`](examples/agent/review_robot_joint_patch.json) contains the
 proposal, preconditions, and expected engineering effects.
 
 The repository's [Design Review workflow](.github/workflows/design-review.yml) dogfoods this
@@ -231,6 +236,7 @@ See the [desktop guide](apps/desktop/README.md) for platform prerequisites.
 
 | Example | Demonstrates |
 |---|---|
+| [`robot_joint_actuator.ocad.d`](examples/robot_joint_actuator.ocad.d) | Twenty-two-feature actuator housing: stepped hubs, bearing seats, 8-hole PCD, 6 ribs, and mirrored mounts |
 | [`bearing_carrier.ocad.d`](examples/bearing_carrier.ocad.d) | Nine-feature bearing carrier: joined hub, through bore, and four-hole circular cut pattern |
 | [`bracket.ocad.d`](examples/bracket.ocad.d) | Plate, centered hole, and semantic face reference |
 | [`bracket_hole_row.ocad.d`](examples/bracket_hole_row.ocad.d) | Parametric linear cut pattern |

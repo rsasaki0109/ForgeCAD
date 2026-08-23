@@ -1,0 +1,613 @@
+{
+  "sketches": [
+    {
+      "id": "sketch:counterbore",
+      "name": "Bearing Counterbore",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:counterbore_center",
+          "construction": false,
+          "x": 0.07,
+          "y": 0.055
+        },
+        {
+          "type": "circle",
+          "id": "ent:counterbore_circle",
+          "construction": false,
+          "center": "ent:counterbore_center",
+          "radius": 0.018999999810037357
+        }
+      ],
+      "constraints": [
+        {
+          "type": "radius",
+          "id": "con:counterbore_radius",
+          "target": "ent:counterbore_circle",
+          "expr": "counterbore_diameter / 2"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      },
+      "profiles": [
+        {
+          "id": "profile:circle:ent:counterbore_circle",
+          "entity_ids": [
+            "ent:counterbore_circle"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:counterbore/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:joint_base",
+      "name": "Actuator Base",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:joint_base_c0",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:joint_base_c1",
+          "construction": false,
+          "x": 0.14,
+          "y": 0.0
+        },
+        {
+          "type": "point",
+          "id": "ent:joint_base_c2",
+          "construction": false,
+          "x": 0.14,
+          "y": 0.11
+        },
+        {
+          "type": "point",
+          "id": "ent:joint_base_c3",
+          "construction": false,
+          "x": 0.0,
+          "y": 0.11
+        },
+        {
+          "type": "line",
+          "id": "ent:joint_base_e0",
+          "construction": false,
+          "start": "ent:joint_base_c0",
+          "end": "ent:joint_base_c1"
+        },
+        {
+          "type": "line",
+          "id": "ent:joint_base_e1",
+          "construction": false,
+          "start": "ent:joint_base_c1",
+          "end": "ent:joint_base_c2"
+        },
+        {
+          "type": "line",
+          "id": "ent:joint_base_e2",
+          "construction": false,
+          "start": "ent:joint_base_c2",
+          "end": "ent:joint_base_c3"
+        },
+        {
+          "type": "line",
+          "id": "ent:joint_base_e3",
+          "construction": false,
+          "start": "ent:joint_base_c3",
+          "end": "ent:joint_base_c0"
+        }
+      ],
+      "constraints": [
+        {
+          "type": "distance",
+          "id": "con:joint_base_width",
+          "target": {
+            "line": "ent:joint_base_e0"
+          },
+          "expr": "width"
+        },
+        {
+          "type": "distance",
+          "id": "con:joint_base_height",
+          "target": {
+            "line": "ent:joint_base_e1"
+          },
+          "expr": "height"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "under_constrained",
+        "dof": 4
+      },
+      "profiles": [
+        {
+          "id": "profile:loop:0",
+          "entity_ids": [
+            "ent:joint_base_e0",
+            "ent:joint_base_e1",
+            "ent:joint_base_e2",
+            "ent:joint_base_e3"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:joint_base/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:lower_hub",
+      "name": "Lower Hub",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:lower_hub_center",
+          "construction": false,
+          "x": 0.07,
+          "y": 0.055
+        },
+        {
+          "type": "circle",
+          "id": "ent:lower_hub_circle",
+          "construction": false,
+          "center": "ent:lower_hub_center",
+          "radius": 0.03599999964007079
+        }
+      ],
+      "constraints": [
+        {
+          "type": "radius",
+          "id": "con:lower_hub_radius",
+          "target": "ent:lower_hub_circle",
+          "expr": "lower_hub_diameter / 2"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      },
+      "profiles": [
+        {
+          "id": "profile:circle:ent:lower_hub_circle",
+          "entity_ids": [
+            "ent:lower_hub_circle"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:lower_hub/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:mounting_ear",
+      "name": "Mounting Ear Tool",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:mounting_ear_c0",
+          "construction": false,
+          "x": -0.019,
+          "y": 0.038
+        },
+        {
+          "type": "point",
+          "id": "ent:mounting_ear_c1",
+          "construction": false,
+          "x": 0.002999999999999999,
+          "y": 0.038
+        },
+        {
+          "type": "point",
+          "id": "ent:mounting_ear_c2",
+          "construction": false,
+          "x": 0.002999999999999999,
+          "y": 0.07200000000000001
+        },
+        {
+          "type": "point",
+          "id": "ent:mounting_ear_c3",
+          "construction": false,
+          "x": -0.019,
+          "y": 0.07200000000000001
+        },
+        {
+          "type": "line",
+          "id": "ent:mounting_ear_e0",
+          "construction": false,
+          "start": "ent:mounting_ear_c0",
+          "end": "ent:mounting_ear_c1"
+        },
+        {
+          "type": "line",
+          "id": "ent:mounting_ear_e1",
+          "construction": false,
+          "start": "ent:mounting_ear_c1",
+          "end": "ent:mounting_ear_c2"
+        },
+        {
+          "type": "line",
+          "id": "ent:mounting_ear_e2",
+          "construction": false,
+          "start": "ent:mounting_ear_c2",
+          "end": "ent:mounting_ear_c3"
+        },
+        {
+          "type": "line",
+          "id": "ent:mounting_ear_e3",
+          "construction": false,
+          "start": "ent:mounting_ear_c3",
+          "end": "ent:mounting_ear_c0"
+        }
+      ],
+      "constraints": [
+        {
+          "type": "distance",
+          "id": "con:mounting_ear_width",
+          "target": {
+            "line": "ent:mounting_ear_e0"
+          },
+          "expr": "mounting_ear_width"
+        },
+        {
+          "type": "distance",
+          "id": "con:mounting_ear_height",
+          "target": {
+            "line": "ent:mounting_ear_e1"
+          },
+          "expr": "mounting_ear_depth"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "under_constrained",
+        "dof": 4
+      },
+      "profiles": [
+        {
+          "id": "profile:loop:0",
+          "entity_ids": [
+            "ent:mounting_ear_e0",
+            "ent:mounting_ear_e1",
+            "ent:mounting_ear_e2",
+            "ent:mounting_ear_e3"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:mounting_ear/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:mounting_hole",
+      "name": "Mounting Hole Tool",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:mounting_hole_center",
+          "construction": false,
+          "x": -0.008,
+          "y": 0.055
+        },
+        {
+          "type": "circle",
+          "id": "ent:mounting_hole_circle",
+          "construction": false,
+          "center": "ent:mounting_hole_center",
+          "radius": 0.004499999955009005
+        }
+      ],
+      "constraints": [
+        {
+          "type": "radius",
+          "id": "con:mounting_hole_radius",
+          "target": "ent:mounting_hole_circle",
+          "expr": "mounting_hole_diameter / 2"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      },
+      "profiles": [
+        {
+          "id": "profile:circle:ent:mounting_hole_circle",
+          "entity_ids": [
+            "ent:mounting_hole_circle"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:mounting_hole/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:pcd_hole",
+      "name": "PCD Fastener Tool",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:pcd_axis_center",
+          "construction": true,
+          "x": 0.07,
+          "y": 0.055
+        },
+        {
+          "type": "point",
+          "id": "ent:pcd_hole_center",
+          "construction": false,
+          "x": 0.115,
+          "y": 0.055
+        },
+        {
+          "type": "circle",
+          "id": "ent:pcd_hole_circle",
+          "construction": false,
+          "center": "ent:pcd_hole_center",
+          "radius": 0.0030999999690062034
+        },
+        {
+          "type": "line",
+          "id": "ent:pcd_radius_line",
+          "construction": true,
+          "start": "ent:pcd_axis_center",
+          "end": "ent:pcd_hole_center"
+        }
+      ],
+      "constraints": [
+        {
+          "type": "horizontal",
+          "id": "con:pcd_radius_horizontal",
+          "line": "ent:pcd_radius_line"
+        },
+        {
+          "type": "distance",
+          "id": "con:pcd_radius",
+          "target": {
+            "line": "ent:pcd_radius_line"
+          },
+          "expr": "bolt_circle_radius"
+        },
+        {
+          "type": "radius",
+          "id": "con:pcd_hole_radius",
+          "target": "ent:pcd_hole_circle",
+          "expr": "bolt_hole_diameter / 2"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      },
+      "profiles": [
+        {
+          "id": "profile:circle:ent:pcd_hole_circle",
+          "entity_ids": [
+            "ent:pcd_hole_circle"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:pcd_hole/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:rib",
+      "name": "Radial Rib Tool",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:rib_c0",
+          "construction": false,
+          "x": 0.068,
+          "y": 0.0515
+        },
+        {
+          "type": "point",
+          "id": "ent:rib_c1",
+          "construction": false,
+          "x": 0.10600000000000001,
+          "y": 0.0515
+        },
+        {
+          "type": "point",
+          "id": "ent:rib_c2",
+          "construction": false,
+          "x": 0.10600000000000001,
+          "y": 0.058499999999999996
+        },
+        {
+          "type": "point",
+          "id": "ent:rib_c3",
+          "construction": false,
+          "x": 0.068,
+          "y": 0.058499999999999996
+        },
+        {
+          "type": "line",
+          "id": "ent:rib_e0",
+          "construction": false,
+          "start": "ent:rib_c0",
+          "end": "ent:rib_c1"
+        },
+        {
+          "type": "line",
+          "id": "ent:rib_e1",
+          "construction": false,
+          "start": "ent:rib_c1",
+          "end": "ent:rib_c2"
+        },
+        {
+          "type": "line",
+          "id": "ent:rib_e2",
+          "construction": false,
+          "start": "ent:rib_c2",
+          "end": "ent:rib_c3"
+        },
+        {
+          "type": "line",
+          "id": "ent:rib_e3",
+          "construction": false,
+          "start": "ent:rib_c3",
+          "end": "ent:rib_c0"
+        }
+      ],
+      "constraints": [
+        {
+          "type": "distance",
+          "id": "con:rib_width",
+          "target": {
+            "line": "ent:rib_e0"
+          },
+          "expr": "rib_length"
+        },
+        {
+          "type": "distance",
+          "id": "con:rib_height",
+          "target": {
+            "line": "ent:rib_e1"
+          },
+          "expr": "rib_thickness"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "under_constrained",
+        "dof": 4
+      },
+      "profiles": [
+        {
+          "id": "profile:loop:0",
+          "entity_ids": [
+            "ent:rib_e0",
+            "ent:rib_e1",
+            "ent:rib_e2",
+            "ent:rib_e3"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:rib/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:shaft_bore",
+      "name": "Output Shaft Bore",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:shaft_bore_center",
+          "construction": false,
+          "x": 0.07,
+          "y": 0.055
+        },
+        {
+          "type": "circle",
+          "id": "ent:shaft_bore_circle",
+          "construction": false,
+          "center": "ent:shaft_bore_center",
+          "radius": 0.011999999880024011
+        }
+      ],
+      "constraints": [
+        {
+          "type": "radius",
+          "id": "con:shaft_bore_radius",
+          "target": "ent:shaft_bore_circle",
+          "expr": "shaft_diameter / 2"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      },
+      "profiles": [
+        {
+          "id": "profile:circle:ent:shaft_bore_circle",
+          "entity_ids": [
+            "ent:shaft_bore_circle"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:shaft_bore/profile:outer"
+        }
+      ]
+    },
+    {
+      "id": "sketch:upper_hub",
+      "name": "Upper Hub",
+      "workplane": {
+        "type": "global",
+        "plane": "XY"
+      },
+      "entities": [
+        {
+          "type": "point",
+          "id": "ent:upper_hub_center",
+          "construction": false,
+          "x": 0.07,
+          "y": 0.055
+        },
+        {
+          "type": "circle",
+          "id": "ent:upper_hub_circle",
+          "construction": false,
+          "center": "ent:upper_hub_center",
+          "radius": 0.025999999740051127
+        }
+      ],
+      "constraints": [
+        {
+          "type": "radius",
+          "id": "con:upper_hub_radius",
+          "target": "ent:upper_hub_circle",
+          "expr": "upper_hub_diameter / 2"
+        }
+      ],
+      "dimensions": [],
+      "solve_state": {
+        "status": "fully_constrained"
+      },
+      "profiles": [
+        {
+          "id": "profile:circle:ent:upper_hub_circle",
+          "entity_ids": [
+            "ent:upper_hub_circle"
+          ],
+          "kind": "closed",
+          "profile_ref": "sketch:upper_hub/profile:outer"
+        }
+      ]
+    }
+  ]
+}

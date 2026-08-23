@@ -6,6 +6,7 @@ Ready-to-use MusubiCAD documents and Agent API requests.
 
 | Directory | Template | Features |
 |---|---|---|
+| `robot_joint_actuator.ocad.d` | `opencad new <path> robot-joint` | 22 nodes: stepped hubs, shaft/counterbore cuts, 8-hole PCD, 6 ribs, mirrored ears and holes |
 | `bearing_carrier.ocad.d` | `opencad new <path> bearing-carrier` | Base extrude, joined hub, through bore, four-hole circular cut pattern |
 | `bracket.ocad.d` | `opencad new <path>` | Sketch, extrude, hole (`face_ref`) |
 | `bracket_boss_join.ocad.d` | `opencad new <path> boss-join` | + extrude join onto plate |

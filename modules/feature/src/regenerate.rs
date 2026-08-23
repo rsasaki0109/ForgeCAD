@@ -859,6 +859,509 @@ pub fn bearing_carrier() -> Result<PartModel> {
     Ok(model)
 }
 
+/// Twenty-two-node robot-joint actuator housing with stepped hubs, bearing
+/// seats, patterned fasteners and ribs, plus mirrored mounting ears.
+pub fn robot_joint_actuator_housing() -> Result<PartModel> {
+    use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
+    use opencad_graph::robot_joint_housing_parameters;
+    use opencad_sketch::{
+        constraint::{Constraint, DistanceTarget},
+        entity::{CircleEntity, Coord, EntityBase, LineEntity, PointEntity, SketchEntity},
+        workplane::Workplane,
+    };
+
+    use crate::pattern::{CircularPatternFeature, MirrorPatternFeature};
+
+    fn rectangle_sketch(
+        id: &str,
+        name: &str,
+        prefix: &str,
+        origin: [f64; 2],
+        initial_size: [f64; 2],
+        width_expr: &str,
+        height_expr: &str,
+    ) -> Result<Sketch> {
+        let corners = [
+            format!("ent:{prefix}_c0"),
+            format!("ent:{prefix}_c1"),
+            format!("ent:{prefix}_c2"),
+            format!("ent:{prefix}_c3"),
+        ];
+        let edges = [
+            format!("ent:{prefix}_e0"),
+            format!("ent:{prefix}_e1"),
+            format!("ent:{prefix}_e2"),
+            format!("ent:{prefix}_e3"),
+        ];
+        let mut sketch = Sketch::new(SketchId::new(id)?, name, Workplane::xy());
+        for (corner_id, x, y) in [
+            (&corners[0], origin[0], origin[1]),
+            (&corners[1], origin[0] + initial_size[0], origin[1]),
+            (
+                &corners[2],
+                origin[0] + initial_size[0],
+                origin[1] + initial_size[1],
+            ),
+            (&corners[3], origin[0], origin[1] + initial_size[1]),
+        ] {
+            sketch.add_entity(SketchEntity::Point(PointEntity {
+                base: EntityBase {
+                    id: EntityId::new(corner_id)?,
+                    construction: false,
+                },
+                x: Coord::literal(x),
+                y: Coord::literal(y),
+            }))?;
+        }
+        for (edge_id, start, end) in [
+            (&edges[0], &corners[0], &corners[1]),
+            (&edges[1], &corners[1], &corners[2]),
+            (&edges[2], &corners[2], &corners[3]),
+            (&edges[3], &corners[3], &corners[0]),
+        ] {
+            sketch.add_entity(SketchEntity::Line(LineEntity {
+                base: EntityBase {
+                    id: EntityId::new(edge_id)?,
+                    construction: false,
+                },
+                start: EntityId::new(start)?,
+                end: EntityId::new(end)?,
+            }))?;
+        }
+        sketch.add_constraint(Constraint::Distance {
+            id: ConstraintId::new(format!("con:{prefix}_width"))?,
+            target: DistanceTarget::LineLength {
+                line: EntityId::new(&edges[0])?,
+            },
+            expr: Expression::new(width_expr)?,
+        })?;
+        sketch.add_constraint(Constraint::Distance {
+            id: ConstraintId::new(format!("con:{prefix}_height"))?,
+            target: DistanceTarget::LineLength {
+                line: EntityId::new(&edges[1])?,
+            },
+            expr: Expression::new(height_expr)?,
+        })?;
+        Ok(sketch)
+    }
+
+    fn circle_sketch(
+        id: &str,
+        name: &str,
+        prefix: &str,
+        center: [f64; 2],
+        radius_expr: &str,
+    ) -> Result<Sketch> {
+        let center_id = format!("ent:{prefix}_center");
+        let circle_id = format!("ent:{prefix}_circle");
+        let mut sketch = Sketch::new(SketchId::new(id)?, name, Workplane::xy());
+        sketch.add_entity(SketchEntity::Point(PointEntity {
+            base: EntityBase {
+                id: EntityId::new(&center_id)?,
+                construction: false,
+            },
+            x: Coord::literal(center[0]),
+            y: Coord::literal(center[1]),
+        }))?;
+        sketch.add_entity(SketchEntity::Circle(CircleEntity {
+            base: EntityBase {
+                id: EntityId::new(&circle_id)?,
+                construction: false,
+            },
+            center: EntityId::new(&center_id)?,
+            radius: Coord::expr(radius_expr)?,
+        }))?;
+        sketch.add_constraint(Constraint::Radius {
+            id: ConstraintId::new(format!("con:{prefix}_radius"))?,
+            target: EntityId::new(circle_id)?,
+            expr: Expression::new(radius_expr)?,
+        })?;
+        Ok(sketch)
+    }
+
+    fn add_sketch_feature(
+        model: &mut PartModel,
+        sketch: Sketch,
+        feature_id: &str,
+        feature_name: &str,
+    ) -> Result<()> {
+        let sketch_id = sketch.id.as_str().to_string();
+        model.sketches.insert(sketch_id.clone(), sketch);
+        model.add_node(FeatureNode::new(
+            feature_id,
+            feature_name,
+            FeatureDefinition::Sketch(SketchFeatureDef { sketch_id }),
+        ))
+    }
+
+    let parameters = robot_joint_housing_parameters();
+    let center = [0.070, 0.055];
+    let mut model = PartModel::new();
+
+    add_sketch_feature(
+        &mut model,
+        rectangle_sketch(
+            "sketch:joint_base",
+            "Actuator Base",
+            "joint_base",
+            [0.0, 0.0],
+            [0.140, 0.110],
+            "width",
+            "height",
+        )?,
+        "feature:sketch_joint_base",
+        "Actuator Base Sketch",
+    )?;
+    model.add_node(FeatureNode::new(
+        "feature:joint_base",
+        "Actuator Base Plate",
+        FeatureDefinition::Extrude(ExtrudeFeature {
+            sketch_feature: "feature:sketch_joint_base".into(),
+            profile_ref: "sketch:joint_base/profile:outer".into(),
+            extent: ExtrudeExtent::Distance {
+                length: Length::from_meters(0.010),
+            },
+            operation: opencad_geometry::ExtrudeOperation::NewBody,
+            length_expr: Some("base_thickness".into()),
+            target_feature: None,
+        }),
+    ))?;
+    model.add_dependency("feature:sketch_joint_base", "feature:joint_base")?;
+
+    add_sketch_feature(
+        &mut model,
+        circle_sketch(
+            "sketch:lower_hub",
+            "Lower Hub",
+            "lower_hub",
+            center,
+            "lower_hub_diameter / 2",
+        )?,
+        "feature:sketch_lower_hub",
+        "Lower Hub Sketch",
+    )?;
+    let mut lower_hub = ExtrudeFeature::join(
+        "feature:sketch_lower_hub",
+        "sketch:lower_hub/profile:outer",
+        "feature:joint_base",
+        ExtrudeExtent::Distance {
+            length: Length::from_meters(0.020),
+        },
+    );
+    lower_hub.length_expr = Some("lower_hub_height".into());
+    model.add_node(FeatureNode::new(
+        "feature:lower_hub",
+        "Lower Actuator Hub",
+        FeatureDefinition::Extrude(lower_hub),
+    ))?;
+    model.add_dependency("feature:sketch_lower_hub", "feature:lower_hub")?;
+    model.add_dependency("feature:joint_base", "feature:lower_hub")?;
+
+    add_sketch_feature(
+        &mut model,
+        circle_sketch(
+            "sketch:upper_hub",
+            "Upper Hub",
+            "upper_hub",
+            center,
+            "upper_hub_diameter / 2",
+        )?,
+        "feature:sketch_upper_hub",
+        "Upper Hub Sketch",
+    )?;
+    let mut upper_hub = ExtrudeFeature::join(
+        "feature:sketch_upper_hub",
+        "sketch:upper_hub/profile:outer",
+        "feature:lower_hub",
+        ExtrudeExtent::Distance {
+            length: Length::from_meters(0.032),
+        },
+    );
+    upper_hub.length_expr = Some("upper_hub_height".into());
+    model.add_node(FeatureNode::new(
+        "feature:upper_hub",
+        "Upper Bearing Tower",
+        FeatureDefinition::Extrude(upper_hub),
+    ))?;
+    model.add_dependency("feature:sketch_upper_hub", "feature:upper_hub")?;
+    model.add_dependency("feature:lower_hub", "feature:upper_hub")?;
+
+    add_sketch_feature(
+        &mut model,
+        circle_sketch(
+            "sketch:shaft_bore",
+            "Output Shaft Bore",
+            "shaft_bore",
+            center,
+            "shaft_diameter / 2",
+        )?,
+        "feature:sketch_shaft_bore",
+        "Output Shaft Bore Sketch",
+    )?;
+    let mut shaft_bore = HoleFeature::through(
+        "feature:sketch_shaft_bore",
+        "sketch:shaft_bore/profile:outer",
+        ExtrudeExtent::Distance {
+            length: Length::from_meters(0.032),
+        },
+        "feature:upper_hub",
+    );
+    shaft_bore.depth_expr = Some("upper_hub_height".into());
+    model.add_node(FeatureNode::new(
+        "feature:shaft_bore",
+        "Through Output Shaft Bore",
+        FeatureDefinition::Hole(shaft_bore),
+    ))?;
+    model.add_dependency("feature:sketch_shaft_bore", "feature:shaft_bore")?;
+    model.add_dependency("feature:upper_hub", "feature:shaft_bore")?;
+
+    add_sketch_feature(
+        &mut model,
+        circle_sketch(
+            "sketch:counterbore",
+            "Bearing Counterbore",
+            "counterbore",
+            center,
+            "counterbore_diameter / 2",
+        )?,
+        "feature:sketch_counterbore",
+        "Bearing Counterbore Sketch",
+    )?;
+    let mut counterbore = HoleFeature::through(
+        "feature:sketch_counterbore",
+        "sketch:counterbore/profile:outer",
+        ExtrudeExtent::Distance {
+            length: Length::from_meters(0.008),
+        },
+        "feature:shaft_bore",
+    );
+    counterbore.depth_expr = Some("counterbore_depth".into());
+    model.add_node(FeatureNode::new(
+        "feature:counterbore",
+        "Bearing Seat Counterbore",
+        FeatureDefinition::Hole(counterbore),
+    ))?;
+    model.add_dependency("feature:sketch_counterbore", "feature:counterbore")?;
+    model.add_dependency("feature:shaft_bore", "feature:counterbore")?;
+
+    let mut pcd_sketch = Sketch::new(
+        SketchId::new("sketch:pcd_hole")?,
+        "PCD Fastener Tool",
+        Workplane::xy(),
+    );
+    pcd_sketch.add_entity(SketchEntity::Point(PointEntity {
+        base: EntityBase {
+            id: EntityId::new("ent:pcd_axis_center")?,
+            construction: true,
+        },
+        x: Coord::literal(center[0]),
+        y: Coord::literal(center[1]),
+    }))?;
+    pcd_sketch.add_entity(SketchEntity::Point(PointEntity {
+        base: EntityBase {
+            id: EntityId::new("ent:pcd_hole_center")?,
+            construction: false,
+        },
+        x: Coord::literal(center[0] + 0.045),
+        y: Coord::literal(center[1]),
+    }))?;
+    pcd_sketch.add_entity(SketchEntity::Circle(CircleEntity {
+        base: EntityBase {
+            id: EntityId::new("ent:pcd_hole_circle")?,
+            construction: false,
+        },
+        center: EntityId::new("ent:pcd_hole_center")?,
+        radius: Coord::expr("bolt_hole_diameter / 2")?,
+    }))?;
+    pcd_sketch.add_entity(SketchEntity::Line(LineEntity {
+        base: EntityBase {
+            id: EntityId::new("ent:pcd_radius_line")?,
+            construction: true,
+        },
+        start: EntityId::new("ent:pcd_axis_center")?,
+        end: EntityId::new("ent:pcd_hole_center")?,
+    }))?;
+    pcd_sketch.add_constraint(Constraint::Horizontal {
+        id: ConstraintId::new("con:pcd_radius_horizontal")?,
+        line: EntityId::new("ent:pcd_radius_line")?,
+    })?;
+    pcd_sketch.add_constraint(Constraint::Distance {
+        id: ConstraintId::new("con:pcd_radius")?,
+        target: DistanceTarget::LineLength {
+            line: EntityId::new("ent:pcd_radius_line")?,
+        },
+        expr: Expression::new("bolt_circle_radius")?,
+    })?;
+    pcd_sketch.add_constraint(Constraint::Radius {
+        id: ConstraintId::new("con:pcd_hole_radius")?,
+        target: EntityId::new("ent:pcd_hole_circle")?,
+        expr: Expression::new("bolt_hole_diameter / 2")?,
+    })?;
+    add_sketch_feature(
+        &mut model,
+        pcd_sketch,
+        "feature:sketch_pcd_hole",
+        "PCD Fastener Sketch",
+    )?;
+    model.add_node(FeatureNode::new(
+        "feature:pcd_hole_tool",
+        "PCD Fastener Tool",
+        FeatureDefinition::Extrude(ExtrudeFeature {
+            sketch_feature: "feature:sketch_pcd_hole".into(),
+            profile_ref: "sketch:pcd_hole/profile:outer".into(),
+            extent: ExtrudeExtent::Distance {
+                length: Length::from_meters(0.010),
+            },
+            operation: opencad_geometry::ExtrudeOperation::NewBody,
+            length_expr: Some("base_thickness".into()),
+            target_feature: None,
+        }),
+    ))?;
+    model.add_node(FeatureNode::new(
+        "feature:pcd_fasteners",
+        "Eight Hole Fastener Circle",
+        FeatureDefinition::CircularPattern(CircularPatternFeature::cut(
+            "feature:pcd_hole_tool",
+            "feature:counterbore",
+            [center[0], center[1], 0.0],
+            [0.0, 0.0, 1.0],
+            8,
+        )),
+    ))?;
+    model.add_dependency("feature:sketch_pcd_hole", "feature:pcd_hole_tool")?;
+    model.add_dependency("feature:pcd_hole_tool", "feature:pcd_fasteners")?;
+    model.add_dependency("feature:counterbore", "feature:pcd_fasteners")?;
+
+    add_sketch_feature(
+        &mut model,
+        rectangle_sketch(
+            "sketch:rib",
+            "Radial Rib Tool",
+            "rib",
+            [center[0] - 0.002, center[1] - 0.0035],
+            [0.038, 0.007],
+            "rib_length",
+            "rib_thickness",
+        )?,
+        "feature:sketch_rib",
+        "Radial Rib Sketch",
+    )?;
+    model.add_node(FeatureNode::new(
+        "feature:rib_tool",
+        "Radial Rib Tool",
+        FeatureDefinition::Extrude(ExtrudeFeature {
+            sketch_feature: "feature:sketch_rib".into(),
+            profile_ref: "sketch:rib/profile:outer".into(),
+            extent: ExtrudeExtent::Distance {
+                length: Length::from_meters(0.015),
+            },
+            operation: opencad_geometry::ExtrudeOperation::NewBody,
+            length_expr: Some("rib_height".into()),
+            target_feature: None,
+        }),
+    ))?;
+    model.add_node(FeatureNode::new(
+        "feature:radial_ribs",
+        "Six Radial Reinforcement Ribs",
+        FeatureDefinition::CircularPattern(CircularPatternFeature::union_on(
+            "feature:rib_tool",
+            "feature:pcd_fasteners",
+            [center[0], center[1], 0.0],
+            [0.0, 0.0, 1.0],
+            6,
+        )),
+    ))?;
+    model.add_dependency("feature:sketch_rib", "feature:rib_tool")?;
+    model.add_dependency("feature:rib_tool", "feature:radial_ribs")?;
+    model.add_dependency("feature:pcd_fasteners", "feature:radial_ribs")?;
+
+    add_sketch_feature(
+        &mut model,
+        rectangle_sketch(
+            "sketch:mounting_ear",
+            "Mounting Ear Tool",
+            "mounting_ear",
+            [-0.019, center[1] - 0.017],
+            [0.022, 0.034],
+            "mounting_ear_width",
+            "mounting_ear_depth",
+        )?,
+        "feature:sketch_mounting_ear",
+        "Mounting Ear Sketch",
+    )?;
+    model.add_node(FeatureNode::new(
+        "feature:mounting_ear_tool",
+        "Mounting Ear Tool",
+        FeatureDefinition::Extrude(ExtrudeFeature {
+            sketch_feature: "feature:sketch_mounting_ear".into(),
+            profile_ref: "sketch:mounting_ear/profile:outer".into(),
+            extent: ExtrudeExtent::Distance {
+                length: Length::from_meters(0.016),
+            },
+            operation: opencad_geometry::ExtrudeOperation::NewBody,
+            length_expr: Some("mounting_ear_height".into()),
+            target_feature: None,
+        }),
+    ))?;
+    let mut mounting_ears = MirrorPatternFeature::new(
+        "feature:mounting_ear_tool",
+        [center[0], center[1], 0.0],
+        [1.0, 0.0, 0.0],
+    );
+    mounting_ears.target_feature = Some("feature:radial_ribs".into());
+    model.add_node(FeatureNode::new(
+        "feature:mounting_ears",
+        "Mirrored Mounting Ears",
+        FeatureDefinition::MirrorPattern(mounting_ears),
+    ))?;
+    model.add_dependency("feature:sketch_mounting_ear", "feature:mounting_ear_tool")?;
+    model.add_dependency("feature:mounting_ear_tool", "feature:mounting_ears")?;
+    model.add_dependency("feature:radial_ribs", "feature:mounting_ears")?;
+
+    add_sketch_feature(
+        &mut model,
+        circle_sketch(
+            "sketch:mounting_hole",
+            "Mounting Hole Tool",
+            "mounting_hole",
+            [-0.008, center[1]],
+            "mounting_hole_diameter / 2",
+        )?,
+        "feature:sketch_mounting_hole",
+        "Mounting Hole Sketch",
+    )?;
+    model.add_node(FeatureNode::new(
+        "feature:mounting_hole_tool",
+        "Mounting Hole Tool",
+        FeatureDefinition::Extrude(ExtrudeFeature {
+            sketch_feature: "feature:sketch_mounting_hole".into(),
+            profile_ref: "sketch:mounting_hole/profile:outer".into(),
+            extent: ExtrudeExtent::Distance {
+                length: Length::from_meters(0.016),
+            },
+            operation: opencad_geometry::ExtrudeOperation::NewBody,
+            length_expr: Some("mounting_ear_height".into()),
+            target_feature: None,
+        }),
+    ))?;
+    model.add_node(FeatureNode::new(
+        "feature:mounting_holes",
+        "Mirrored Mounting Holes",
+        FeatureDefinition::MirrorPattern(MirrorPatternFeature::cut(
+            "feature:mounting_hole_tool",
+            "feature:mounting_ears",
+            [center[0], center[1], 0.0],
+            [1.0, 0.0, 0.0],
+        )),
+    ))?;
+    model.add_dependency("feature:sketch_mounting_hole", "feature:mounting_hole_tool")?;
+    model.add_dependency("feature:mounting_hole_tool", "feature:mounting_holes")?;
+    model.add_dependency("feature:mounting_ears", "feature:mounting_holes")?;
+
+    apply_parameters(&mut model, &parameters)?;
+    Ok(model)
+}
+
 /// Bracket plate with a pin boss sketched on the top face via `face_ref` workplane.
 pub fn bracket_face_pin() -> Result<PartModel> {
     use opencad_core::{ConstraintId, EntityId, Expression, SketchId};
@@ -1438,6 +1941,23 @@ mod tests {
         assert_eq!(
             report.regenerated.last().map(String::as_str),
             Some("feature:bolt_circle")
+        );
+        assert!(model.active_body().is_some());
+    }
+
+    #[test]
+    fn regenerates_twenty_two_node_robot_joint_housing() {
+        let mut model = robot_joint_actuator_housing().expect("model");
+        let kernel = MockGeometryKernel::new();
+        let registry = FeatureRegistry::with_defaults();
+        let parameters = opencad_graph::robot_joint_housing_parameters();
+        let report = model
+            .regenerate(&kernel, &registry, Some(&parameters), None)
+            .expect("regen");
+        assert_eq!(report.regenerated.len(), 22);
+        assert_eq!(
+            report.regenerated.last().map(String::as_str),
+            Some("feature:mounting_holes")
         );
         assert!(model.active_body().is_some());
     }

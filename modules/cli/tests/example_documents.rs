@@ -39,6 +39,28 @@ fn example_bearing_carrier_regenerates_with_occt() {
 }
 
 #[test]
+fn example_robot_joint_actuator_regenerates_with_occt() {
+    let path = workspace_root().join("examples/robot_joint_actuator.ocad.d");
+    validate_expanded_dir(&path).expect("validate");
+    let doc = read_expanded_dir(&path).expect("read");
+    let parameters = doc.parameters.clone();
+    let mut model = doc.into_part_model();
+    let kernel = OcctGeometryKernel::new();
+    let registry = FeatureRegistry::with_defaults();
+    let report = model
+        .regenerate(&kernel, &registry, Some(&parameters), None)
+        .expect("regen");
+    let body = model.active_body().expect("body");
+    let mass = kernel.mass_properties(body, 2700.0).expect("mass");
+
+    assert_eq!(report.regenerated.len(), 22);
+    assert!(model.outputs.contains_key("feature:pcd_fasteners"));
+    assert!(model.outputs.contains_key("feature:radial_ribs"));
+    assert!(model.outputs.contains_key("feature:mounting_holes"));
+    assert!((0.60..=0.62).contains(&mass.mass_kg));
+}
+
+#[test]
 fn example_bracket_face_pin_regenerates_with_occt() {
     let path = workspace_root().join("examples/bracket_face_pin.ocad.d");
     validate_expanded_dir(&path).expect("validate");

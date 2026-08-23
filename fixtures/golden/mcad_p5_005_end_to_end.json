@@ -74,16 +74,16 @@
     "expected_feature_count": 4
   },
   "review": {
-    "document": "examples/bearing_carrier.ocad.d",
-    "patch": "examples/agent/review_bearing_carrier_patch.json",
+    "document": "examples/robot_joint_actuator.ocad.d",
+    "patch": "examples/agent/review_robot_joint_patch.json",
     "golden_dir": "docs/assets/review-demo",
     "exact_artifacts": [
       "review.json",
       "review.html",
       "github-summary.md"
     ],
-    "before_bounds_m": [[0.0, -0.005138843, 0.0], [0.09586236, 0.0651352, 0.014]],
-    "after_bounds_m": [[0.0, -0.005138843, 0.0], [0.09586236, 0.0651352, 0.02]],
+    "before_bounds_m": [[-0.019, 0.0, 0.0], [0.159, 0.11, 0.032]],
+    "after_bounds_m": [[-0.019, 0.0, 0.0], [0.159, 0.11, 0.042]],
     "geometry_tolerance_m": 1e-6
   },
   "agent_evidence": {

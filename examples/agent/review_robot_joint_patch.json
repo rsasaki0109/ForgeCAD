@@ -1,0 +1,34 @@
+{
+  "intent": "Increase the actuator bearing tower engagement depth",
+  "rationale": "The higher-torque output bearing requires 10 mm more axial support while preserving the shaft bore, fastener circle, ribs, and mounting interface.",
+  "preconditions": [
+    {
+      "type": "parameter_expr_equals",
+      "id": "param:upper_hub_height",
+      "expr": "32 mm"
+    },
+    {
+      "type": "feature_exists",
+      "id": "feature:mounting_holes"
+    }
+  ],
+  "expected_effects": [
+    {
+      "type": "parameter_expr_equals",
+      "id": "param:upper_hub_height",
+      "expr": "42 mm"
+    },
+    {
+      "type": "mass_delta_kg",
+      "min": 0.043,
+      "max": 0.048
+    }
+  ],
+  "operations": [
+    {
+      "type": "set_parameter",
+      "id": "param:upper_hub_height",
+      "expr": "42 mm"
+    }
+  ]
+}
