@@ -167,3 +167,15 @@ Authenticode signing plus timestamp verification, and macOS codesign,
 notarization, stapling, and Gatekeeper verification. The observed failures are
 positive evidence that the release path fails closed when protected credentials
 are absent.
+
+After the credential gates were moved ahead of SDK, Rust, cache, Tauri CLI,
+dependency, and build setup, a manual dispatch against the same immutable
+`v0.1.1` tag verified the optimized ordering in
+[`Desktop signed release` run `32619521109`](https://github.com/rsasaki0109/MusubiCAD/actions/runs/32619521109).
+The Windows job failed closed in 13 seconds and both macOS jobs failed closed
+in 8 seconds; every expensive setup and build step was skipped on those three
+runners. The independent Linux checksum-only job remained unaffected and
+completed successfully in 3 minutes 31 seconds. Because the signed platform
+jobs did not all succeed, the publish job was skipped. This confirms that
+missing credentials are rejected early without weakening the all-platform
+publication gate.
