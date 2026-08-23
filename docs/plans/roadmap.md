@@ -221,7 +221,7 @@ assembly, drawing, mass-property, and rendering workflows.
 | MCAD-P5-002 | Feature reference stability | Boolean, fillet, chamfer, and pattern regeneration regressions with stable references | Complete |
 | MCAD-P5-003 | Drawing HLR quality | Split partially occluded edges and preserve deterministic visible/hidden segments | Complete |
 | MCAD-P5-004 | Assembly robustness | Cycle/path validation, nested-document errors, interference tolerance, and recovery behavior | Complete |
-| MCAD-P5-005 | End-to-end golden suite | Mass, bounding box, topology, assembly, drawing, and review artifacts across representative fixtures | Planned |
+| MCAD-P5-005 | End-to-end golden suite | Mass, bounding box, topology, assembly, drawing, and review artifacts across representative fixtures | Complete |
 | MCAD-P5-006 | Future geometry scope | Requirements and ADR for NURBS editing or new kernel features before implementation | Deferred |
 
 **Definition of done:** semantic references survive the supported feature edits;
@@ -252,6 +252,18 @@ loaded document kind and identity, rejects canonical aliases, and detects
 indirect nested cycles by document ID and path. Per-instance failures remain
 localized and retryable. Interference checks use validated meter/cubic-meter
 tolerances and return pairs in deterministic instance-ID order.
+
+MCAD-P5-005 adds the central
+[`mcad_p5_005_end_to_end.json`](../../fixtures/golden/mcad_p5_005_end_to_end.json)
+manifest and a CLI-hosted end-to-end test. The test regenerates the bracket
+fixture through OCCT, resolves its semantic face/edge references against the
+current topology, regenerates the two-bracket assembly, compares mass and
+bounding boxes with unit-labelled tolerances, and pins the partial-occlusion
+SVG. It also runs the same CLI review twice and compares `review.json`,
+`review.html`, and `github-summary.md` byte-for-byte with the checked-in review
+directory. The manifest links the Agent `DesignPatch` input and the resulting
+Desktop preview geometry evidence to the same fixture, and the test executes
+both `AgentApi::patch_dry_run` and `opencad_desktop::preview_document`.
 
 **Tests:** geometry tolerance tests; OCCT integration tests; TopoRef migration and
 round trips; assembly/drawing examples; deterministic SVG/mesh/review golden

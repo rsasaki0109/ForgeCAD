@@ -80,6 +80,14 @@ opencad export assembly.ocad.d out.stl
 
 See `examples/assembly_two_brackets.ocad.d`.
 
+## Cross-artifact evidence
+
+The OCCT assembly result is fixed together with the source part, semantic
+references, drawing SVG, and CLI review artifacts by the MCAD-P5-005
+[deterministic evidence contract](golden-evidence.md). The manifest records
+instance counts, SI-unit mass/volume, and bounding-box tolerances; it does not
+replace the assembly Design Graph or persisted document.
+
 ## Related
 
 - [ADR-003](../adr/ADR-003-assembly-document-model.md)

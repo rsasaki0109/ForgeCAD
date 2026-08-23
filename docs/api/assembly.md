@@ -38,4 +38,5 @@ pairs are sorted by `InstanceId` regardless of scene input order.
 ## Related
 
 - [Assembly architecture](../architecture/assembly.md)
+- [Cross-artifact golden evidence](golden-evidence.md)
 - [ADR-003](../adr/ADR-003-assembly-document-model.md)

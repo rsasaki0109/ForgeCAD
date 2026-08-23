@@ -645,8 +645,216 @@ fn io_error(action: &'static str) -> impl FnOnce(std::io::Error) -> OpenCadError
 mod tests {
     use super::*;
     use crate::mesh::write_bracket_fixture_at;
-    use opencad_ai::{DesignPatch, ExpectedEffect, PatchPrecondition};
+    use opencad_ai::{
+        AgentApi, DesignPatch, ExpectedEffect, PatchDryRunParams, PatchOperation, PatchPrecondition,
+    };
+    use opencad_assembly::{
+        detect_interferences_with_tolerance, regenerate_assembly, AssemblyInterferenceTolerance,
+        ChildPart, ResolvedChild,
+    };
+    use opencad_core::{DocumentId, SheetId, ViewId};
+    use opencad_drawing::{
+        render_sheet_svg, DrawingView, ModelReference, ProjectionKind, Sheet, ViewMesh,
+    };
+    use opencad_feature::{bracket_with_hole, FeatureRegistry};
+    use opencad_geometry::{
+        resolve_kernel_edge_id_for_topo_ref, resolve_kernel_face_id_for_topo_ref_with_discoveries,
+        sync_semantic_refs_with_history, GeometryKernel, MeshSet, TopoRefKind,
+    };
+    use opencad_graph::bracket_parameters;
+    use opencad_kernel_occt::OcctGeometryKernel;
+    use serde::Deserialize;
+    use std::path::Path;
     use tempfile::tempdir;
+
+    const P5_005_MANIFEST: &str =
+        include_str!("../../../fixtures/golden/mcad_p5_005_end_to_end.json");
+
+    #[derive(Debug, Deserialize)]
+    struct EndToEndManifest {
+        schema: String,
+        fixture: String,
+        part: PartGolden,
+        assembly: AssemblyGolden,
+        drawing: DrawingGolden,
+        desktop_evidence: DesktopEvidenceGolden,
+        review: ReviewGolden,
+        agent_evidence: AgentEvidenceGolden,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct PartGolden {
+        source: String,
+        mass_fixture: String,
+        density_kg_per_m3: f64,
+        volume_m3: f64,
+        mass_kg: f64,
+        tolerance: MassTolerance,
+        bounding_box_m: BoundingBoxGolden,
+        topology: TopologyGolden,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct MassTolerance {
+        density_kg_per_m3: f64,
+        volume_m3: f64,
+        mass_kg: f64,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct BoundingBoxGolden {
+        min: [f64; 3],
+        max: [f64; 3],
+        tolerance_m: f64,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct TopologyGolden {
+        semantic_identity: Vec<SemanticIdentityGolden>,
+        current_refs: Vec<String>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct SemanticIdentityGolden {
+        ref_id: String,
+        kind: String,
+        created_by: String,
+        role: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct AssemblyGolden {
+        source: String,
+        kernel: String,
+        density_kg_per_m3: f64,
+        instance_count: usize,
+        successful_instances: usize,
+        interference_count: usize,
+        interference_tolerance: InterferenceToleranceGolden,
+        volume_m3: f64,
+        mass_kg: f64,
+        tolerance: AssemblyTolerance,
+        bounding_box_m: BoundingBoxExtentsGolden,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct AssemblyTolerance {
+        density_kg_per_m3: f64,
+        volume_m3: f64,
+        mass_kg: f64,
+        bounding_box_m: f64,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct InterferenceToleranceGolden {
+        bounds_tolerance_m: f64,
+        volume_tolerance_m3: f64,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct BoundingBoxExtentsGolden {
+        min: [f64; 3],
+        max: [f64; 3],
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct DrawingGolden {
+        source: String,
+        expected_visible_segments: usize,
+        expected_hidden_segments: usize,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct DesktopEvidenceGolden {
+        expected_name: String,
+        expected_triangles: usize,
+        expected_sketch_count: usize,
+        expected_feature_count: usize,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct ReviewGolden {
+        document: String,
+        patch: String,
+        golden_dir: String,
+        exact_artifacts: Vec<String>,
+        before_bounds_m: [[f64; 3]; 2],
+        after_bounds_m: [[f64; 3]; 2],
+        geometry_tolerance_m: f64,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct AgentEvidenceGolden {
+        method: String,
+        operation: String,
+        parameter_id: String,
+        expression: String,
+        expected_diff_summary: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct ExistingMassFixture {
+        document: String,
+        density_kg_per_m3: f64,
+        cases: Vec<ExistingMassCase>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct ExistingMassCase {
+        id: String,
+        volume_m3: f64,
+        mass_kg: f64,
+    }
+
+    fn repo_path(relative: &str) -> std::path::PathBuf {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(relative)
+    }
+
+    fn assert_near(actual: f64, expected: f64, tolerance: f64, label: &str) {
+        assert!(actual.is_finite(), "{label}: actual is not finite");
+        assert!(expected.is_finite(), "{label}: expected is not finite");
+        assert!(
+            tolerance.is_finite() && tolerance > 0.0,
+            "{label}: invalid tolerance"
+        );
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "{label}: actual={actual} expected={expected} tolerance={tolerance}"
+        );
+    }
+
+    fn assert_bbox(
+        actual: &opencad_geometry::BoundingBox,
+        expected_min: [f64; 3],
+        expected_max: [f64; 3],
+        tolerance: f64,
+        label: &str,
+    ) {
+        for axis in 0..3 {
+            assert_near(
+                actual.min[axis],
+                expected_min[axis],
+                tolerance,
+                &format!("{label}.min[{axis}]"),
+            );
+            assert_near(
+                actual.max[axis],
+                expected_max[axis],
+                tolerance,
+                &format!("{label}.max[{axis}]"),
+            );
+        }
+    }
+
+    fn kind_name(kind: TopoRefKind) -> &'static str {
+        match kind {
+            TopoRefKind::Face => "face",
+            TopoRefKind::Edge => "edge",
+            TopoRefKind::Vertex => "vertex",
+        }
+    }
 
     #[test]
     fn parses_review_arguments() {
@@ -724,6 +932,403 @@ mod tests {
             "comparison.gif",
         ] {
             assert!(output.join(name).is_file(), "missing {name}");
+        }
+    }
+
+    #[test]
+    fn mcad_p5_005_end_to_end_artifacts_are_deterministic() {
+        let manifest: EndToEndManifest =
+            serde_json::from_str(P5_005_MANIFEST).expect("P5-005 manifest JSON");
+        assert_eq!(manifest.schema, "musubicad.mcad_p5_005.end_to_end.v1");
+        assert_eq!(manifest.fixture, "bracket_with_hole");
+
+        let mass_fixture: ExistingMassFixture = serde_json::from_str(
+            &fs::read_to_string(repo_path(&manifest.part.mass_fixture))
+                .expect("existing mass fixture"),
+        )
+        .expect("existing mass fixture JSON");
+        assert_eq!(mass_fixture.document, manifest.fixture);
+        assert_near(
+            mass_fixture.density_kg_per_m3,
+            manifest.part.density_kg_per_m3,
+            manifest.part.tolerance.density_kg_per_m3,
+            "part density_kg_per_m3",
+        );
+        let default_case = mass_fixture
+            .cases
+            .iter()
+            .find(|case| case.id == "default")
+            .expect("default mass case");
+        assert_near(
+            default_case.volume_m3,
+            manifest.part.volume_m3,
+            manifest.part.tolerance.volume_m3,
+            "manifest volume_m3",
+        );
+        assert_near(
+            default_case.mass_kg,
+            manifest.part.mass_kg,
+            manifest.part.tolerance.mass_kg,
+            "manifest mass_kg",
+        );
+
+        let part_path = repo_path(&manifest.part.source);
+        let part_document = opencad_file::read_expanded_dir(&part_path).expect("part fixture");
+        assert_eq!(part_document.metadata.id.as_str(), "doc:bracket_001");
+        let mut part_model = part_document.clone().into_part_model();
+        let kernel = OcctGeometryKernel::new();
+        let registry = FeatureRegistry::with_defaults();
+        let regen = part_model
+            .regenerate(
+                &kernel,
+                &registry,
+                Some(&part_document.parameters),
+                Some(&part_document.semantic_refs),
+            )
+            .expect("part regeneration");
+        let body = part_model.active_body().expect("part body");
+        let mass = kernel
+            .mass_properties(body, manifest.part.density_kg_per_m3)
+            .expect("part mass");
+        assert_near(
+            mass.volume_m3,
+            manifest.part.volume_m3,
+            manifest.part.tolerance.volume_m3,
+            "part volume_m3",
+        );
+        assert_near(
+            mass.mass_kg,
+            manifest.part.mass_kg,
+            manifest.part.tolerance.mass_kg,
+            "part mass_kg",
+        );
+        let bbox = kernel.bounding_box(body).expect("part bounding box");
+        assert_bbox(
+            &bbox,
+            manifest.part.bounding_box_m.min,
+            manifest.part.bounding_box_m.max,
+            manifest.part.bounding_box_m.tolerance_m,
+            "part bounding_box_m",
+        );
+
+        let nodes = part_model.nodes.values().cloned().collect::<Vec<_>>();
+        let face_discoveries =
+            opencad_feature::face_discover::discover_face_refs_from_body(&kernel, body, &nodes)
+                .expect("face discoveries");
+        let edge_discoveries =
+            opencad_feature::edge_discover::discover_edge_refs_from_body(&kernel, body, &nodes)
+                .expect("edge discoveries");
+        assert!(
+            !face_discoveries.is_empty(),
+            "part has no current face refs"
+        );
+        assert!(
+            !edge_discoveries.is_empty(),
+            "part has no current edge refs"
+        );
+
+        let mut actual_identities = part_document
+            .semantic_refs
+            .iter()
+            .map(|topo_ref| {
+                let identity = topo_ref.identity();
+                (
+                    identity.ref_id.as_str().to_string(),
+                    kind_name(identity.kind).to_string(),
+                    identity.created_by,
+                    identity.role.unwrap_or_default(),
+                )
+            })
+            .collect::<Vec<_>>();
+        actual_identities.sort();
+        let mut expected_identities = manifest
+            .part
+            .topology
+            .semantic_identity
+            .iter()
+            .map(|identity| {
+                (
+                    identity.ref_id.clone(),
+                    identity.kind.clone(),
+                    identity.created_by.clone(),
+                    identity.role.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        expected_identities.sort();
+        assert_eq!(actual_identities, expected_identities);
+
+        let current_refs = sync_semantic_refs_with_history(
+            &part_document.semantic_refs,
+            &regen.face_history,
+            &face_discoveries,
+        );
+        for ref_id in &manifest.part.topology.current_refs {
+            let topo_ref = current_refs
+                .iter()
+                .find(|topo_ref| topo_ref.ref_id.as_str() == ref_id)
+                .unwrap_or_else(|| panic!("missing current semantic ref '{ref_id}'"));
+            match topo_ref.kind {
+                TopoRefKind::Face => {
+                    let kernel_face_id = resolve_kernel_face_id_for_topo_ref_with_discoveries(
+                        &current_refs,
+                        &regen.face_history,
+                        ref_id,
+                        Some(&face_discoveries),
+                    )
+                    .expect("current face ref resolution");
+                    assert!(face_discoveries
+                        .iter()
+                        .any(|discovery| discovery.kernel_face_id == kernel_face_id));
+                }
+                TopoRefKind::Edge => {
+                    let kernel_edge_id = resolve_kernel_edge_id_for_topo_ref(
+                        &current_refs,
+                        ref_id,
+                        Some(&edge_discoveries),
+                    )
+                    .expect("current edge ref resolution");
+                    assert!(edge_discoveries
+                        .iter()
+                        .any(|discovery| discovery.kernel_edge_id == kernel_edge_id));
+                }
+                TopoRefKind::Vertex => panic!("unsupported vertex fixture ref '{ref_id}'"),
+            }
+        }
+
+        assert_eq!(manifest.assembly.kernel, "occt");
+        assert_near(
+            manifest.assembly.density_kg_per_m3,
+            2700.0,
+            manifest.assembly.tolerance.density_kg_per_m3,
+            "assembly density_kg_per_m3",
+        );
+        let assembly_path = repo_path(&manifest.assembly.source);
+        let assembly_document =
+            opencad_file::read_expanded_dir(&assembly_path).expect("assembly fixture");
+        let assembly = assembly_document.assembly.as_ref().expect("assembly model");
+        let assembly_id = assembly_document.metadata.id.clone();
+        let assembly_kernel = OcctGeometryKernel::new();
+        let mut loader = |_child_path: &Path| {
+            let child_part = bracket_with_hole().expect("assembly child model");
+            Ok(ResolvedChild::Part(Box::new(ChildPart {
+                doc_id: DocumentId::new("doc:bracket_001").expect("child document id"),
+                parameters: bracket_parameters(),
+                part: child_part,
+                semantic_refs: Vec::new(),
+            })))
+        };
+        let assembly_report = regenerate_assembly(
+            assembly,
+            &assembly_id,
+            &assembly_path,
+            &assembly_kernel,
+            &registry,
+            &mut loader,
+        )
+        .expect("assembly regeneration");
+        assert_eq!(
+            assembly_report.instance_count,
+            manifest.assembly.instance_count
+        );
+        assert_eq!(
+            assembly_report.successful_instances,
+            manifest.assembly.successful_instances
+        );
+        let interferences = detect_interferences_with_tolerance(
+            &assembly_kernel,
+            &assembly_report.scene,
+            AssemblyInterferenceTolerance {
+                bounds_tolerance_m: manifest.assembly.interference_tolerance.bounds_tolerance_m,
+                volume_tolerance_m3: manifest.assembly.interference_tolerance.volume_tolerance_m3,
+            },
+        )
+        .expect("assembly interference check");
+        assert_eq!(interferences.len(), manifest.assembly.interference_count);
+        let assembly_mass = assembly_report.scene.mass.expect("assembly mass");
+        assert_near(
+            assembly_mass.volume_m3,
+            manifest.assembly.volume_m3,
+            manifest.assembly.tolerance.volume_m3,
+            "assembly volume_m3",
+        );
+        assert_near(
+            assembly_mass.mass_kg,
+            manifest.assembly.mass_kg,
+            manifest.assembly.tolerance.mass_kg,
+            "assembly mass_kg",
+        );
+        let assembly_bbox = assembly_report
+            .scene
+            .bounding_box
+            .expect("assembly bounding box");
+        assert_bbox(
+            &assembly_bbox,
+            manifest.assembly.bounding_box_m.min,
+            manifest.assembly.bounding_box_m.max,
+            manifest.assembly.tolerance.bounding_box_m,
+            "assembly bounding_box_m",
+        );
+
+        let mut sheet = Sheet::a4_portrait(
+            SheetId::new("sheet:partial_occlusion").expect("sheet"),
+            "HLR",
+        );
+        let view_id = ViewId::new("view:front").expect("view");
+        sheet.views.push(DrawingView::new(
+            view_id.clone(),
+            "Front",
+            ModelReference::new(
+                "synthetic.ocad.d",
+                DocumentId::new("doc:synthetic").expect("synthetic document"),
+            ),
+            ProjectionKind::Front,
+            1.0,
+            [0.05, 0.05],
+        ));
+        let drawing_mesh = MeshSet {
+            positions: vec![
+                [-0.01, 0.0, 0.0],
+                [0.01, 0.0, 0.0],
+                [0.0, -0.01, 0.0],
+                [-0.005, -0.005, 0.001],
+                [0.005, -0.005, 0.001],
+                [0.0, 0.005, 0.001],
+            ],
+            normals: Vec::new(),
+            indices: vec![0, 1, 2, 3, 4, 5],
+            triangle_face_ids: vec![1, 2],
+        };
+        let svg = render_sheet_svg(
+            &sheet,
+            &[ViewMesh {
+                view_id,
+                mesh_set: drawing_mesh,
+            }],
+        )
+        .expect("drawing SVG");
+        assert_eq!(
+            svg.matches("stroke=\"#111111\"").count(),
+            manifest.drawing.expected_visible_segments
+        );
+        assert_eq!(
+            svg.matches("stroke=\"#777777\"").count(),
+            manifest.drawing.expected_hidden_segments
+        );
+        let drawing_golden =
+            fs::read_to_string(repo_path(&manifest.drawing.source)).expect("drawing golden");
+        assert_eq!(svg, drawing_golden);
+
+        let patch: DesignPatch = serde_json::from_str(
+            &fs::read_to_string(repo_path(&manifest.review.patch)).expect("agent patch"),
+        )
+        .expect("agent patch JSON");
+        assert_eq!(manifest.agent_evidence.method, "opencad.patch_dry_run");
+        assert_eq!(manifest.agent_evidence.operation, "set_parameter");
+        assert!(matches!(
+            patch.operations.as_slice(),
+            [PatchOperation::SetParameter { id, expr }]
+                if id == &manifest.agent_evidence.parameter_id
+                    && expr == &manifest.agent_evidence.expression
+        ));
+        let agent_report = AgentApi.patch_dry_run(PatchDryRunParams {
+            parameters: part_document.parameters.clone(),
+            feature_nodes: part_document.feature_nodes.clone(),
+            semantic_refs: part_document.semantic_refs.clone(),
+            assembly: part_document.assembly.clone(),
+            drawing: part_document.drawing.clone(),
+            patch: patch.clone(),
+        });
+        assert!(agent_report.validation.is_ok());
+        assert_eq!(
+            agent_report.diff.summary,
+            manifest.agent_evidence.expected_diff_summary
+        );
+
+        let desktop_preview =
+            opencad_desktop::preview_document(part_path.to_str().expect("UTF-8 part fixture path"))
+                .expect("desktop preview");
+        assert_eq!(
+            desktop_preview.name,
+            manifest.desktop_evidence.expected_name
+        );
+        assert_eq!(
+            desktop_preview.triangles,
+            manifest.desktop_evidence.expected_triangles
+        );
+        assert_eq!(
+            desktop_preview.sketch_count,
+            manifest.desktop_evidence.expected_sketch_count
+        );
+        assert_eq!(
+            desktop_preview.feature_count,
+            manifest.desktop_evidence.expected_feature_count
+        );
+        for axis in 0..3 {
+            assert_near(
+                f64::from(desktop_preview.bounds_min_m[axis]),
+                manifest.part.bounding_box_m.min[axis],
+                manifest.part.bounding_box_m.tolerance_m,
+                &format!("desktop bounds_min_m[{axis}]"),
+            );
+            assert_near(
+                f64::from(desktop_preview.bounds_max_m[axis]),
+                manifest.part.bounding_box_m.max[axis],
+                manifest.part.bounding_box_m.tolerance_m,
+                &format!("desktop bounds_max_m[{axis}]"),
+            );
+        }
+
+        assert!(manifest.review.geometry_tolerance_m > 0.0);
+        let first_review = tempdir().expect("first review tempdir");
+        let second_review = tempdir().expect("second review tempdir");
+        let first_output = first_review.path().join("review");
+        let second_output = second_review.path().join("review");
+        let first_artifact = generate_review(&ReviewArgs {
+            document_path: repo_path(&manifest.review.document)
+                .to_string_lossy()
+                .into_owned(),
+            patch_path: repo_path(&manifest.review.patch)
+                .to_string_lossy()
+                .into_owned(),
+            output_dir: first_output.to_string_lossy().into_owned(),
+        })
+        .expect("first review generation");
+        generate_review(&ReviewArgs {
+            document_path: repo_path(&manifest.review.document)
+                .to_string_lossy()
+                .into_owned(),
+            patch_path: repo_path(&manifest.review.patch)
+                .to_string_lossy()
+                .into_owned(),
+            output_dir: second_output.to_string_lossy().into_owned(),
+        })
+        .expect("second review generation");
+        assert_near(
+            f64::from(first_artifact.geometry.before_bounds_m[1][0]),
+            manifest.review.before_bounds_m[1][0],
+            manifest.review.geometry_tolerance_m,
+            "review before width_m",
+        );
+        assert_near(
+            f64::from(first_artifact.geometry.after_bounds_m[1][0]),
+            manifest.review.after_bounds_m[1][0],
+            manifest.review.geometry_tolerance_m,
+            "review after width_m",
+        );
+        let golden_review_dir = repo_path(&manifest.review.golden_dir);
+        for name in &manifest.review.exact_artifacts {
+            let first =
+                fs::read_to_string(first_output.join(name)).expect("generated review artifact");
+            let second =
+                fs::read_to_string(second_output.join(name)).expect("second review artifact");
+            let golden =
+                fs::read_to_string(golden_review_dir.join(name)).expect("review golden artifact");
+            assert_eq!(
+                first, second,
+                "review artifact is not deterministic: {name}"
+            );
+            assert_eq!(first, golden, "review artifact differs from golden: {name}");
         }
     }
 }

@@ -37,3 +37,6 @@ The exported tolerance constants make units and numerical policy explicit:
 
 Output order is deterministic by canonical source-edge key and increasing
 split parameter. Equal adjacent visibility intervals are merged.
+
+The cross-artifact SVG and review contract is fixed by the
+[MCAD-P5-005 evidence manifest](golden-evidence.md).

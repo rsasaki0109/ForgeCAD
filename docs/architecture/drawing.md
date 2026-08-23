@@ -72,3 +72,8 @@ are traversed in canonical vertex-ID order. Tests cover visible-hidden-visible
 partial occlusion, depth crossings inside one projected triangle, triangle
 input-order independence, and the exact SVG under
 `modules/drawing/tests/golden/partial-occlusion.svg`.
+
+The SVG is also one leg of the cross-module MCAD-P5-005
+[deterministic evidence contract](golden-evidence.md), which associates it
+with the regenerated part, assembly result, Agent patch, and CLI review
+artifacts.

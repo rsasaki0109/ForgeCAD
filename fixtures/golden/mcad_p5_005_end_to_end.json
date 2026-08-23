@@ -1,0 +1,96 @@
+{
+  "schema": "musubicad.mcad_p5_005.end_to_end.v1",
+  "fixture": "bracket_with_hole",
+  "part": {
+    "source": "examples/bracket.ocad.d",
+    "mass_fixture": "fixtures/golden/bracket_with_hole.json",
+    "density_kg_per_m3": 2700.0,
+    "volume_m3": 2.833178323652379e-5,
+    "mass_kg": 0.07649581473861423,
+    "tolerance": {
+      "density_kg_per_m3": 1e-9,
+      "volume_m3": 5e-9,
+      "mass_kg": 1e-8
+    },
+    "bounding_box_m": {
+      "min": [0.0, 0.0, 0.0],
+      "max": [0.08, 0.06, 0.006],
+      "tolerance_m": 1e-6
+    },
+    "topology": {
+      "semantic_identity": [
+        {
+          "ref_id": "ref:edge:bracket_top_front",
+          "kind": "edge",
+          "created_by": "feature:extrude_base",
+          "role": "top@+y"
+        },
+        {
+          "ref_id": "ref:face:bracket_top",
+          "kind": "face",
+          "created_by": "feature:extrude_base",
+          "role": "top"
+        }
+      ],
+      "current_refs": [
+        "ref:edge:bracket_top_front",
+        "ref:face:bracket_top"
+      ]
+    }
+  },
+  "assembly": {
+    "source": "examples/assembly_two_brackets.ocad.d",
+    "kernel": "occt",
+    "density_kg_per_m3": 2700.0,
+    "instance_count": 2,
+    "successful_instances": 2,
+    "interference_count": 0,
+    "interference_tolerance": {
+      "bounds_tolerance_m": 1e-9,
+      "volume_tolerance_m3": 1e-12
+    },
+    "volume_m3": 5.666356647304757e-5,
+    "mass_kg": 0.15299162947722844,
+    "tolerance": {
+      "density_kg_per_m3": 1e-9,
+      "volume_m3": 1e-12,
+      "mass_kg": 1e-9,
+      "bounding_box_m": 1e-6
+    },
+    "bounding_box_m": {
+      "min": [0.0, 0.0, 0.0],
+      "max": [0.2, 0.06, 0.006]
+    }
+  },
+  "drawing": {
+    "source": "modules/drawing/tests/golden/partial-occlusion.svg",
+    "expected_visible_segments": 7,
+    "expected_hidden_segments": 1
+  },
+  "desktop_evidence": {
+    "expected_name": "Bracket with Mounting Hole",
+    "expected_triangles": 144,
+    "expected_sketch_count": 2,
+    "expected_feature_count": 4
+  },
+  "review": {
+    "document": "examples/bracket.ocad.d",
+    "patch": "examples/agent/review_width_patch.json",
+    "golden_dir": "docs/assets/review-demo",
+    "exact_artifacts": [
+      "review.json",
+      "review.html",
+      "github-summary.md"
+    ],
+    "before_bounds_m": [[0.0, 0.0, 0.0], [0.08, 0.06, 0.006]],
+    "after_bounds_m": [[0.0, 0.0, 0.0], [0.09998689, 0.06, 0.006]],
+    "geometry_tolerance_m": 1e-6
+  },
+  "agent_evidence": {
+    "method": "opencad.patch_dry_run",
+    "operation": "set_parameter",
+    "parameter_id": "param:width",
+    "expression": "100 mm",
+    "expected_diff_summary": "param:width: 80 mm -> 100 mm"
+  }
+}
