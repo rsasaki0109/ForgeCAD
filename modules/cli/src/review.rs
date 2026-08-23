@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::diff::{build_document_diff, DiffOptions};
 use crate::patch::read_patch_file;
+use crate::review_gif::{comparison_frames, ReviewGifLabels};
 
 const REVIEW_WIDTH_PX: u32 = 800;
 const REVIEW_HEIGHT_PX: u32 = 450;
@@ -136,6 +137,13 @@ pub fn generate_review(args: &ReviewArgs) -> Result<ReviewArtifact> {
     );
     let before_image = render_review_image(&renderer, &before_scene, &camera)?;
     let after_image = render_review_image(&renderer, &after_scene, &camera)?;
+    let expected_effects = check_expected_effects(
+        &patch.expected_effects,
+        &before,
+        &after,
+        &diff,
+        after_interference_count,
+    );
 
     let output = Path::new(&args.output_dir);
     fs::create_dir_all(output).map_err(io_error("create review directory"))?;
@@ -151,7 +159,8 @@ pub fn generate_review(args: &ReviewArgs) -> Result<ReviewArtifact> {
         after_image.height,
         &after_image.rgba,
     )?;
-    let frames = comparison_frames(&before_image, &after_image);
+    let labels = ReviewGifLabels::from_review(&diff, &expected_effects);
+    let frames = comparison_frames(&before_image, &after_image, &labels, REVIEW_FPS)?;
     write_gif_frames(&frames, REVIEW_FPS, output.join("comparison.gif"))?;
 
     let drawing_assets: Option<(String, String)> = if before.drawing.is_some() {
@@ -166,13 +175,6 @@ pub fn generate_review(args: &ReviewArgs) -> Result<ReviewArtifact> {
         None
     };
 
-    let expected_effects = check_expected_effects(
-        &patch.expected_effects,
-        &before,
-        &after,
-        &diff,
-        after_interference_count,
-    );
     let artifact = ReviewArtifact {
         document_id: before.metadata.id.as_str().to_string(),
         intent: patch.intent,
@@ -249,14 +251,6 @@ fn render_review_image(
         REVIEW_HEIGHT_PX,
         camera,
     )
-}
-
-fn comparison_frames(before: &RenderImage, after: &RenderImage) -> Vec<RenderImage> {
-    let hold = REVIEW_FPS as usize;
-    std::iter::repeat(before.clone())
-        .take(hold)
-        .chain(std::iter::repeat(after.clone()).take(hold))
-        .collect()
 }
 
 fn check_expected_effects(

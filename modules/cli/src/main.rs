@@ -12,6 +12,7 @@ mod plugin;
 mod policy_check;
 mod regen;
 mod review;
+mod review_gif;
 mod scene_query;
 mod topo_sync;
 mod view;

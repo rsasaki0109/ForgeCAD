@@ -36,13 +36,13 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/review-demo/comparison.gif" alt="A deterministic MusubiCAD review showing a bracket changing from 80 mm to 100 mm wide" width="800">
+  <img src="docs/assets/review-demo/comparison.gif" alt="A deterministic MusubiCAD DesignPatch review progressing through before, dry-run regeneration, after, and verified semantic diff stages" width="800">
 </p>
 
 <p align="center">
   <sub>
     A real DesignPatch changes the bracket width from 80 mm to 100 mm.
-    MusubiCAD dry-runs the patch, regenerates both models with OCCT, and checks the expected effects without mutating the original document.
+    The generated review walks through the source, transactional dry-run, regenerated result, semantic parameter and mass diff, and 2/2 passing engineering checks—without mutating the original document.
   </sub>
 </p>
 
